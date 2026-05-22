@@ -1,0 +1,1102 @@
+{"object_type": "player", "event_name": "update_nickname_roi", "frame_id": 0, "event_value": {"player_position": "Player1_Bottom", "roi": [802, 739, 1052, 788], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_stack_roi", "frame_id": 0, "event_value": {"player_position": "Player1_Bottom", "roi": [820, 787, 1055, 836], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_nickname_roi", "frame_id": 0, "event_value": {"player_position": "Player2_BottomLeft", "roi": [351, 641, 566, 690], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_stack_roi", "frame_id": 0, "event_value": {"player_position": "Player2_BottomLeft", "roi": [368, 689, 543, 738], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_nickname_roi", "frame_id": 0, "event_value": {"player_position": "Player3_MidLeft", "roi": [199, 418, 414, 467], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_stack_roi", "frame_id": 0, "event_value": {"player_position": "Player3_MidLeft", "roi": [216, 465, 391, 514], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_nickname_roi", "frame_id": 0, "event_value": {"player_position": "Player4_TopLeft", "roi": [265, 200, 480, 249], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_stack_roi", "frame_id": 0, "event_value": {"player_position": "Player4_TopLeft", "roi": [282, 248, 457, 297], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_nickname_roi", "frame_id": 0, "event_value": {"player_position": "Player5_TopMid", "roi": [549, 98, 764, 147], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_stack_roi", "frame_id": 0, "event_value": {"player_position": "Player5_TopMid", "roi": [601, 145, 738, 194], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_nickname_roi", "frame_id": 0, "event_value": {"player_position": "Player6_TopRight", "roi": [1163, 98, 1378, 147], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_stack_roi", "frame_id": 0, "event_value": {"player_position": "Player6_TopRight", "roi": [1180, 145, 1320, 194], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_nickname_roi", "frame_id": 0, "event_value": {"player_position": "Player7_MidRight", "roi": [1451, 203, 1666, 252], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_stack_roi", "frame_id": 0, "event_value": {"player_position": "Player7_MidRight", "roi": [1463, 250, 1638, 299], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_nickname_roi", "frame_id": 0, "event_value": {"player_position": "Player8_BottomRight", "roi": [1530, 416, 1726, 460], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_stack_roi", "frame_id": 0, "event_value": {"player_position": "Player8_BottomRight", "roi": [1527, 466, 1702, 515], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_nickname_roi", "frame_id": 0, "event_value": {"player_position": "Player9_BottomMidRight", "roi": [1359, 639, 1574, 688], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_stack_roi", "frame_id": 0, "event_value": {"player_position": "Player9_BottomMidRight", "roi": [1376, 685, 1551, 734], "status": "initialize_with_default"}}
+{"object_type": "player", "event_name": "update_timer_roi", "frame_id": 0, "event_value": {"player_position": "Timer1", "roi": [841, 840, 1078, 863]}}
+{"object_type": "player", "event_name": "update_timer_roi", "frame_id": 0, "event_value": {"player_position": "Timer2", "roi": [395, 740, 615, 764]}}
+{"object_type": "player", "event_name": "update_timer_roi", "frame_id": 0, "event_value": {"player_position": "Timer3", "roi": [245, 519, 472, 543]}}
+{"object_type": "player", "event_name": "update_timer_roi", "frame_id": 0, "event_value": {"player_position": "Timer4", "roi": [309, 304, 537, 327]}}
+{"object_type": "player", "event_name": "update_timer_roi", "frame_id": 0, "event_value": {"player_position": "Timer5", "roi": [591, 197, 819, 226]}}
+{"object_type": "player", "event_name": "update_timer_roi", "frame_id": 0, "event_value": {"player_position": "Timer6", "roi": [1103, 198, 1327, 221]}}
+{"object_type": "player", "event_name": "update_timer_roi", "frame_id": 0, "event_value": {"player_position": "Timer7", "roi": [1388, 304, 1612, 327]}}
+{"object_type": "player", "event_name": "update_timer_roi", "frame_id": 0, "event_value": {"player_position": "Timer8", "roi": [1452, 519, 1677, 540]}}
+{"object_type": "player", "event_name": "update_timer_roi", "frame_id": 0, "event_value": {"player_position": "Timer9", "roi": [1297, 740, 1523, 763]}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 5, "event_value": {"player_position": "Player1_Bottom", "value": "joined"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 5, "event_value": {"player_position": "Player1_Bottom", "value": "kaju85"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 90.9, "diff": null}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 5, "event_value": {"player_position": "Player5_TopMid", "value": "joined"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 5, "event_value": {"player_position": "Player5_TopMid", "value": "#naktrogi"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 114.7, "diff": null}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 5, "event_value": {"player_position": "Player6_TopRight", "value": "joined"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 5, "event_value": {"player_position": "Player6_TopRight", "value": "aku1zoo"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 47.5, "diff": null}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 10, "event_value": {"player_position": "Player5_TopMid", "value": "#naktro91", "old_value": "#naktrogi"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 10, "event_value": {"player_position": "Player6_TopRight", "value": "aku12o6", "old_value": "aku1zoo"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 10, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 15, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["2♣"], "confidences": {"2♣": 0.9}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 15, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.73}}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 20, "event_value": {"player_position": "Player4_TopLeft", "value": "joined"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 20, "event_value": {"player_position": "Player4_TopLeft", "value": "9"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 20, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["4♥"], "confidences": {"4♥": 0.75}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 20, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.93}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 25, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 25, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 35, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 40, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["5♠"], "confidences": {"5♠": 0.86}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 40, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "Q♦"], "confidences": {"10♥": 1.0, "Q♦": 0.94}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 50, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 39.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 50, "event_value": {"player_position": "Player4_TopLeft", "value": "948", "old_value": "9"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 50, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["5♠", "Q♠"], "confidences": {"5♠": 0.86, "Q♠": 0.87}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 55, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♠"], "confidences": {"10♠": 0.91}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 55, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "J♥"], "confidences": {"10♥": 1.0, "J♥": 0.8}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 60, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "5♥"], "confidences": {"10♥": 1.0, "5♥": 0.73}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 65, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 70, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["8♠"], "confidences": {"8♠": 0.97}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 70, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♠", "4♥"], "confidences": {"10♠": 0.91, "4♥": 0.94}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 75, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "4♥"], "confidences": {"10♥": 1.0, "4♥": 0.81}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 75, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 80, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 165, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "4♣"], "confidences": {"10♥": 1.0, "4♣": 0.72}}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 385, "event_value": {"player_position": "Player5_TopMid", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 385, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 390, "event_value": {"player_position": "Player6_TopRight", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 390, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 460, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 1010, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 1015, "event_value": {"player_position": "Player1_Bottom", "value": "fold"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 1320, "event_value": {"player_position": "Player6_TopRight", "value": "aku 206", "old_value": "aku12o6"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 1540, "event_value": {"player_position": "Player4_TopLeft", "value": "9u89", "old_value": "948"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 1985, "event_value": {"value": "update_pot", "pot": 2.0, "raw_text": "pot 2 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 1995, "event_value": {"player_position": "Player3_MidLeft", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.75}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 2285, "event_value": {"player_position": "Player3_MidLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 2285, "event_value": {"value": "update_pot", "pot": 4.0, "raw_text": "pot 4 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 2450, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.9}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 2455, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 2465, "event_value": {"value": "update_pot", "pot": 6.0, "raw_text": "pot 6 bb"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 2495, "event_value": {"value": "update_cards", "cards": ["2♥", "A♥", "A♣"], "confidences": [0.9911250472068787, 0.716204822063446, 0.9144220352172852]}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 2495, "event_value": {"value": "update_round_bet", "bet": 6.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 2600, "event_value": {"player_position": "Player3_MidLeft", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.77}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 3020, "event_value": {"player_position": "Player3_MidLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 3035, "event_value": {"value": "update_pot", "pot": 7.5, "raw_text": "pot 7.5 bb"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 3545, "event_value": {"value": "update_pot", "pot": 9.0, "raw_text": "pot 9 bb"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 3575, "event_value": {"value": "update_cards", "cards": ["2♥", "A♥", "A♣", "8♥"], "confidences": [0.9958279728889465, 0.9276232123374939, 0.9705902934074402, 0.9987602233886719]}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 3575, "event_value": {"value": "update_round_bet", "bet": 9.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 3675, "event_value": {"player_position": "Player3_MidLeft", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.78}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 4140, "event_value": {"player_position": "Player3_MidLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 4140, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 226.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 4170, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 225.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 4200, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 224.0, "diff": -1.0}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 4235, "event_value": {"value": "update_cards", "cards": ["2♥", "A♥", "A♣", "8♥", "5♣"], "confidences": [0.9954881072044373, 0.9271552562713623, 0.9623174667358398, 0.9988731741905212, 0.9636749029159546]}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 4885, "event_value": {"player_position": "Player3_MidLeft", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.78}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 5165, "event_value": {"player_position": "Player3_MidLeft", "value": "remove_cards"}}
+{"object_type": "chat", "event_name": "dealer_message", "frame_id": 5215, "event_value": {"text": "dealer llinusllove. its your turn you have 10 seconds to act dealer skzii_modr has three of a kind. aces dealer hand #239733013065 skzii_modr wins pot 540.000 with three of a kind. aces"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 5285, "event_value": {"value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 5295, "event_value": {"player_position": "Player5_TopMid", "value": "post_bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5305, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 113.7, "diff": -1.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 5310, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["A♠"], "confidences": {"A♠": 0.98}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5315, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 0.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 5315, "event_value": {"player_position": "Player5_TopMid", "value": "post", "old_value": "#naktro91"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 5315, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♠"], "confidences": {"Q♠": 0.98}}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 5315, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 5320, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["6♠"], "confidences": {"6♠": 0.71}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 5320, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["A♥"], "confidences": {"A♥": 0.99}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5335, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 102.0, "diff": 102.0}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 5335, "event_value": {"player_position": "Player4_TopLeft", "value": "k5", "old_value": "9u89"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 5335, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♠"], "confidences": {"10♠": 0.99}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 5335, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 5345, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♠"], "confidences": {"10♠": 0.97}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5350, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 5355, "event_value": {"player_position": "Player5_TopMid", "value": "#naktro91", "old_value": "post"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 5355, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["5♥"], "confidences": {"5♥": 0.75}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 5365, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♠", "8♣"], "confidences": {"10♠": 0.97, "8♣": 1.0}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 5370, "event_value": {"player_position": "Player4_TopLeft", "value": "kssi", "old_value": "k5"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 5370, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♠", "Q♣"], "confidences": {"10♠": 0.96, "Q♣": 0.99}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 5370, "event_value": {"player_position": "Player6_TopRight", "value": "41206", "old_value": "aku 206"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5370, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 5.0, "diff": -42.5}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 5370, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 5375, "event_value": {"player_position": "Player6_TopRight", "value": "aku1206", "old_value": "41206"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5375, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 47.5, "diff": 42.5}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5380, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 10254.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 5380, "event_value": {"player_position": "Player6_TopRight", "value": "fold"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5380, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 94.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 5430, "event_value": {"player_position": "Player4_TopLeft", "value": "k55i", "old_value": "kssi"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5440, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5500, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5500, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 5675, "event_value": {"player_position": "Player1_Bottom", "value": "raise"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5675, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 88.2, "diff": -2.7}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 5675, "event_value": {"value": "update_pot", "pot": 4.2, "raw_text": "pot 4.2 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 5850, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 5855, "event_value": {"player_position": "Player5_TopMid", "value": "fold"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 5855, "event_value": {"value": "update_pot", "pot": 2.5, "raw_text": "pot 2.5 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5865, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 89.9, "diff": 1.7}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 5885, "event_value": {"value": "update_round_bet", "bet": 2.5}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 5895, "event_value": {"player_position": "Player1_Bottom", "value": "won", "won_value": 2.5, "original_text": "won 2.5 bl"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5895, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 92.4, "diff": 2.5}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 5915, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 5975, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 5980, "event_value": {"player_position": "Player5_TopMid", "value": "post_sb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 5980, "event_value": {"player_position": "Player6_TopRight", "value": "post_bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5990, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 113.2, "diff": -0.5}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 5990, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 46.5, "diff": -1.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 5995, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["8♥"], "confidences": {"8♥": 0.99}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6000, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["A♣"], "confidences": {"A♣": 0.86}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6005, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["5♠"], "confidences": {"5♠": 0.88}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 6015, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 84.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6015, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6020, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["2♠"], "confidences": {"2♠": 0.99}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6020, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6025, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["9♥", "4♥"], "confidences": {"9♥": 0.97, "4♥": 0.81}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6030, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 6035, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 846.0, "diff": 762.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6035, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♠"], "confidences": {"10♠": 0.99}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6035, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6040, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["9♥", "5♥"], "confidences": {"9♥": 0.99, "5♥": 0.74}}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 6040, "event_value": {"player_position": "Player7_MidRight", "value": "joined"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 6040, "event_value": {"player_position": "Player7_MidRight", "value": "jik6"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6045, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.79}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6050, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["9♥"], "confidences": {"9♥": 0.86}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6055, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♦"], "confidences": {"10♦": 0.97}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 6060, "event_value": {"player_position": "Player7_MidRight", "value": "jikou", "old_value": "jik6"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 6065, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 19.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 6095, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6105, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["8♥", "Q♥"], "confidences": {"8♥": 0.73, "Q♥": 0.91}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 6110, "event_value": {"player_position": "Player4_TopLeft", "value": "611042", "old_value": "k55i"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 6135, "event_value": {"player_position": "Player1_Bottom", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6135, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 6160, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 6235, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♦", "4♥"], "confidences": {"10♦": 0.98, "4♥": 0.75}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 6245, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 6490, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 112.7, "diff": -0.5}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 6495, "event_value": {"player_position": "Player5_TopMid", "value": "call"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 6515, "event_value": {"value": "update_pot", "pot": 2.0, "raw_text": "pot 2 bb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 6585, "event_value": {"player_position": "Player6_TopRight", "value": "check"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 6635, "event_value": {"value": "update_cards", "cards": ["9♥", "5♥", "9♠"], "confidences": [0.865542471408844, 0.9547091126441956, 0.9896657466888428]}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 6635, "event_value": {"value": "update_round_bet", "bet": 2.0}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 6845, "event_value": {"player_position": "Player5_TopMid", "value": "bet"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 6845, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 111.7, "diff": -1.0}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 6845, "event_value": {"value": "update_pot", "pot": 3.0, "raw_text": "pot 3 bb"}}
+{"object_type": "chat", "event_name": "dealer_message", "frame_id": 7090, "event_value": {"text": "of a kind. aces dealer hand #239733071337 kaju85 wins pot 150.000 dealer #naktro91 its your turn you have 10 seconds to act dealer aku1206. it your turn you have 10 seconds to act"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 7170, "event_value": {"player_position": "Player6_TopRight", "value": "raise"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 7170, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 44.0, "diff": -2.5}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 7175, "event_value": {"value": "update_pot", "pot": 5.5, "raw_text": "pot 5.5 bb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 7605, "event_value": {"player_position": "Player5_TopMid", "value": "call"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 7605, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 110.2, "diff": -1.5}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 7625, "event_value": {"value": "update_pot", "pot": 7.0, "raw_text": "pot 7 bb"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 7655, "event_value": {"value": "update_cards", "cards": ["9♥", "5♥", "9♠", "5♣"], "confidences": [0.934312105178833, 0.9389668703079224, 0.990982711315155, 0.8185592293739319]}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 7800, "event_value": {"player_position": "Player5_TopMid", "value": "check"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 8030, "event_value": {"player_position": "Player6_TopRight", "value": "bet"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 8030, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 39.0, "diff": -5.0}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 8045, "event_value": {"value": "update_pot", "pot": 12.0, "raw_text": "pot 12 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 8835, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 92.4, "diff": -17.8}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 8840, "event_value": {"player_position": "Player5_TopMid", "value": "raise"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 8855, "event_value": {"value": "update_pot", "pot": 29.7, "raw_text": "pot 29.7 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 9775, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 26.3, "diff": -12.7}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 9780, "event_value": {"player_position": "Player6_TopRight", "value": "call"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 9785, "event_value": {"value": "update_pot", "pot": 42.5, "raw_text": "pot 42.5 bb"}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 9815, "event_value": {"value": "update_round_bet", "bet": 42.5}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 9905, "event_value": {"value": "update_cards", "cards": ["9♥", "5♥", "9♠", "5♣", "J♣"], "confidences": [0.923869252204895, 0.9264627695083618, 0.9897422790527344, 0.9226412177085876, 0.7418336272239685]}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 10305, "event_value": {"player_position": "Player5_TopMid", "value": "check"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 11700, "event_value": {"player_position": "Player6_TopRight", "value": "check"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 11750, "event_value": {"player_position": "Player6_TopRight", "value": "won", "won_value": 42.5, "original_text": "won 42.5 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 11750, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 68.8, "diff": 42.5}}
+{"object_type": "chat", "event_name": "dealer_message", "frame_id": 11750, "event_value": {"text": "dealer #naktro91 has two pair. nines and deuces dealer aku1206 has a full house. nines full of fives dealer hand #239733078783 aku1206 wins pot 2.550.000 with a full house. nines full of fives"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11805, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11805, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 11825, "event_value": {"player_position": "Player6_TopRight", "value": "post_sb"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 11825, "event_value": {"value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 11825, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11840, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.7}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 11840, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 68.3, "diff": -0.5}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11845, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11845, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♣"], "confidences": {"Q♣": 0.96}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11850, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["9♣"], "confidences": {"9♣": 0.89}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11855, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["Q♥", "J♣"], "confidences": {"Q♥": 0.89, "J♣": 0.75}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11855, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["9♥"], "confidences": {"9♥": 0.99}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 11855, "event_value": {"player_position": "Player7_MidRight", "value": "5", "old_value": "jikou"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11860, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.99}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11860, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 11865, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 718.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11865, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♦"], "confidences": {"Q♦": 0.75}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11865, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11870, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "A♠"], "confidences": {"10♥": 0.96, "A♠": 0.73}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11870, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["9♥", "4♥"], "confidences": {"9♥": 0.91, "4♥": 0.8}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 11870, "event_value": {"player_position": "Player7_MidRight", "value": "515", "old_value": "5"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11875, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 0.96, "Q♥": 0.76}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 11880, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 7783.0, "diff": 7065.0}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 11880, "event_value": {"player_position": "Player4_TopLeft", "value": "b2", "old_value": "611042"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11880, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "Q♣"], "confidences": {"10♥": 0.96, "Q♣": 0.98}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11885, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.95}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11885, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["9♥"], "confidences": {"9♥": 0.87}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 11885, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11890, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥", "Q♦"], "confidences": {"10♥": 0.99, "Q♦": 0.8}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 11890, "event_value": {"player_position": "Player5_TopMid", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11890, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["4♠"], "confidences": {"4♠": 0.74}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 11890, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 0.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11895, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥", "Q♣"], "confidences": {"10♥": 0.99, "Q♣": 1.0}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 11895, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 92.4, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11900, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "10♠"], "confidences": {"10♥": 0.95, "10♠": 0.8}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11905, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 0.93, "Q♥": 0.9}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 11905, "event_value": {"player_position": "Player7_MidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 11910, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 6.0, "diff": 6.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 11975, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 12125, "event_value": {"player_position": "Player1_Bottom", "value": "raise"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 12125, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 89.7, "diff": -2.7}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 12125, "event_value": {"value": "update_pot", "pot": 4.2, "raw_text": "pot 4.2 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 12130, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 12155, "event_value": {"player_position": "Player5_TopMid", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12155, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12160, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 12165, "event_value": {"player_position": "Player6_TopRight", "value": "fold"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 12330, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 91.4, "diff": 1.7}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 12335, "event_value": {"value": "update_pot", "pot": 2.5, "raw_text": "pot 2.5 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 12360, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 93.9, "diff": 2.5}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 12375, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12380, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 12455, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12460, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["8♠"], "confidences": {"8♠": 0.97}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 12460, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 0.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12460, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["A♥"], "confidences": {"A♥": 0.97}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12465, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["A♣"], "confidences": {"A♣": 0.88}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12470, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["8♠", "J♣"], "confidences": {"8♠": 0.98, "J♣": 0.85}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12475, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 12480, "event_value": {"player_position": "Player4_TopLeft", "value": "k5", "old_value": "b2"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12485, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["7♥"], "confidences": {"7♥": 0.75}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12485, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["4♣"], "confidences": {"4♣": 0.81}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 12485, "event_value": {"player_position": "Player7_MidRight", "value": "uia", "old_value": "515"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12490, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.97}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 12490, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 924.0, "diff": 831.6}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12495, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 0.84, "Q♥": 0.79}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 12495, "event_value": {"player_position": "Player4_TopLeft", "value": "8", "old_value": "k5"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 12495, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 92.4, "diff": -831.6}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12495, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["7♥", "Q♥"], "confidences": {"7♥": 0.75, "Q♥": 0.95}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 12500, "event_value": {"player_position": "Player4_TopLeft", "value": "k5i8", "old_value": "8"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12500, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12500, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♣", "5♥"], "confidences": {"10♣": 0.82, "5♥": 0.81}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 12500, "event_value": {"player_position": "Player7_MidRight", "value": "a", "old_value": "uia"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 12500, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12500, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["Q♠"], "confidences": {"Q♠": 0.83}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 12505, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 924.0, "diff": 831.6}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12505, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["4♥"], "confidences": {"4♥": 0.81}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 12505, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 3.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12510, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.84}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 12510, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 92.4, "diff": -831.6}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12515, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♣"], "confidences": {"Q♣": 0.97}}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 12515, "event_value": {"value": "update_cards", "cards": ["J♥"], "confidences": [0.7397878170013428, 0.9953061938285828]}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12520, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 0.96, "Q♥": 0.92}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12520, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♣"], "confidences": {"10♣": 0.81}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12520, "event_value": {"player_position": "Player7_MidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12525, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 12525, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 36.0, "diff": 33.0}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 12530, "event_value": {"player_position": "Player1_Bottom", "value": "fold"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 12545, "event_value": {"value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12630, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.95}}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 12635, "event_value": {"value": "update_pot", "pot": 4.0, "raw_text": "pot 4 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12640, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 12815, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 12820, "event_value": {"player_position": "Player5_TopMid", "value": "fold"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 12905, "event_value": {"player_position": "Player6_TopRight", "value": "fold"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 12985, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 12995, "event_value": {"value": "update_pot", "pot": 12.0, "raw_text": "pot 12 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 13040, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13370, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 13385, "event_value": {"value": "update_pot", "pot": 6.0, "raw_text": "pot 6 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 13415, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 6.0, "diff": 5.0}}
+{"object_type": "chat", "event_name": "dealer_message", "frame_id": 13415, "event_value": {"text": "house. nines full of fives dealer hand #239733143773 kaju85 wins pot 150.000 dealer skzii_modr. its your turn you have 10 seconds to act dealer hand #239733150579 ajsuited16 wins pot 360.000"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 13470, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": -5.0}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 13515, "event_value": {"player_position": "Player1_Bottom", "value": "post_bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 13525, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 92.9, "diff": -1.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13535, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["A♥"], "confidences": {"A♥": 0.96}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 13535, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 3.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 13535, "event_value": {"player_position": "Player4_TopLeft", "value": "2", "old_value": "k5i8"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 13535, "event_value": {"player_position": "Player5_TopMid", "value": "#naktr", "old_value": "#naktro91"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13535, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.85}}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 13535, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 13540, "event_value": {"player_position": "Player5_TopMid", "value": "#naktro91", "old_value": "#naktr"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13540, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["4♠"], "confidences": {"4♠": 0.98}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13550, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["2♠"], "confidences": {"2♠": 0.96}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 13555, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 34.0, "diff": 31.0}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 13555, "event_value": {"player_position": "Player4_TopLeft", "value": "2iu", "old_value": "2"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13555, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♠"], "confidences": {"Q♠": 0.72}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13560, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["4♠", "4♣"], "confidences": {"4♠": 0.85, "4♣": 0.82}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13570, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["4♥"], "confidences": {"4♥": 0.86}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 13570, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 349.0, "diff": 315.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13570, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♠", "Q♥"], "confidences": {"Q♠": 0.72, "Q♥": 0.83}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13575, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.9}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13575, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13580, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13580, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["4♠", "6♠"], "confidences": {"4♠": 0.79, "6♠": 0.87}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13585, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["2♥"], "confidences": {"2♥": 1.0}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 13585, "event_value": {"player_position": "Player4_TopLeft", "value": "i2iu9- 19", "old_value": "2iu"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13585, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["4♥", "6♠"], "confidences": {"4♥": 0.89, "6♠": 0.87}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13590, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 0.9, "Q♥": 0.99}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13590, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["4♠", "6♠"], "confidences": {"4♠": 0.77, "6♠": 0.87}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13595, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["4♠", "10♥"], "confidences": {"4♠": 0.79, "10♥": 1.0}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 13600, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 13600, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 5.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13630, "event_value": {"player_position": "Player3_MidLeft", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.73}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13655, "event_value": {"player_position": "Player3_MidLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13685, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "Q♦"], "confidences": {"10♥": 0.88, "Q♦": 0.9}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13705, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["2♦"], "confidences": {"2♦": 0.99}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 13730, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 90.0, "diff": -2.4}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 13735, "event_value": {"player_position": "Player5_TopMid", "value": "raise"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 13735, "event_value": {"player_position": "Player6_TopRight", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 13735, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 13745, "event_value": {"value": "update_pot", "pot": 3.9, "raw_text": "pot 3.9 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 13895, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 14045, "event_value": {"player_position": "Player1_Bottom", "value": "call"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 14045, "event_value": {"value": "update_pot", "pot": 5.4, "raw_text": "pot 5.4 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 14050, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 91.4, "diff": -1.5}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 14075, "event_value": {"value": "update_cards", "cards": ["4♦", "8♣"], "confidences": [0.9995675683021545, 0.9998328685760498]}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 14075, "event_value": {"value": "update_round_bet", "bet": 5.4}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 14140, "event_value": {"player_position": "Player1_Bottom", "value": "check"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 14165, "event_value": {"value": "update_cards", "cards": ["4♥", "8♣"], "confidences": [0.9995424747467041, 0.9998347759246826]}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 14335, "event_value": {"player_position": "Player5_TopMid", "value": "check"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 14345, "event_value": {"value": "update_cards", "cards": ["4♥", "8♣", "5♠"], "confidences": [0.9994935989379883, 0.9998273253440857, 0.8894934058189392]}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 14650, "event_value": {"player_position": "Player1_Bottom", "value": "bet"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 14655, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 87.9, "diff": -3.5}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 14675, "event_value": {"value": "update_pot", "pot": 8.9, "raw_text": "pot 8.9 bb"}}
+{"object_type": "chat", "event_name": "dealer_message", "frame_id": 14895, "event_value": {"text": "dealer skzii_modr. its your turn you have 10 seconds to act dealer hand #239733150579 ajsuited16 wins pot 360.000 dealer kaju85. its your turn you have 10 seconds to act dealer #naktro91. its your turn you have 10 seconds to act"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 15570, "event_value": {"player_position": "Player5_TopMid", "value": "call"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 15570, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 86.5, "diff": -3.5}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 15575, "event_value": {"value": "update_pot", "pot": 12.4, "raw_text": "pot 12.4 bb"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 15605, "event_value": {"value": "update_cards", "cards": ["4♥", "8♣", "5♠", "Q♣"], "confidences": [0.999483585357666, 0.9998499155044556, 0.9969825148582458, 0.9298115968704224]}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 15605, "event_value": {"value": "update_round_bet", "bet": 12.4}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 16090, "event_value": {"player_position": "Player1_Bottom", "value": "bet"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 16095, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 81.9, "diff": -6.0}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 16115, "event_value": {"value": "update_pot", "pot": 18.4, "raw_text": "pot 18.4 bb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 16210, "event_value": {"player_position": "Player5_TopMid", "value": "call"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 16215, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 80.5, "diff": -6.0}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 16235, "event_value": {"value": "update_pot", "pot": 24.4, "raw_text": "pot 24.4 bb"}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 16235, "event_value": {"value": "update_round_bet", "bet": 24.4}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 16250, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 104.9, "diff": 24.4}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 16255, "event_value": {"player_position": "Player5_TopMid", "value": "won", "won_value": 24.4, "original_text": "won 24.4 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16330, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16330, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 16345, "event_value": {"player_position": "Player1_Bottom", "value": "post_sb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16345, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.84}}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 16355, "event_value": {"value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 16355, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16365, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["5♥"], "confidences": {"5♥": 0.98}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 16365, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 8.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 16365, "event_value": {"player_position": "Player5_TopMid", "value": "#naktr", "old_value": "#naktro91"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 16370, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 81.4, "diff": -0.5}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 16370, "event_value": {"player_position": "Player5_TopMid", "value": "#naktro91", "old_value": "#naktr"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16370, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 1.0}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16370, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.89}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16375, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.96}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16375, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 16380, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 810.0, "diff": 802.0}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 16385, "event_value": {"player_position": "Player4_TopLeft", "value": "48", "old_value": "i2iu9- 19"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16385, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 0.84, "Q♥": 0.77}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16390, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.98}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16395, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♠"], "confidences": {"10♠": 0.88}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16395, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 1.0, "Q♥": 0.95}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 16400, "event_value": {"player_position": "Player4_TopLeft", "value": "4814", "old_value": "48"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16400, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "Q♠"], "confidences": {"10♥": 1.0, "Q♠": 1.0}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16400, "event_value": {"player_position": "Player9_BottomMidRight", "value": "update_cards", "cards": ["9♥"], "confidences": {"9♥": 0.71}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16405, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 1.0, "Q♥": 0.92}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16405, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "5♠"], "confidences": {"10♥": 0.95, "5♠": 0.91}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16410, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♠", "6♥"], "confidences": {"10♠": 0.88, "6♥": 0.75}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 16410, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 4.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16420, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 1.0}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16420, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 0.96, "Q♥": 0.91}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16425, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.95}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 16425, "event_value": {"player_position": "Player7_MidRight", "value": "aaks", "old_value": "a"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 16425, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 49.0, "diff": 45.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16430, "event_value": {"player_position": "Player9_BottomMidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16575, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "10♥"], "confidences": {"10♥": 0.84}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16580, "event_value": {"player_position": "Player9_BottomMidRight", "value": "update_cards", "cards": ["9♥"], "confidences": {"9♥": 0.73}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16590, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["5♠", "6♥"], "confidences": {"5♠": 0.89, "6♥": 0.79}}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 16650, "event_value": {"player_position": "Player5_TopMid", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16650, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16655, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 16660, "event_value": {"player_position": "Player6_TopRight", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16730, "event_value": {"player_position": "Player8_BottomRight", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.73}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16760, "event_value": {"player_position": "Player8_BottomRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 16930, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 16940, "event_value": {"player_position": "Player9_BottomMidRight", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 16955, "event_value": {"value": "update_pot", "pot": 3.5, "raw_text": "pot 3.5 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 16990, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 17040, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["5♠"], "confidences": {"5♠": 0.92}}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 17170, "event_value": {"player_position": "Player1_Bottom", "value": "call"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 17170, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 79.9, "diff": -1.5}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 17190, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["5♠", "6♥"], "confidences": {"5♠": 0.88, "6♥": 0.73}}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 17195, "event_value": {"value": "update_pot", "pot": 5.0, "raw_text": "pot 5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 17205, "event_value": {"player_position": "Player9_BottomMidRight", "value": "update_cards", "cards": ["9♥"], "confidences": {"9♥": 0.7}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 17235, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.74}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 17240, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 17255, "event_value": {"value": "update_pot", "pot": 6.0, "raw_text": "pot 6 bb"}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 17255, "event_value": {"value": "update_round_bet", "bet": 6.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 17280, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♠"], "confidences": {"10♠": 0.73}}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 17285, "event_value": {"value": "update_cards", "cards": ["9♣", "A♥"], "confidences": [0.9834385514259338, 0.8305348753929138]}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 17295, "event_value": {"player_position": "Player1_Bottom", "value": "check"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 17310, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["5♠", "6♥"], "confidences": {"5♠": 0.87, "6♥": 0.73}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 17340, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♠", "6♥"], "confidences": {"10♠": 0.71, "6♥": 0.74}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 17355, "event_value": {"player_position": "Player9_BottomMidRight", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 17405, "event_value": {"value": "update_cards", "cards": ["7♠", "9♣", "A♥"], "confidences": [0.7041202187538147, 0.9821959137916565, 0.7946568727493286]}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 17455, "event_value": {"player_position": "Player8_BottomRight", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.7}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 17515, "event_value": {"player_position": "Player8_BottomRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 17905, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 226.0, "diff": 225.0}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 17945, "event_value": {"value": "update_cards", "cards": ["9♣", "A♥"], "confidences": [0.9858137965202332, 0.7410016059875488]}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 17945, "event_value": {"value": "update_pot", "pot": 12.0, "raw_text": "pot 12 bb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 17970, "event_value": {"player_position": "Player1_Bottom", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 17970, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 17990, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 18095, "event_value": {"value": "update_cards", "cards": ["7♠", "9♣", "A♥"], "confidences": [0.7076134085655212, 0.9820570945739746, 0.8540882468223572]}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 18275, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.92}}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 18275, "event_value": {"value": "update_pot", "pot": 18.0, "raw_text": "pot 18 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 18280, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 18305, "event_value": {"value": "update_round_bet", "bet": 18.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 18500, "event_value": {"player_position": "Player8_BottomRight", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.74}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 18530, "event_value": {"player_position": "Player8_BottomRight", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 18725, "event_value": {"value": "update_cards", "cards": ["9♣", "A♥"], "confidences": [0.9808695316314697, 0.7057718634605408]}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 18845, "event_value": {"value": "update_pot", "pot": 21.1, "raw_text": "pot 21.1 bb"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 18875, "event_value": {"value": "update_cards", "cards": ["7♠", "9♣", "A♥"], "confidences": [0.7081075310707092, 0.9819424748420715, 0.7111078500747681]}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 18900, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 18985, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 18995, "event_value": {"value": "update_pot", "pot": 18.0, "raw_text": "pot 18 bb"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 19025, "event_value": {"value": "update_cards", "cards": ["9♣", "A♥"], "confidences": [0.9839375615119934, 0.7103871703147888]}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19035, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 18.0, "diff": 17.0}}
+{"object_type": "chat", "event_name": "dealer_message", "frame_id": 19035, "event_value": {"text": "been activated dealer skzii_modr. its your turn you have 10 seconds to act dealer ajsuited16. its your turn you have 10 seconds to act dealer hand #239733193825 ajsuited16 wins pot 1.080.000"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19095, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": -17.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19105, "event_value": {"player_position": "Player9_BottomMidRight", "value": "update_cards", "cards": ["9♥"], "confidences": {"9♥": 0.73}}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 19115, "event_value": {"value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19155, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 68.5, "diff": -11.4}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19155, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 89.9, "diff": -15.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19160, "event_value": {"player_position": "Player9_BottomMidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19165, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 58.5, "diff": -9.8}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19175, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.85}}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 19175, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 19195, "event_value": {"player_position": "Player4_TopLeft", "value": "8", "old_value": "4814"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19195, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["A♦"], "confidences": {"A♦": 0.88}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19215, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19220, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["Q♠"], "confidences": {"Q♠": 0.8}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19220, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["9♥", "4♥"], "confidences": {"9♥": 0.94, "4♥": 0.72}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19225, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.99}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19230, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 3.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19230, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["4♥"], "confidences": {"4♥": 0.74}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19230, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.9}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19235, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "4♥"], "confidences": {"10♥": 0.88, "4♥": 0.78}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19235, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["9♥", "Q♠"], "confidences": {"9♥": 0.98, "Q♠": 0.97}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19240, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 0.99, "Q♥": 0.83}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19240, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 5.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19245, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "4♠"], "confidences": {"10♥": 0.88, "4♠": 0.79}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19245, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.75}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19250, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.87}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19250, "event_value": {"player_position": "Player7_MidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19255, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19255, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19255, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 512.0, "diff": 507.0}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 19260, "event_value": {"player_position": "Player5_TopMid", "value": "fold"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 19260, "event_value": {"player_position": "Player6_TopRight", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19325, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19330, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19475, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 19505, "event_value": {"player_position": "Player1_Bottom", "value": "raise"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19505, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 65.8, "diff": -2.7}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 19505, "event_value": {"value": "update_pot", "pot": 4.2, "raw_text": "pot 4.2 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19555, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["Q♠"], "confidences": {"Q♠": 0.76}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19555, "event_value": {"player_position": "Player3_MidLeft", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.71}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19615, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19665, "event_value": {"player_position": "Player3_MidLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 19685, "event_value": {"value": "update_pot", "pot": 2.5, "raw_text": "pot 2.5 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19695, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 67.5, "diff": 1.7}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19710, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 70.0, "diff": 2.5}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19730, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 19790, "event_value": {"player_position": "Player5_TopMid", "value": "post_bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19805, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 88.9, "diff": -1.0}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 19805, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19810, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["4♠"], "confidences": {"4♠": 0.96}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19815, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["5♠"], "confidences": {"5♠": 1.0}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19820, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.79}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19825, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 8.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 19825, "event_value": {"player_position": "Player4_TopLeft", "value": "96", "old_value": "8"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19825, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["4♠", "Q♠"], "confidences": {"4♠": 0.87, "Q♠": 0.93}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19830, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♠"], "confidences": {"Q♠": 0.72}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19830, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["5♠", "Q♠"], "confidences": {"5♠": 0.96, "Q♠": 0.95}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19835, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["Q♦"], "confidences": {"Q♦": 0.98}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19840, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 88.0, "diff": 80.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19840, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♠", "A♣"], "confidences": {"Q♠": 0.72, "A♣": 0.74}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 19845, "event_value": {"player_position": "Player4_TopLeft", "value": "9615", "old_value": "96"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19845, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♠"], "confidences": {"Q♠": 0.75}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19850, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.95}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19850, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["5♥"], "confidences": {"5♥": 0.77}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19855, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥", "10♥"], "confidences": {"10♥": 1.0}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 19855, "event_value": {"player_position": "Player7_MidRight", "value": "jijike", "old_value": "aaks"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19855, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 5.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 19865, "event_value": {"player_position": "Player4_TopLeft", "value": "961519", "old_value": "9615"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19865, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "Q♣"], "confidences": {"10♥": 0.95, "Q♣": 0.88}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19865, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["4♥"], "confidences": {"4♥": 0.97}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19870, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19870, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 19870, "event_value": {"player_position": "Player7_MidRight", "value": "jijikiu", "old_value": "jijike"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19870, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 19875, "event_value": {"player_position": "Player6_TopRight", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19925, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 0.93, "Q♥": 0.8}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19930, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 3.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19960, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 19965, "event_value": {"player_position": "Player1_Bottom", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 19965, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 19985, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 20135, "event_value": {"player_position": "Player3_MidLeft", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.72}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 20300, "event_value": {"player_position": "Player3_MidLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 20315, "event_value": {"value": "update_pot", "pot": 2.0, "raw_text": "pot 2 bb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 20540, "event_value": {"player_position": "Player5_TopMid", "value": "check"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 20585, "event_value": {"value": "update_cards", "cards": ["2♦", "2♣", "8♠"], "confidences": [0.9804562330245972, 0.9950202703475952, 0.9977193474769592]}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 20585, "event_value": {"value": "update_round_bet", "bet": 2.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 20680, "event_value": {"player_position": "Player3_MidLeft", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.74}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 20845, "event_value": {"player_position": "Player3_MidLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 21040, "event_value": {"player_position": "Player5_TopMid", "value": "check"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 21065, "event_value": {"value": "update_cards", "cards": ["2♦", "2♣", "8♠", "A♠"], "confidences": [0.9941402077674866, 0.995945155620575, 0.9980441331863403, 0.9503600597381592]}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21070, "event_value": {"player_position": "Player3_MidLeft", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.72}}}
+{"object_type": "chat", "event_name": "dealer_message", "frame_id": 21285, "event_value": {"text": "dealer limits going up blinds 35.00070.000 dealer hand #239733225238 kaju85 wins pot 175.000 dealer llinusllove. its your turn you have 10 seconds to act dealer llinusllove. its your turn you have 10 seconds to act"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21355, "event_value": {"player_position": "Player3_MidLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 21485, "event_value": {"value": "update_pot", "pot": 3.0, "raw_text": "pot 3 bb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 21490, "event_value": {"player_position": "Player5_TopMid", "value": "bet"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21490, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 87.9, "diff": -1.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21505, "event_value": {"player_position": "Player3_MidLeft", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.73}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21545, "event_value": {"player_position": "Player3_MidLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21555, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 88.9, "diff": 1.0}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 21575, "event_value": {"value": "update_pot", "pot": 2.0, "raw_text": "pot 2 bb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 21595, "event_value": {"player_position": "Player5_TopMid", "value": "won", "won_value": 2.0, "original_text": "won 2 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21610, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21615, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 90.9, "diff": 2.0}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 21665, "event_value": {"value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 21675, "event_value": {"player_position": "Player5_TopMid", "value": "post_sb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21675, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 90.4, "diff": -0.5}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 21675, "event_value": {"player_position": "Player6_TopRight", "value": "post_bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21685, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 57.5, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21695, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 8.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21695, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.76}}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 21695, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21700, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21700, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["A♠"], "confidences": {"A♠": 0.99}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21705, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.73}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21710, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21710, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21715, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.97}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21715, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["4♠"], "confidences": {"4♠": 0.91}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21715, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.88}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21720, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21720, "event_value": {"player_position": "Player7_MidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21725, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 0.82, "Q♥": 0.99}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21725, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "Q♠"], "confidences": {"10♥": 0.97, "Q♠": 0.93}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21730, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.99}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21730, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["Q♠"], "confidences": {"Q♠": 0.96}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21735, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["5♠"], "confidences": {"5♠": 0.83}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21735, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["Q♠"], "confidences": {"Q♠": 0.91}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21740, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.78}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21740, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 904.0, "diff": 813.6}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21740, "event_value": {"player_position": "Player7_MidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21740, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21745, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥", "J♥"], "confidences": {"10♥": 0.78, "J♥": 0.87}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21745, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "Q♣"], "confidences": {"10♥": 0.98, "Q♣": 0.74}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21745, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.82}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21750, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.99}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 21750, "event_value": {"player_position": "Player6_TopRight", "value": "41206", "old_value": "aku1206"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21750, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 5.0, "diff": -52.5}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21750, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21755, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 90.4, "diff": -813.6}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 21755, "event_value": {"player_position": "Player6_TopRight", "value": "aku1206", "old_value": "41206"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21755, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 57.5, "diff": 52.5}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21755, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♠", "10♥"], "confidences": {"10♠": 0.71, "10♥": 0.9}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21755, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21760, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 26.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 21775, "event_value": {"player_position": "Player4_TopLeft", "value": "5426-", "old_value": "961519"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21785, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21790, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 21795, "event_value": {"player_position": "Player1_Bottom", "value": "fold"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21840, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 21905, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "10♥"], "confidences": {"10♥": 0.94}}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 21990, "event_value": {"player_position": "Player5_TopMid", "value": "call"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 21990, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 89.9, "diff": -0.5}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 21995, "event_value": {"value": "update_pot", "pot": 2.0, "raw_text": "pot 2 bb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 22150, "event_value": {"player_position": "Player6_TopRight", "value": "check"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 22205, "event_value": {"value": "update_cards", "cards": ["J♠", "8♥"], "confidences": [0.792632520198822, 0.9979807734489441]}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 22355, "event_value": {"player_position": "Player5_TopMid", "value": "check"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 22445, "event_value": {"player_position": "Player6_TopRight", "value": "check"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 22475, "event_value": {"value": "update_cards", "cards": ["J♠", "8♥", "9♣"], "confidences": [0.7134402990341187, 0.9982203841209412, 0.9960809350013733]}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 22585, "event_value": {"player_position": "Player5_TopMid", "value": "check"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 22675, "event_value": {"player_position": "Player6_TopRight", "value": "check"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 22715, "event_value": {"value": "update_cards", "cards": ["J♠", "8♥", "9♣", "6♠"], "confidences": [0.7935293316841125, 0.9983863830566406, 0.9927898049354553, 0.8647565245628357]}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 22870, "event_value": {"player_position": "Player5_TopMid", "value": "check"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 23055, "event_value": {"player_position": "Player6_TopRight", "value": "bet"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 23060, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 55.5, "diff": -2.0}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 23075, "event_value": {"value": "update_pot", "pot": 4.0, "raw_text": "pot 4 bb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 23445, "event_value": {"player_position": "Player5_TopMid", "value": "call"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 23445, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 87.9, "diff": -2.0}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 23465, "event_value": {"value": "update_pot", "pot": 6.0, "raw_text": "pot 6 bb"}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 23465, "event_value": {"value": "update_round_bet", "bet": 6.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 23485, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 93.9, "diff": 6.0}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 23490, "event_value": {"player_position": "Player5_TopMid", "value": "won", "won_value": 6.0, "original_text": "won 6 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23550, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23550, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 23555, "event_value": {"value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 23570, "event_value": {"player_position": "Player6_TopRight", "value": "post_sb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 23570, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 55.0, "diff": -0.5}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23585, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["5♣"], "confidences": {"5♣": 0.93}}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 23585, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23590, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 1.0}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23595, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["9♥"], "confidences": {"9♥": 1.0}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23600, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["5♠"], "confidences": {"5♠": 0.95}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 23600, "event_value": {"player_position": "Player7_MidRight", "value": "l", "old_value": "jijikiu"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23610, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["2♥"], "confidences": {"2♥": 0.8}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23610, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23615, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["9♥", "4♥"], "confidences": {"9♥": 0.96, "4♥": 0.75}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23620, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♠"], "confidences": {"10♠": 0.86}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23620, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["2♥", "A♣"], "confidences": {"2♥": 0.8, "A♣": 0.73}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23625, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23630, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["9♥", "5♥"], "confidences": {"9♥": 0.92, "5♥": 0.81}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 23630, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23635, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♠", "5♥"], "confidences": {"10♠": 0.87, "5♥": 1.0}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 23635, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 2.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 23640, "event_value": {"player_position": "Player4_TopLeft", "value": "4106", "old_value": "5426-"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23640, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♣"], "confidences": {"Q♣": 0.8}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23640, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.75}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23645, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23645, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["9♥", "A♥"], "confidences": {"9♥": 0.91, "A♥": 0.76}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23645, "event_value": {"player_position": "Player7_MidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23650, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 23650, "event_value": {"player_position": "Player7_MidRight", "value": "2lt89", "old_value": "l"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 23650, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 23655, "event_value": {"player_position": "Player1_Bottom", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23735, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.72}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 23740, "event_value": {"player_position": "Player7_MidRight", "value": "89", "old_value": "2lt89"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 23870, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.83}}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 23885, "event_value": {"value": "update_pot", "pot": 4.0, "raw_text": "pot 4 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 24035, "event_value": {"player_position": "Player7_MidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 24040, "event_value": {"player_position": "Player7_MidRight", "value": "c 89", "old_value": "89"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 24075, "event_value": {"player_position": "Player5_TopMid", "value": "raise"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 24075, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 84.9, "diff": -9.0}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 24095, "event_value": {"player_position": "Player6_TopRight", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 24095, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 24095, "event_value": {"value": "update_pot", "pot": 13.0, "raw_text": "pot 13 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 24195, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 24815, "event_value": {"value": "update_pot", "pot": 19.5, "raw_text": "pot 19.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 24820, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 24845, "event_value": {"value": "update_round_bet", "bet": 19.5}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 24875, "event_value": {"value": "update_cards", "cards": ["6♠", "5♥"], "confidences": [0.773555338382721, 0.8900954127311707]}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 25105, "event_value": {"player_position": "Player5_TopMid", "value": "bet"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 25105, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 80.9, "diff": -4.0}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 25115, "event_value": {"value": "update_pot", "pot": 23.5, "raw_text": "pot 23.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 25505, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.83}}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 25505, "event_value": {"value": "update_pot", "pot": 27.5, "raw_text": "pot 27.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 25510, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 25535, "event_value": {"value": "update_round_bet", "bet": 27.5}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 27170, "event_value": {"player_position": "Player5_TopMid", "value": "check"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 27185, "event_value": {"value": "update_cards", "cards": ["5♥", "A♥", "6♠"], "confidences": [0.8087161779403687, 0.8028680682182312, 0.7815080285072327, 0.7732313871383667]}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 28575, "event_value": {"player_position": "Player5_TopMid", "value": "check"}}
+{"object_type": "chat", "event_name": "dealer_message", "frame_id": 28620, "event_value": {"text": "been activated dealer skzii_modr has a flush ace high dealer hand #239733274748 skzii_modr wins 1.925.000 with a flush ace high pot"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28635, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.9}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28680, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 28685, "event_value": {"value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 28715, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28720, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["9♥"], "confidences": {"9♥": 0.88}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 28720, "event_value": {"player_position": "Player4_TopLeft", "value": "iu", "old_value": "4106"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 28720, "event_value": {"player_position": "Player5_TopMid", "value": "#naktr", "old_value": "#naktro91"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28720, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♠"], "confidences": {"Q♠": 0.97}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 28725, "event_value": {"player_position": "Player5_TopMid", "value": "#naktro91", "old_value": "#naktr"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28725, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["6♠"], "confidences": {"6♠": 0.89}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28725, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["4♣"], "confidences": {"4♣": 0.99}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 28730, "event_value": {"player_position": "Player7_MidRight", "value": "5", "old_value": "c 89"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28735, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["8♥"], "confidences": {"8♥": 0.74}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 28740, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 3.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28740, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["8♠"], "confidences": {"8♠": 0.97}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28740, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.99}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28745, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["4♥", "Q♦"], "confidences": {"4♥": 0.81, "Q♦": 0.97}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28750, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28755, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["9♥"], "confidences": {"9♥": 0.72}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 28755, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 34.0, "diff": 31.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28755, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["8♠", "A♠"], "confidences": {"8♠": 0.97, "A♠": 0.77}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 28760, "event_value": {"player_position": "Player4_TopLeft", "value": "10k9", "old_value": "iu"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28760, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["8♠", "4♣"], "confidences": {"8♠": 0.92, "4♣": 0.92}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28760, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["Q♥", "Q♠"], "confidences": {"Q♥": 0.93, "Q♠": 0.95}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 28760, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28765, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["9♥", "Q♣"], "confidences": {"9♥": 0.72, "Q♣": 0.98}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28765, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["Q♠"], "confidences": {"Q♠": 0.99}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 28770, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 809.0, "diff": 728.1}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 28770, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 9.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28775, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["8♠"], "confidences": {"8♠": 0.92}}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 28775, "event_value": {"value": "update_cards", "cards": ["J♥"], "confidences": [0.7575474977493286, 0.9893556237220764]}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28780, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["8♥", "4♥"], "confidences": {"8♥": 0.83, "4♥": 0.77}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28780, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["5♥"], "confidences": {"5♥": 0.91}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28780, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["Q♦"], "confidences": {"Q♦": 0.75}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28785, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 28785, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 347.0, "diff": 313.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 28785, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 28790, "event_value": {"player_position": "Player1_Bottom", "value": "fold"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 28800, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 80.9, "diff": -728.1}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 28805, "event_value": {"value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28810, "event_value": {"player_position": "Player7_MidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 28860, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 28880, "event_value": {"player_position": "Player3_MidLeft", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.75}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 28905, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 9.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 29030, "event_value": {"player_position": "Player3_MidLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 29035, "event_value": {"player_position": "Player5_TopMid", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 29035, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 29065, "event_value": {"player_position": "Player6_TopRight", "value": "raise"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 29065, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 52.5, "diff": -2.5}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 29075, "event_value": {"value": "update_pot", "pot": 4.0, "raw_text": "pot 4 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 29205, "event_value": {"player_position": "Player8_BottomRight", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.73}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 29265, "event_value": {"player_position": "Player8_BottomRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 29650, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 226.0, "diff": 225.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 29680, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 225.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 29710, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 224.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 29740, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 223.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 29770, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 222.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 29875, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 54.0, "diff": 1.5}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 29875, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 29885, "event_value": {"value": "update_pot", "pot": 2.5, "raw_text": "pot 2.5 bb"}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 29915, "event_value": {"value": "update_round_bet", "bet": 2.5}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 29920, "event_value": {"player_position": "Player6_TopRight", "value": "won", "won_value": 2.5, "original_text": "won 2.5 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 29920, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 56.5, "diff": 2.5}}
+{"object_type": "chat", "event_name": "dealer_message", "frame_id": 29920, "event_value": {"text": "dealer ajsuited16. its your turn you have 10 seconds to act dealer regular time for player ajsuited16 has expired. time bank has been activated dealer hand #239733332530 aku1206 wins pot 175.000"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 29935, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 29950, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 30000, "event_value": {"player_position": "Player1_Bottom", "value": "post_bb"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 30005, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 30015, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 69.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30015, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.97}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30020, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.88}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 30020, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 5.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 30020, "event_value": {"player_position": "Player5_TopMid", "value": "#naktr", "old_value": "#naktro91"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30020, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.71}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 30025, "event_value": {"player_position": "Player4_TopLeft", "value": "iu", "old_value": "10k9"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 30025, "event_value": {"player_position": "Player5_TopMid", "value": "#naktro91", "old_value": "#naktr"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30025, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30025, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["A♥"], "confidences": {"A♥": 1.0}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30035, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♠", "Q♦"], "confidences": {"10♠": 0.97, "Q♦": 0.98}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30040, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["8♣"], "confidences": {"8♣": 1.0}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30040, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["Q♣"], "confidences": {"Q♣": 0.85}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30045, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["4♣"], "confidences": {"4♣": 0.83}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30050, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♠"], "confidences": {"10♠": 0.91}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30055, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.98}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30055, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["8♣", "Q♣"], "confidences": {"8♣": 0.99, "Q♣": 0.97}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 30060, "event_value": {"player_position": "Player4_TopLeft", "value": "mu 4", "old_value": "iu"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30060, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["8♣"], "confidences": {"8♣": 0.91}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30060, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["6♠"], "confidences": {"6♠": 0.74}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30060, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["Q♦"], "confidences": {"Q♦": 0.92}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30065, "event_value": {"player_position": "Player7_MidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30070, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥", "Q♣"], "confidences": {"10♥": 0.98, "Q♣": 0.99}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 30070, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 5.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30075, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["8♣", "Q♣"], "confidences": {"8♣": 0.91, "Q♣": 0.79}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30075, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30080, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["8♣"], "confidences": {"8♣": 0.87}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30080, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["4♥"], "confidences": {"4♥": 0.77}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30080, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["4♥"], "confidences": {"4♥": 0.77}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 30085, "event_value": {"player_position": "Player7_MidRight", "value": "ulou", "old_value": "5"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30085, "event_value": {"player_position": "Player7_MidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 30085, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 319.0, "diff": 314.0}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 30105, "event_value": {"player_position": "Player4_TopLeft", "value": "110 7146", "old_value": "mu 4"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 30115, "event_value": {"player_position": "Player7_MidRight", "value": "uol 01", "old_value": "ulou"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30115, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.76}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30200, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["Q♠"], "confidences": {"Q♠": 0.7}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30260, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 30265, "event_value": {"player_position": "Player5_TopMid", "value": "raise"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 30265, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 78.4, "diff": -2.5}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 30265, "event_value": {"player_position": "Player7_MidRight", "value": "ulo u", "old_value": "uol 01"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30265, "event_value": {"player_position": "Player7_MidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 30275, "event_value": {"player_position": "Player6_TopRight", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 30275, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 30275, "event_value": {"value": "update_pot", "pot": 3.9, "raw_text": "pot 3.9 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 30285, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 30340, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 30435, "event_value": {"player_position": "Player1_Bottom", "value": "call"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 30435, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 67.5, "diff": -1.5}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 30455, "event_value": {"value": "update_pot", "pot": 5.4, "raw_text": "pot 5.4 bb"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 30485, "event_value": {"value": "update_cards", "cards": ["9♥", "8♥", "Q♠"], "confidences": [0.8109062910079956, 0.9987258315086365, 0.7811752557754517]}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 30485, "event_value": {"value": "update_round_bet", "bet": 5.4}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 30540, "event_value": {"player_position": "Player1_Bottom", "value": "check"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 30665, "event_value": {"player_position": "Player5_TopMid", "value": "check"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 30695, "event_value": {"value": "update_cards", "cards": ["9♥", "8♥", "Q♠", "4♠"], "confidences": [0.7718048691749573, 0.9976121187210083, 0.8515762090682983, 0.9934136271476746]}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 30985, "event_value": {"player_position": "Player1_Bottom", "value": "bet"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 30985, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 62.1, "diff": -5.4}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 30995, "event_value": {"value": "update_pot", "pot": 10.8, "raw_text": "pot 10.8 bb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 31355, "event_value": {"player_position": "Player5_TopMid", "value": "call"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 31355, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 73.0, "diff": -5.4}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 31355, "event_value": {"value": "update_pot", "pot": 16.3, "raw_text": "pot 16.3 bb"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 31385, "event_value": {"value": "update_cards", "cards": ["9♥", "8♥", "Q♠", "4♠", "8♠"], "confidences": [0.9377353191375732, 0.9963418841362, 0.8670521974563599, 0.994367778301239, 0.9975414276123047]}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 31385, "event_value": {"value": "update_round_bet", "bet": 16.3}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 31700, "event_value": {"player_position": "Player1_Bottom", "value": "check"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 32015, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 60.8, "diff": -12.2}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 32015, "event_value": {"value": "update_pot", "pot": 28.5, "raw_text": "pot 28.5 bb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 32020, "event_value": {"player_position": "Player5_TopMid", "value": "bet"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 32020, "event_value": {"player_position": "Player5_TopMid", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 32090, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 60.8, "diff": null}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 33145, "event_value": {"player_position": "Player1_Bottom", "value": "call"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 33145, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 49.8, "diff": -12.3}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 33155, "event_value": {"value": "update_pot", "pot": 40.8, "raw_text": "pot 40.8 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33170, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 33185, "event_value": {"value": "update_round_bet", "bet": 40.8}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 33195, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 101.6, "diff": 40.8}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 33200, "event_value": {"player_position": "Player5_TopMid", "value": "won", "won_value": 40.8, "original_text": "won 40.8 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33260, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 33275, "event_value": {"player_position": "Player1_Bottom", "value": "post_sb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33275, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.71}}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 33275, "event_value": {"value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 33275, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 33280, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 49.3, "diff": -0.5}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33290, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["4♥"], "confidences": {"4♥": 0.93}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33295, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["2♥"], "confidences": {"2♥": 0.96}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 33295, "event_value": {"player_position": "Player5_TopMid", "value": "#naktr", "old_value": "#naktro91"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33295, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.9}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 33300, "event_value": {"player_position": "Player5_TopMid", "value": "#naktro91", "old_value": "#naktr"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33300, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.99}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33305, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["2♥", "J♣"], "confidences": {"2♥": 0.99, "J♣": 0.87}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33305, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 33305, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 1016.0, "diff": 914.4}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33310, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["9♥"], "confidences": {"9♥": 0.8}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 33310, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 2.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 33310, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 101.6, "diff": -914.4}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33320, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 33320, "event_value": {"player_position": "Player7_MidRight", "value": "a", "old_value": "ulo u"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33325, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["Q♦"], "confidences": {"Q♦": 0.95}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 33330, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33330, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♣"], "confidences": {"10♣": 0.99}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 33335, "event_value": {"player_position": "Player4_TopLeft", "value": "61", "old_value": "110 7146"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33335, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.72}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33335, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 1.0}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33335, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["Q♠"], "confidences": {"Q♠": 0.83}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33340, "event_value": {"player_position": "Player7_MidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 33340, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 9.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33345, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["Q♣"], "confidences": {"Q♣": 0.99}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33350, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["4♥"], "confidences": {"4♥": 0.93}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 33350, "event_value": {"player_position": "Player6_TopRight", "value": "tu1206", "old_value": "aku1206"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 33350, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 66.5, "diff": 10.0}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 33355, "event_value": {"player_position": "Player6_TopRight", "value": "aku1206", "old_value": "tu1206"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 33355, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 56.5, "diff": -10.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33355, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "10♠"], "confidences": {"10♥": 1.0, "10♠": 0.94}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 33355, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 33360, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 93.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 33445, "event_value": {"player_position": "Player5_TopMid", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33445, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33445, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 33450, "event_value": {"player_position": "Player6_TopRight", "value": "fold"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 33545, "event_value": {"value": "update_pot", "pot": 3.5, "raw_text": "pot 3.5 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 33590, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 33590, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33595, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 33600, "event_value": {"player_position": "Player1_Bottom", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33600, "event_value": {"player_position": "Player9_BottomMidRight", "value": "update_cards", "cards": ["9♥"], "confidences": {"9♥": 0.74}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33640, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.97}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33645, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 33665, "event_value": {"value": "update_pot", "pot": 4.5, "raw_text": "pot 4.5 bb"}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 33665, "event_value": {"value": "update_round_bet", "bet": 4.5}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 33695, "event_value": {"value": "update_cards", "cards": ["A♠", "2♠"], "confidences": [0.7462447881698608, 0.9985920786857605]}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 33760, "event_value": {"player_position": "Player9_BottomMidRight", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 33935, "event_value": {"value": "update_cards", "cards": ["A♠", "2♠", "J♥"], "confidences": [0.8336898684501648, 0.9974642992019653, 0.9792318344116211]}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 33965, "event_value": {"value": "update_cards", "cards": ["A♠", "2♠", "5♠"], "confidences": [0.8336898684501648, 0.99811851978302, 0.9962131977081299]}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 33985, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 34060, "event_value": {"player_position": "Player9_BottomMidRight", "value": "update_cards", "cards": ["9♥"], "confidences": {"9♥": 0.71}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 34210, "event_value": {"player_position": "Player9_BottomMidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 34265, "event_value": {"player_position": "Player8_BottomRight", "value": "update_cards", "cards": ["J♦"], "confidences": {"J♦": 0.71}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 34280, "event_value": {"player_position": "Player8_BottomRight", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 34295, "event_value": {"value": "update_cards", "cards": ["A♠", "2♠", "5♠", "6♠"], "confidences": [0.8331828117370605, 0.9977867603302002, 0.9958223104476929, 0.8111519813537598]}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 34340, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 34660, "event_value": {"player_position": "Player9_BottomMidRight", "value": "update_cards", "cards": ["9♥"], "confidences": {"9♥": 0.71}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 34785, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.76}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 34795, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 34805, "event_value": {"value": "update_pot", "pot": 6.0, "raw_text": "pot 6 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 34810, "event_value": {"player_position": "Player9_BottomMidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 34955, "event_value": {"player_position": "Player8_BottomRight", "value": "update_cards", "cards": ["J♦"], "confidences": {"J♦": 0.74}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 34985, "event_value": {"player_position": "Player8_BottomRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35090, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.86}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35095, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 35105, "event_value": {"value": "update_pot", "pot": 7.5, "raw_text": "pot 7.5 bb"}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 35105, "event_value": {"value": "update_round_bet", "bet": 7.5}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 35145, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "chat", "event_name": "dealer_message", "frame_id": 35205, "event_value": {"text": "dealer ajsuited16. its your turn you have 10 seconds to act dealer skzii_modr has a straight deuce to six dealer hand #239733384339 skzii_modr wins pot 529.200 with a straight deuce to six"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 35230, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35270, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["9♥"], "confidences": {"9♥": 0.86}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35275, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35280, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.9}}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 35285, "event_value": {"value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 35285, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35300, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["9♠"], "confidences": {"9♠": 0.99}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 35300, "event_value": {"player_position": "Player5_TopMid", "value": "#naktr", "old_value": "#naktro91"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35300, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.71}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 35305, "event_value": {"player_position": "Player5_TopMid", "value": "#naktro91", "old_value": "#naktr"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35305, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35305, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["Q♥", "Q♠"], "confidences": {"Q♥": 0.73, "Q♠": 0.81}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35315, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♠"], "confidences": {"10♠": 0.99}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 35315, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 810.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35320, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "A♥"], "confidences": {"10♥": 0.72, "A♥": 0.75}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35320, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.86}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35325, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35330, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 0.99, "Q♥": 0.81}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 35330, "event_value": {"player_position": "Player7_MidRight", "value": "j15", "old_value": "a"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35335, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "A♠"], "confidences": {"10♥": 0.73, "A♠": 0.75}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35340, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.81}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35340, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.86}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 35345, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 9.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35350, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.99}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35355, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "10♠"], "confidences": {"10♥": 0.81, "10♠": 0.76}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 35355, "event_value": {"player_position": "Player6_TopRight", "value": "41206", "old_value": "aku1206"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 35355, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 6.5, "diff": -50.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35360, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 0.78, "Q♥": 0.97}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 35360, "event_value": {"player_position": "Player6_TopRight", "value": "aku1206", "old_value": "41206"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 35360, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 56.5, "diff": 50.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35360, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "10♠"], "confidences": {"10♥": 0.72, "10♠": 0.85}}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 35365, "event_value": {"player_position": "Player5_TopMid", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35365, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 35365, "event_value": {"player_position": "Player6_TopRight", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35365, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 35365, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 94.0, "diff": 85.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35400, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35440, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥", "Q♠"], "confidences": {"10♥": 0.99, "Q♠": 0.72}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35440, "event_value": {"player_position": "Player8_BottomRight", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.81}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35470, "event_value": {"player_position": "Player8_BottomRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 35560, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 35620, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 35795, "event_value": {"player_position": "Player1_Bottom", "value": "raise"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 35795, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 46.6, "diff": -2.7}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 35795, "event_value": {"value": "update_pot", "pot": 4.2, "raw_text": "pot 4.2 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 35830, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35875, "event_value": {"player_position": "Player3_MidLeft", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.76}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 35960, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 48.3, "diff": 1.7}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35960, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.84}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35960, "event_value": {"player_position": "Player3_MidLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 35965, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 35975, "event_value": {"value": "update_pot", "pot": 2.5, "raw_text": "pot 2.5 bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 36020, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 50.8, "diff": 2.5}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36020, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 36085, "event_value": {"player_position": "Player5_TopMid", "value": "post_bb"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 36095, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36100, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["4♥"], "confidences": {"4♥": 1.0}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 36100, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 100.6, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 36105, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 0.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 36110, "event_value": {"player_position": "Player4_TopLeft", "value": "iu", "old_value": "61"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36110, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 1.0}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36115, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["4♥", "Q♠"], "confidences": {"4♥": 0.9, "Q♠": 0.94}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 36115, "event_value": {"player_position": "Player7_MidRight", "value": "2", "old_value": "j15"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36125, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["2♥"], "confidences": {"2♥": 0.91}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36125, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 1.0}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36130, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 1.0, "Q♥": 0.76}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 36130, "event_value": {"player_position": "Player7_MidRight", "value": "2i8", "old_value": "2"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36135, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["4♥"], "confidences": {"4♥": 0.96}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36140, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.9}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 36140, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 9.0, "diff": 9.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36140, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["2♥", "Q♥"], "confidences": {"2♥": 0.91, "Q♥": 0.98}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36145, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.84}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36145, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♣", "9♠"], "confidences": {"10♣": 1.0, "9♠": 0.9}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36150, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥", "Q♣"], "confidences": {"10♥": 0.9, "Q♣": 0.72}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36155, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥", "7♥"], "confidences": {"10♥": 0.91, "7♥": 0.86}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 36160, "event_value": {"player_position": "Player4_TopLeft", "value": "iu6iaia", "old_value": "iu"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36160, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥", "2♥"], "confidences": {"10♥": 0.85, "2♥": 0.92}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36165, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.78}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36165, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♣", "10♥"], "confidences": {"10♣": 1.0, "10♥": 0.79}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 36170, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 36170, "event_value": {"player_position": "Player6_TopRight", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36170, "event_value": {"player_position": "Player6_TopRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 36170, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 8.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36185, "event_value": {"player_position": "Player8_BottomRight", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.75}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36195, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.8}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36215, "event_value": {"player_position": "Player8_BottomRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36235, "event_value": {"player_position": "Player7_MidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 36295, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 36340, "event_value": {"player_position": "Player4_TopLeft", "value": "iu6laa", "old_value": "iu6iaia"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 36440, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 36600, "event_value": {"player_position": "Player1_Bottom", "value": "call"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 36605, "event_value": {"player_position": "Player1_Bottom", "value": "update_stack", "stack": 49.8, "diff": -1.0}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 36605, "event_value": {"value": "update_pot", "pot": 2.5, "raw_text": "pot 2.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36835, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.94}}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 36845, "event_value": {"value": "update_pot", "pot": 6.0, "raw_text": "pot 6 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 36850, "event_value": {"player_position": "Player3_MidLeft", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.73}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 37375, "event_value": {"player_position": "Player3_MidLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 37375, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 224.0, "diff": null}}
+{"object_type": "chat", "event_name": "dealer_message", "frame_id": 37375, "event_value": {"text": "dealer hand #239733406814 kaju85 wins 175.000 dealer llinusllove. its your turn you have 10 seconds to act dealer regular time for player llinusllove has expired. time bank has been activated pot"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 37405, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 223.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 37435, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 222.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 37465, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 221.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 37495, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 220.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 37525, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 219.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 37555, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 218.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 37585, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 217.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 37615, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 216.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 37645, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 215.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 37675, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 214.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 37705, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 213.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 37735, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 212.0, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 37765, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 211.0, "diff": -1.0}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 37805, "event_value": {"value": "update_cards", "cards": ["8♥"], "confidences": [0.818254828453064]}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 37805, "event_value": {"value": "update_pot", "pot": 18.0, "raw_text": "pot 18 bb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 37820, "event_value": {"player_position": "Player5_TopMid", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 37820, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 37855, "event_value": {"player_position": "Player1_Bottom", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 37855, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 37940, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 37955, "event_value": {"value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 37955, "event_value": {"value": "update_pot", "pot": 27.0, "raw_text": "pot 27 bb"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 37985, "event_value": {"value": "update_cards", "cards": ["10♥", "Q♥", "J♥"], "confidences": [0.7248772978782654, 0.7041935920715332, 0.9212526679039001]}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 37985, "event_value": {"value": "update_round_bet", "bet": 27.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 38015, "event_value": {"player_position": "Player3_MidLeft", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.72}}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 38165, "event_value": {"value": "update_cards", "cards": ["Q♥", "J♥"], "confidences": [0.7387007474899292, 0.8957459330558777]}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 38425, "event_value": {"player_position": "Player3_MidLeft", "value": "remove_cards"}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 38435, "event_value": {"value": "update_pot", "pot": 35.3, "raw_text": "pot 35.3 bb"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 38615, "event_value": {"value": "update_cards", "cards": ["J♥"], "confidences": [0.858947217464447]}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 38630, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 9.0, "diff": null}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 38780, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39215, "event_value": {"player_position": "Player2_BottomLeft", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.72}}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 39215, "event_value": {"value": "update_pot", "pot": 43.6, "raw_text": "pot 43.6 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39220, "event_value": {"player_position": "Player2_BottomLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 39230, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 9.0, "diff": null}}
+{"object_type": "table", "event_name": "recognize_round_bet", "frame_id": 39245, "event_value": {"value": "update_round_bet", "bet": 43.6}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 39365, "event_value": {"value": "update_cards", "cards": ["J♥", "5♥"], "confidences": [0.8764532208442688, 0.901823103427887]}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 39410, "event_value": {"player_position": "Player4_TopLeft", "value": "update_stack", "stack": 43.6, "diff": null}}
+{"object_type": "chat", "event_name": "dealer_message", "frame_id": 39410, "event_value": {"text": "dealer llinusllove has two pair. aces and dealer sk2ii_modr has a pair of dealer hand #239733415724 llinusllove wins pot 3.058.094 with two pair. aces and kings kings kings"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 39425, "event_value": {"value": "update_cards", "cards": ["10♥", "J♥", "5♥"], "confidences": [0.7108670473098755, 0.8813044428825378, 0.9212316274642944]}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 39455, "event_value": {"value": "update_cards", "cards": ["Q♥", "J♥", "5♥"], "confidences": [0.7067782282829285, 0.8813044428825378, 0.9189037680625916]}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 39470, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "table", "event_name": "recognize_cards", "frame_id": 39485, "event_value": {"value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 39490, "event_value": {"player_position": "Player5_TopMid", "value": "post_sb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 39490, "event_value": {"player_position": "Player6_TopRight", "value": "post_bb"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 39505, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 100.1, "diff": -0.5}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 39505, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 55.5, "diff": -1.0}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 39510, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 8.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39515, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["9♠"], "confidences": {"9♠": 0.77}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39515, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.9}}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 39515, "event_value": {"value": "update_pot", "pot": 1.5, "raw_text": "pot 1.5 bb"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39520, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.88}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 39520, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 1001.0, "diff": 900.9}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39520, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["J♥", "Q♥"], "confidences": {"J♥": 0.76, "Q♥": 0.78}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39525, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 39525, "event_value": {"player_position": "Player5_TopMid", "value": "update_stack", "stack": 100.1, "diff": -900.9}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 39530, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 810.0, "diff": 802.0}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 39530, "event_value": {"player_position": "Player4_TopLeft", "value": "612", "old_value": "iu6laa"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39535, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39535, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 1.0}}}
+{"object_type": "player", "event_name": "ocr_nickname", "frame_id": 39535, "event_value": {"player_position": "Player7_MidRight", "value": "jia", "old_value": "2i8"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39540, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["A♣"], "confidences": {"A♣": 0.72}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39545, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 0.82}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 39545, "event_value": {"player_position": "Player3_MidLeft", "value": "update_stack", "stack": 8105.0, "diff": 7295.0}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39550, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.98}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39550, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "4♥"], "confidences": {"10♥": 0.96, "4♥": 0.78}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39555, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥", "Q♥"], "confidences": {"10♥": 0.83, "Q♥": 0.83}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39555, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "8♥"], "confidences": {"10♥": 1.0, "8♥": 0.99}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39560, "event_value": {"player_position": "Player1_Bottom", "value": "update_cards", "cards": ["10♥", "8♠"], "confidences": {"10♥": 0.82, "8♠": 0.91}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39570, "event_value": {"player_position": "Player5_TopMid", "value": "update_cards", "cards": ["4♥"], "confidences": {"4♥": 0.98}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39570, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "Q♣"], "confidences": {"10♥": 0.99, "Q♣": 0.88}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39570, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["Q♠"], "confidences": {"Q♠": 0.86}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39575, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥", "9♥"], "confidences": {"10♥": 0.99, "9♥": 0.78}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 39575, "event_value": {"player_position": "Player8_BottomRight", "value": "update_stack", "stack": 7.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39600, "event_value": {"player_position": "Player7_MidRight", "value": "update_cards", "cards": ["Q♥"], "confidences": {"Q♥": 0.73}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 39605, "event_value": {"player_position": "Player8_BottomRight", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39620, "event_value": {"player_position": "Player7_MidRight", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39625, "event_value": {"player_position": "Player1_Bottom", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 39630, "event_value": {"player_position": "Player1_Bottom", "value": "fold"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 39635, "event_value": {"player_position": "Player3_MidLeft", "value": "stack_removed"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39650, "event_value": {"player_position": "Player3_MidLeft", "value": "update_cards", "cards": ["J♥"], "confidences": {"J♥": 0.76}}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 39680, "event_value": {"player_position": "Player7_MidRight", "value": "update_stack", "stack": 1.0, "diff": null}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39695, "event_value": {"player_position": "Player6_TopRight", "value": "update_cards", "cards": ["10♥"], "confidences": {"10♥": 1.0}}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39795, "event_value": {"player_position": "Player3_MidLeft", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 39855, "event_value": {"player_position": "Player5_TopMid", "value": "fold"}}
+{"object_type": "player", "event_name": "recognize_cards", "frame_id": 39855, "event_value": {"player_position": "Player5_TopMid", "value": "remove_cards"}}
+{"object_type": "player", "event_name": "ocr_stack", "frame_id": 39860, "event_value": {"player_position": "Player6_TopRight", "value": "update_stack", "stack": 56.0, "diff": 0.5}}
+{"object_type": "table", "event_name": "recognize_pot", "frame_id": 39875, "event_value": {"value": "update_pot", "pot": 1.0, "raw_text": "pot 1 bb"}}
+{"object_type": "player", "event_name": "ocr_action", "frame_id": 39905, "event_value": {"player_position": "Player6_TopRight", "value": "won", "won_value": 1.0, "original_text": "won 1 bb"}}

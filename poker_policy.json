@@ -1,0 +1,55 @@
+{
+  "feature_means": {
+    "bias": 1.0,
+    "board_count": 3.0,
+    "hole_count": 2.0,
+    "min_raise": 0.0,
+    "player_count": 6.0,
+    "position=Player1_Bottom": 1.0,
+    "pot": 10.0,
+    "pot_odds": 0.0,
+    "stack": 100.0,
+    "stack_to_pot": 10.0,
+    "street=preflop": 1.0,
+    "street_index": 0.0,
+    "strength_proxy": 0.8321428571428573,
+    "to_call": 0.0
+  },
+  "feature_scales": {
+    "bias": 1.0,
+    "board_count": 1.0,
+    "hole_count": 1.0,
+    "min_raise": 1.0,
+    "player_count": 1.0,
+    "position=Player1_Bottom": 1.0,
+    "pot": 1.0,
+    "pot_odds": 1.0,
+    "stack": 1.0,
+    "stack_to_pot": 1.0,
+    "street=preflop": 1.0,
+    "street_index": 1.0,
+    "strength_proxy": 1.0,
+    "to_call": 1.0
+  },
+  "labels": [
+    "call"
+  ],
+  "weights": {
+    "call": {
+      "bias": 0.0,
+      "board_count": 0.0,
+      "hole_count": 0.0,
+      "min_raise": 0.0,
+      "player_count": 0.0,
+      "position=Player1_Bottom": 0.0,
+      "pot": 0.0,
+      "pot_odds": 0.0,
+      "stack": 0.0,
+      "stack_to_pot": 0.0,
+      "street=preflop": 0.0,
+      "street_index": 0.0,
+      "strength_proxy": 0.0,
+      "to_call": 0.0
+    }
+  }
+}

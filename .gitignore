@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env/
+env/
+env/
+sample_out/
+smoke_dataset/
+smoke_model.json
+poker_dataset/
+*.log
+

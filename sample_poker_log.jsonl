@@ -1,0 +1,6 @@
+{"frame_id":1,"event_name":"ocr_stack","object_type":"player","event_value":{"player_position":"Player1_Bottom","value":"update_stack","stack":100}}
+{"frame_id":2,"event_name":"recognize_cards","object_type":"player","event_value":{"player_position":"Player1_Bottom","value":"update_cards","cards":["Ah","Kd"]}}
+{"frame_id":3,"event_name":"ocr_action","object_type":"player","event_value":{"player_position":"Player1_Bottom","value":"call"}}
+{"frame_id":4,"event_name":"recognize_cards","object_type":"table","event_value":{"value":"update_cards","cards":["2c","7d","Qs"]}}
+{"frame_id":5,"event_name":"ocr_stack","object_type":"player","event_value":{"player_position":"Player1_Bottom","value":"update_stack","stack":110,"diff":10}}
+{"frame_id":6,"event_name":"recognize_cards","object_type":"table","event_value":{"value":"remove_cards"}}
