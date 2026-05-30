@@ -98,19 +98,19 @@ cd "C:\Users\user\Desktop\Secop\files-mentioned-by-the-user-poker-2"
 Open:
 
 ```text
-http://127.0.0.1:8001/predict
+http://127.0.0.1:8000/predict
 ```
 
 API docs:
 
 ```text
-http://127.0.0.1:8001/docs
+http://127.0.0.1:8000/docs
 ```
 
 Health / model status:
 
 ```text
-http://127.0.0.1:8001/health.json
+http://127.0.0.1:8000/health.json
 ```
 
 Stop the server with `Ctrl+C`.
@@ -140,7 +140,7 @@ Class-weighted experiment:
 ```powershell
 Invoke-RestMethod `
   -Method Post `
-  -Uri "http://127.0.0.1:8001/predict" `
+  -Uri "http://127.0.0.1:8000/predict" `
   -ContentType "application/json" `
   -Body '{"position":"BTN","street":"preflop","hole_cards":["Ah","Kd"],"board_cards":[],"pot":2.5,"to_call":1.0,"stack":100.0,"min_raise":2.0,"player_count":6}'
 ```
