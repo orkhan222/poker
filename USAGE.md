@@ -11,7 +11,7 @@ cd "C:\Users\user\Desktop\Secop\files-mentioned-by-the-user-poker-2"
 Open:
 
 ```text
-http://127.0.0.1:8001/predict
+http://127.0.0.1:8000/predict
 ```
 
 Stop with `Ctrl+C`.
@@ -19,7 +19,7 @@ Stop with `Ctrl+C`.
 ## Health / Model Status
 
 ```text
-http://127.0.0.1:8001/health.json
+http://127.0.0.1:8000/health.json
 ```
 
 Example response:
@@ -41,7 +41,7 @@ Field meanings:
 ## API Docs
 
 ```text
-http://127.0.0.1:8001/docs
+http://127.0.0.1:8000/docs
 ```
 
 Visible endpoint groups:
