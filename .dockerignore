@@ -3,7 +3,13 @@ __pycache__/
 *.pyo
 *.pyd
 .git/
+.qodo/
+.venv/
+env/
+dataset/
+docs/
 sample_out/
 smoke_dataset/
 smoke_model.json
-
+release/
+*.log

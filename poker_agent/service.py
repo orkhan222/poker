@@ -4,29 +4,45 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 
 from poker_agent.agents import MLPolicyAgent, RuleBasedAgent
 from poker_agent.schemas import PredictionRequest
 
 
-app = FastAPI(title="Poker Agent Service", version="0.1.0")
+app = FastAPI(
+    title="Poker Decision Agent API",
+    description="API for real-time poker action prediction using the bundled trained policy model.",
+    version="1.0.0",
+    openapi_tags=[
+        {
+            "name": "Prediction",
+            "description": "Poker action prediction endpoints.",
+        },
+        {
+            "name": "System",
+            "description": "Service status and model health endpoints.",
+        },
+    ],
+)
 _agent = None
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_MODEL_PATH = PROJECT_ROOT / "models" / "poker_policy.json"
 
 
-DEMO_HTML = """
+APP_HTML = """
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Poker Agent Demo</title>
+  <title>Poker Decision Agent</title>
   <style>
     :root {
       color-scheme: dark;
       font-family: Inter, Segoe UI, Arial, sans-serif;
-      background: #101412;
+      background: #0f1412;
       color: #eef4ef;
     }
     * { box-sizing: border-box; }
@@ -34,8 +50,9 @@ DEMO_HTML = """
       margin: 0;
       min-height: 100vh;
       background:
-        radial-gradient(circle at 20% 10%, rgba(38, 120, 83, 0.35), transparent 32rem),
-        linear-gradient(135deg, #101412 0%, #19211d 50%, #111716 100%);
+        radial-gradient(circle at 20% 10%, rgba(59, 130, 246, 0.18), transparent 30rem),
+        radial-gradient(circle at 86% 12%, rgba(34, 197, 94, 0.16), transparent 28rem),
+        linear-gradient(135deg, #0f1412 0%, #17201c 50%, #101516 100%);
     }
     main {
       width: min(1120px, calc(100% - 32px));
@@ -55,6 +72,13 @@ DEMO_HTML = """
       font-weight: 800;
       letter-spacing: 0;
     }
+    .subtitle {
+      max-width: 720px;
+      margin: 12px 0 0;
+      color: #d6e3db;
+      font-size: 17px;
+      line-height: 1.45;
+    }
     .status {
       border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 8px;
@@ -62,6 +86,7 @@ DEMO_HTML = """
       background: rgba(255, 255, 255, 0.06);
       color: #9fe6b3;
       white-space: nowrap;
+      font-weight: 750;
     }
     .layout {
       display: grid;
@@ -75,6 +100,12 @@ DEMO_HTML = """
       box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
     }
     .form-panel { padding: 22px; }
+    .panel-title {
+      margin: 0 0 16px;
+      color: #f5fff8;
+      font-size: 18px;
+      font-weight: 850;
+    }
     .result-panel {
       padding: 22px;
       display: flex;
@@ -124,6 +155,7 @@ DEMO_HTML = """
       cursor: wait;
       opacity: 0.65;
     }
+    button:hover { background: #62d67c; }
     .action {
       min-height: 110px;
       border-radius: 8px;
@@ -134,6 +166,30 @@ DEMO_HTML = """
       font-size: clamp(38px, 6vw, 72px);
       font-weight: 900;
       text-transform: uppercase;
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .metric {
+      min-height: 72px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .metric span {
+      display: block;
+      color: #9fb0a6;
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .metric strong {
+      display: block;
+      margin-top: 7px;
+      color: #f4fff7;
+      font-size: 18px;
     }
     .bars {
       display: grid;
@@ -175,6 +231,7 @@ DEMO_HTML = """
       header, .layout { grid-template-columns: 1fr; }
       header { align-items: start; }
       .grid { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -182,14 +239,15 @@ DEMO_HTML = """
   <main>
     <header>
       <div>
-        <h1>Poker Agent Demo</h1>
-        <p>Enter a game state and get the model decision instantly.</p>
+        <h1>Poker Decision Agent</h1>
+        <p class="subtitle">Real-time poker action prediction from game state inputs, backed by a trained policy model and exposed through a FastAPI service.</p>
       </div>
-      <div class="status">API online</div>
+      <div class="status">Live API</div>
     </header>
 
     <div class="layout">
       <section class="form-panel">
+        <h2 class="panel-title">Game State</h2>
         <form id="predict-form">
           <div class="grid">
             <label>Position
@@ -239,6 +297,11 @@ DEMO_HTML = """
 
       <section class="result-panel">
         <div id="action" class="action">Ready</div>
+        <div class="summary">
+          <div class="metric"><span>Confidence</span><strong id="confidence">-</strong></div>
+          <div class="metric"><span>Street</span><strong id="street-summary">-</strong></div>
+          <div class="metric"><span>Position</span><strong id="position-summary">-</strong></div>
+        </div>
         <div id="bars" class="bars"></div>
         <pre id="json-output">{}</pre>
       </section>
@@ -249,6 +312,9 @@ DEMO_HTML = """
     const form = document.getElementById("predict-form");
     const button = document.getElementById("submit-button");
     const actionBox = document.getElementById("action");
+    const confidence = document.getElementById("confidence");
+    const streetSummary = document.getElementById("street-summary");
+    const positionSummary = document.getElementById("position-summary");
     const bars = document.getElementById("bars");
     const output = document.getElementById("json-output");
 
@@ -260,8 +326,13 @@ DEMO_HTML = """
       return Number(data.get(name) || 0);
     }
 
-    function render(result) {
+    function render(result, payload) {
       actionBox.textContent = result.action || "N/A";
+      const probabilities = Object.values(result.probabilities || {});
+      const topProbability = probabilities.length ? Math.max(...probabilities) : 0;
+      confidence.textContent = `${(topProbability * 100).toFixed(1)}%`;
+      streetSummary.textContent = payload.street || "-";
+      positionSummary.textContent = payload.position || "-";
       output.textContent = JSON.stringify(result, null, 2);
       bars.innerHTML = "";
       Object.entries(result.probabilities || {})
@@ -301,7 +372,7 @@ DEMO_HTML = """
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify(payload)
         });
-        render(await response.json());
+        render(await response.json(), payload);
       } catch (error) {
         actionBox.textContent = "Error";
         output.textContent = String(error);
@@ -319,34 +390,206 @@ DEMO_HTML = """
 """
 
 
+def health_payload() -> dict[str, str]:
+    model_path = Path(os.getenv("POKER_POLICY_PATH", str(DEFAULT_MODEL_PATH)))
+    return {
+        "status": "ok",
+        "model": str(model_path),
+        "model_status": "loaded" if model_path.exists() else "fallback_rule_based",
+    }
+
+
+def health_html(payload: dict[str, str]) -> str:
+    status = payload["status"].upper()
+    model_status = payload["model_status"].replace("_", " ")
+    model_path = payload["model"]
+    return f"""
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Poker Decision Agent Status</title>
+  <style>
+    :root {{
+      color-scheme: dark;
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      background: #0f1412;
+      color: #eef4ef;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(circle at 20% 12%, rgba(59, 130, 246, 0.18), transparent 30rem),
+        radial-gradient(circle at 85% 18%, rgba(34, 197, 94, 0.16), transparent 28rem),
+        linear-gradient(135deg, #0f1412 0%, #17201c 50%, #101516 100%);
+    }}
+    main {{
+      width: min(760px, 100%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 28px;
+      background: rgba(16, 20, 18, 0.88);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+    }}
+    header {{
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 18px;
+      margin-bottom: 22px;
+    }}
+    h1 {{
+      margin: 0;
+      font-size: clamp(30px, 5vw, 44px);
+      letter-spacing: 0;
+    }}
+    .badge {{
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: #e9fff0;
+      color: #102016;
+      font-weight: 850;
+      white-space: nowrap;
+    }}
+    .grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }}
+    .item {{
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.04);
+    }}
+    .item span {{
+      display: block;
+      color: #9fb0a6;
+      font-size: 12px;
+      font-weight: 750;
+      text-transform: uppercase;
+    }}
+    .item strong {{
+      display: block;
+      margin-top: 8px;
+      overflow-wrap: anywhere;
+      color: #f4fff7;
+      font-size: 17px;
+    }}
+    .model {{
+      grid-column: 1 / -1;
+    }}
+    nav {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }}
+    a {{
+      border-radius: 6px;
+      padding: 10px 13px;
+      background: #55c46f;
+      color: #07110a;
+      text-decoration: none;
+      font-weight: 850;
+    }}
+    a.secondary {{
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.06);
+      color: #eef4ef;
+    }}
+    @media (max-width: 640px) {{
+      header, .grid {{ grid-template-columns: 1fr; }}
+      header {{ display: grid; }}
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Service Status</h1>
+      </div>
+      <div class="badge">{status}</div>
+    </header>
+    <section class="grid">
+      <div class="item">
+        <span>API</span>
+        <strong>{payload["status"]}</strong>
+      </div>
+      <div class="item">
+        <span>Model status</span>
+        <strong>{model_status}</strong>
+      </div>
+      <div class="item model">
+        <span>Model path</span>
+        <strong>{model_path}</strong>
+      </div>
+    </section>
+    <nav>
+      <a href="/predict">Open application</a>
+      <a class="secondary" href="/docs">API docs</a>
+      <a class="secondary" href="/health.json">Raw JSON</a>
+    </nav>
+  </main>
+</body>
+</html>
+"""
+
+
 def get_agent():
     global _agent
     if _agent is not None:
         return _agent
-    model_path = os.getenv("POKER_POLICY_PATH")
-    if model_path and Path(model_path).exists():
-        _agent = MLPolicyAgent.from_path(Path(model_path))
+    model_path = Path(os.getenv("POKER_POLICY_PATH", str(DEFAULT_MODEL_PATH)))
+    if model_path.exists():
+        _agent = MLPolicyAgent.from_path(model_path)
     else:
         _agent = RuleBasedAgent()
     return _agent
 
 
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+@app.get("/health", include_in_schema=False)
+def health(request: Request) -> Any:
+    payload = health_payload()
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept and "application/json" not in accept:
+        return HTMLResponse(health_html(payload))
+    return payload
 
 
-@app.get("/", response_class=HTMLResponse)
-def demo_home() -> str:
-    return DEMO_HTML
+@app.get(
+    "/health.json",
+    tags=["System"],
+    summary="Service status",
+    description="Returns API status and confirms whether the bundled policy model is loaded.",
+)
+def health_json() -> dict[str, str]:
+    return health_payload()
 
 
-@app.get("/predict", response_class=HTMLResponse)
-def demo_predict() -> str:
-    return DEMO_HTML
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def home_page() -> str:
+    return APP_HTML
 
 
-@app.post("/predict")
+@app.get("/predict", response_class=HTMLResponse, include_in_schema=False)
+def predict_page() -> str:
+    return APP_HTML
+
+
+@app.post(
+    "/predict",
+    tags=["Prediction"],
+    summary="Predict poker action",
+    description="Accepts a poker game state and returns the selected action with action probabilities.",
+)
 def predict(payload: dict[str, Any]) -> dict[str, Any]:
     request = PredictionRequest.from_dict(payload)
     return get_agent().predict(request).to_dict()

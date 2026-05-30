@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import random
 import sys
 from pathlib import Path
@@ -20,6 +21,26 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model-out", required=True, type=Path, help="Output JSON model path")
     parser.add_argument("--epochs", type=int, default=8)
     parser.add_argument("--learning-rate", type=float, default=0.08)
+    parser.add_argument(
+        "--class-weighting",
+        choices=("none", "sqrt_balanced", "balanced"),
+        default="none",
+        help=(
+            "Loss weighting mode. The delivered model uses none because it won the "
+            "validation accuracy/loss comparison after rare all-in actions were merged."
+        ),
+    )
+    parser.add_argument("--max-class-weight", type=float, default=12.0)
+    parser.add_argument(
+        "--allow-missing-hole-cards",
+        action="store_true",
+        help="Keep rows where OCR did not capture two hole cards. Default filters them out.",
+    )
+    parser.add_argument(
+        "--keep-all-in-class",
+        action="store_true",
+        help="Keep all_in as a separate class. Default merges it into raise because it is too rare in OCR logs.",
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--max-examples",
@@ -32,7 +53,12 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    examples = load_training_examples(args.dataset, max_examples=args.max_examples)
+    examples = load_training_examples(
+        args.dataset,
+        max_examples=args.max_examples,
+        require_hole_cards=not args.allow_missing_hole_cards,
+        merge_all_in=not args.keep_all_in_class,
+    )
     if not examples:
         raise SystemExit(f"No training examples found in {args.dataset}")
     random.Random(args.seed).shuffle(examples)
@@ -41,14 +67,38 @@ def main() -> None:
     valid_examples = examples[split:] or examples[:]
 
     model = SoftmaxPolicy()
-    model.fit(train_examples, epochs=args.epochs, learning_rate=args.learning_rate)
+    model.fit(
+        train_examples,
+        epochs=args.epochs,
+        learning_rate=args.learning_rate,
+        class_weighting=args.class_weighting,
+        max_class_weight=args.max_class_weight,
+    )
     model.save(args.model_out)
 
     train_metrics = evaluate_policy(model, train_examples)
     valid_metrics = evaluate_policy(model, valid_examples)
     print(f"saved_model={args.model_out}")
+    print(f"examples={len(examples)} train_examples={len(train_examples)} valid_examples={len(valid_examples)}")
+    print(f"class_weighting={args.class_weighting} class_weights={json.dumps(model.class_weights, sort_keys=True)}")
+    print(f"train_class_counts={json.dumps(train_metrics['class_counts'], sort_keys=True)}")
+    print(f"valid_class_counts={json.dumps(valid_metrics['class_counts'], sort_keys=True)}")
     print(f"train_accuracy={train_metrics['accuracy']:.4f} train_ce={train_metrics['cross_entropy']:.4f}")
+    print(f"train_macro_f1={train_metrics['macro_f1']:.4f}")
+    print(
+        "train_majority_baseline="
+        f"{train_metrics['majority_baseline_accuracy']:.4f} "
+        f"train_lift_vs_majority={train_metrics['lift_vs_majority']:.4f}"
+    )
     print(f"valid_accuracy={valid_metrics['accuracy']:.4f} valid_ce={valid_metrics['cross_entropy']:.4f}")
+    print(f"valid_macro_f1={valid_metrics['macro_f1']:.4f}")
+    print(
+        "valid_majority_baseline="
+        f"{valid_metrics['majority_baseline_accuracy']:.4f} "
+        f"valid_lift_vs_majority={valid_metrics['lift_vs_majority']:.4f}"
+    )
+    print(f"valid_predicted_class_counts={json.dumps(valid_metrics['predicted_class_counts'], sort_keys=True)}")
+    print(f"valid_per_class={json.dumps(valid_metrics['per_class'], sort_keys=True)}")
 
 
 if __name__ == "__main__":
