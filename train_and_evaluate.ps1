@@ -2,17 +2,20 @@ param(
     [string]$Dataset = "C:\Users\user\Desktop\AllFile\dataset",
     [string]$ModelOut = "",
     [int]$MaxExamples = 0,
+    [ValidateSet("hist_gradient_boosting", "extra_trees", "random_forest", "softmax")]
+    [string]$Policy = "hist_gradient_boosting",
     [int]$Epochs = 12,
-    [double]$LearningRate = 0.015,
+    [int]$MaxIter = 220,
+    [double]$LearningRate = 0.05,
     [ValidateSet("none", "sqrt_balanced", "balanced")]
-    [string]$ClassWeighting = "none"
+    [string]$ClassWeighting = "sqrt_balanced"
 )
 
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (!$ModelOut) {
-    $ModelOut = Join-Path $ProjectRoot "models\poker_policy.json"
+    $ModelOut = Join-Path $ProjectRoot "models\poker_policy.joblib"
 }
 
 $PythonCandidates = @(
@@ -50,7 +53,9 @@ Write-Host "Training policy model..." -ForegroundColor Green
 & $Python scripts\train_policy.py `
     --dataset $Dataset `
     --model-out $ModelOut `
+    --policy $Policy `
     --epochs $Epochs `
+    --max-iter $MaxIter `
     --learning-rate $LearningRate `
     --class-weighting $ClassWeighting `
     --max-examples $MaxExamples

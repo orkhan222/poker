@@ -54,7 +54,7 @@ Write-Host "Starting Docker container on host port $HostPort..." -ForegroundColo
 Invoke-Docker run -d --name $ContainerName -p "${HostPort}:8001" $ImageName | Out-Null
 
 try {
-    $HealthUrl = "http://127.0.0.1:$HostPort/health"
+    $HealthUrl = "http://127.0.0.1:$HostPort/wsl --shutdown"
     $PredictUrl = "http://127.0.0.1:$HostPort/predict"
     $Ready = $false
 

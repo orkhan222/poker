@@ -27,7 +27,7 @@ Example response:
 ```json
 {
   "status": "ok",
-  "model": "C:\\Users\\user\\Desktop\\Secop\\files-mentioned-by-the-user-poker-2\\models\\poker_policy.json",
+  "model": "C:\\Users\\user\\Desktop\\Secop\\files-mentioned-by-the-user-poker-2\\models\\poker_policy.joblib",
   "model_status": "loaded"
 }
 ```
@@ -82,22 +82,24 @@ C:\Users\user\Desktop\AllFile\dataset
 The retraining script writes:
 
 ```text
-models\poker_policy.json
+models\poker_policy.joblib
 ```
 
 ## Latest Model Metrics
 
 ```text
 examples=150152
-accuracy=0.6174
-cross_entropy=0.9580
-macro_f1=0.3453
-majority_baseline_accuracy=0.5973
-lift_vs_majority=0.0201
+accuracy=0.6501
+cross_entropy=0.8773
+macro_f1=0.4665
+majority_baseline_accuracy=0.5948
+lift_vs_majority=0.0553
 ```
 
-The model is an OCR-log imitation model. It should be presented as a decision
-prediction API, not as a guaranteed profitable poker strategy.
+The delivered model is a non-linear ExtraTrees ensemble trained with
+sqrt-balanced sample weighting. It is still an OCR-log imitation model, so it
+should be presented as a decision prediction API, not as a guaranteed profitable
+poker strategy.
 
 ## Docker
 

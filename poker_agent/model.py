@@ -5,6 +5,7 @@ import math
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 
 def softmax(scores: dict[str, float]) -> dict[str, float]:
@@ -14,6 +15,29 @@ def softmax(scores: dict[str, float]) -> dict[str, float]:
     exp_scores = {key: math.exp(value - max_score) for key, value in scores.items()}
     total = sum(exp_scores.values()) or 1.0
     return {key: value / total for key, value in exp_scores.items()}
+
+
+def balanced_class_weights(
+    labels: list[str],
+    label_order: list[str],
+    mode: str,
+    max_weight: float,
+) -> dict[str, float]:
+    if mode == "none":
+        return {label: 1.0 for label in label_order}
+    if mode not in {"balanced", "sqrt_balanced"}:
+        raise ValueError(f"Unsupported class weighting mode: {mode}")
+
+    counts = Counter(labels)
+    total = sum(counts.values())
+    class_count = len(label_order) or 1
+    weights: dict[str, float] = {}
+    for label in label_order:
+        balanced_weight = total / (class_count * max(1, counts.get(label, 0)))
+        if mode == "sqrt_balanced":
+            balanced_weight = math.sqrt(balanced_weight)
+        weights[label] = min(max_weight, balanced_weight)
+    return weights
 
 
 @dataclass
@@ -38,9 +62,10 @@ class SoftmaxPolicy:
             raise ValueError("No labels found for training")
         self._fit_scaler([features for features, _ in examples])
         self.weights = {label: {} for label in self.labels}
-        self.class_weights = self._class_weights(
+        self.class_weights = balanced_class_weights(
             [label for _, label in examples],
             mode=class_weighting,
+            label_order=self.labels,
             max_weight=max_class_weight,
         )
 
@@ -105,20 +130,7 @@ class SoftmaxPolicy:
         mode: str,
         max_weight: float,
     ) -> dict[str, float]:
-        if mode == "none":
-            return {label: 1.0 for label in self.labels}
-        if mode not in {"balanced", "sqrt_balanced"}:
-            raise ValueError(f"Unsupported class weighting mode: {mode}")
-        counts = Counter(labels)
-        total = sum(counts.values())
-        class_count = len(self.labels) or 1
-        weights: dict[str, float] = {}
-        for label in self.labels:
-            balanced_weight = total / (class_count * max(1, counts.get(label, 0)))
-            if mode == "sqrt_balanced":
-                balanced_weight = math.sqrt(balanced_weight)
-            weights[label] = min(max_weight, balanced_weight)
-        return weights
+        return balanced_class_weights(labels, self.labels, mode, max_weight)
 
     def _fit_scaler(self, feature_rows: list[dict[str, float]]) -> None:
         numeric_names = sorted({name for row in feature_rows for name in row})
@@ -143,3 +155,171 @@ class SoftmaxPolicy:
                 scaled[name] = (value - self.feature_means.get(name, 0.0)) / self.feature_scales.get(name, 1.0)
         scaled.setdefault("bias", 1.0)
         return scaled
+
+
+@dataclass
+class SklearnPolicy:
+    """Non-linear sklearn policy for production-style supervised baselines."""
+
+    labels: list[str] = field(default_factory=list)
+    feature_names: list[str] = field(default_factory=list)
+    estimator: Any = None
+    model_kind: str = "hist_gradient_boosting"
+    class_weights: dict[str, float] = field(default_factory=dict)
+
+    def fit(
+        self,
+        examples: list[tuple[dict[str, float], str]],
+        model_kind: str = "hist_gradient_boosting",
+        class_weighting: str = "sqrt_balanced",
+        max_class_weight: float = 8.0,
+        random_state: int = 42,
+        max_iter: int = 220,
+        learning_rate: float = 0.05,
+        max_leaf_nodes: int = 31,
+        l2_regularization: float = 0.01,
+        n_estimators: int = 350,
+    ) -> None:
+        try:
+            import numpy as np
+            from sklearn.ensemble import ExtraTreesClassifier, HistGradientBoostingClassifier, RandomForestClassifier
+        except ImportError as exc:
+            raise RuntimeError(
+                "The sklearn policy requires scikit-learn, numpy, and joblib. "
+                "Install requirements.txt before training this model."
+            ) from exc
+
+        self.labels = sorted({label for _, label in examples})
+        if not self.labels:
+            raise ValueError("No labels found for training")
+
+        self.feature_names = sorted({name for features, _ in examples for name in features})
+        self.model_kind = model_kind
+        y = [label for _, label in examples]
+        self.class_weights = balanced_class_weights(
+            y,
+            self.labels,
+            mode=class_weighting,
+            max_weight=max_class_weight,
+        )
+        sample_weight = np.array([self.class_weights.get(label, 1.0) for label in y], dtype=float)
+        x_train = self._matrix([features for features, _ in examples], np=np)
+
+        if model_kind == "hist_gradient_boosting":
+            estimator = HistGradientBoostingClassifier(
+                learning_rate=learning_rate,
+                max_iter=max_iter,
+                max_leaf_nodes=max_leaf_nodes,
+                l2_regularization=l2_regularization,
+                random_state=random_state,
+            )
+        elif model_kind == "extra_trees":
+            estimator = ExtraTreesClassifier(
+                n_estimators=n_estimators,
+                min_samples_leaf=8,
+                max_features="sqrt",
+                n_jobs=-1,
+                random_state=random_state,
+            )
+        elif model_kind == "random_forest":
+            estimator = RandomForestClassifier(
+                n_estimators=n_estimators,
+                min_samples_leaf=8,
+                max_features="sqrt",
+                n_jobs=-1,
+                random_state=random_state,
+            )
+        else:
+            raise ValueError(f"Unsupported sklearn model kind: {model_kind}")
+
+        estimator.fit(x_train, y, sample_weight=sample_weight)
+        self.estimator = estimator
+
+    def predict_proba_from_features(self, raw_features: dict[str, float]) -> dict[str, float]:
+        if self.estimator is None:
+            raise ValueError("SklearnPolicy estimator is not fitted")
+        try:
+            import numpy as np
+        except ImportError as exc:
+            raise RuntimeError("numpy is required to run the sklearn policy") from exc
+
+        probabilities = self.estimator.predict_proba(self._matrix([raw_features], np=np))[0]
+        classes = list(getattr(self.estimator, "classes_", self.labels))
+        by_label = {str(label): float(probability) for label, probability in zip(classes, probabilities)}
+        total = sum(by_label.values()) or 1.0
+        return {label: by_label.get(label, 0.0) / total for label in self.labels}
+
+    def predict_from_features(self, raw_features: dict[str, float]) -> tuple[str, dict[str, float]]:
+        probabilities = self.predict_proba_from_features(raw_features)
+        action = max(probabilities, key=probabilities.get)
+        return action, probabilities
+
+    def predict_batch_from_features(
+        self,
+        feature_rows: list[dict[str, float]],
+    ) -> list[tuple[str, dict[str, float]]]:
+        if self.estimator is None:
+            raise ValueError("SklearnPolicy estimator is not fitted")
+        try:
+            import numpy as np
+        except ImportError as exc:
+            raise RuntimeError("numpy is required to run the sklearn policy") from exc
+
+        probability_rows = self.estimator.predict_proba(self._matrix(feature_rows, np=np))
+        classes = list(getattr(self.estimator, "classes_", self.labels))
+        predictions: list[tuple[str, dict[str, float]]] = []
+        for probabilities in probability_rows:
+            by_label = {str(label): float(probability) for label, probability in zip(classes, probabilities)}
+            total = sum(by_label.values()) or 1.0
+            normalized = {label: by_label.get(label, 0.0) / total for label in self.labels}
+            predictions.append((max(normalized, key=normalized.get), normalized))
+        return predictions
+
+    def save(self, path: Path) -> None:
+        try:
+            import joblib
+        except ImportError as exc:
+            raise RuntimeError("joblib is required to save the sklearn policy") from exc
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump(
+            {
+                "policy_type": "sklearn_policy",
+                "labels": self.labels,
+                "feature_names": self.feature_names,
+                "estimator": self.estimator,
+                "model_kind": self.model_kind,
+                "class_weights": self.class_weights,
+            },
+            path,
+        )
+
+    @classmethod
+    def load(cls, path: Path) -> "SklearnPolicy":
+        try:
+            import joblib
+        except ImportError as exc:
+            raise RuntimeError("joblib is required to load the sklearn policy") from exc
+
+        payload = joblib.load(path)
+        if payload.get("policy_type") != "sklearn_policy":
+            raise ValueError(f"Unsupported sklearn policy payload: {path}")
+        return cls(
+            labels=list(payload["labels"]),
+            feature_names=list(payload["feature_names"]),
+            estimator=payload["estimator"],
+            model_kind=str(payload.get("model_kind", "hist_gradient_boosting")),
+            class_weights=dict(payload.get("class_weights", {})),
+        )
+
+    def _matrix(self, feature_rows: list[dict[str, float]], np: Any) -> Any:
+        return np.array(
+            [[float(row.get(name, 0.0)) for name in self.feature_names] for row in feature_rows],
+            dtype=float,
+        )
+
+
+def load_policy(path: Path) -> SoftmaxPolicy | SklearnPolicy:
+    if path.suffix.lower() in {".joblib", ".pkl"}:
+        return SklearnPolicy.load(path)
+    return SoftmaxPolicy.load(path)

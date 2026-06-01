@@ -1,7 +1,7 @@
 # Poker Decision Agent - Tehvil Qeydi
 
-Bu paket musteriyye API kimi tehvil vermek ucun hazirlanib. Layihede local
-installer, run script, bundled model, Docker fayllari, training/evaluation
+Bu paket musteriyye API baseline kimi tehvil vermek ucun hazirlanib. Layihede
+local installer, run script, bundled model, Docker fayllari, training/evaluation
 scriptleri ve istifade senedi var.
 
 ## Daxil Olanlar
@@ -10,7 +10,7 @@ scriptleri ve istifade senedi var.
 - Browser application sehifesi: `GET /predict`
 - Prediction API: `POST /predict`
 - Health endpoint: `GET /health.json`
-- Bundled model: `models\poker_policy.json`
+- Bundled model: `models\poker_policy.joblib`
 - Local installer: `install.ps1`
 - Local run script: `run_server.ps1`
 - Retrain/evaluate script: `train_and_evaluate.ps1`
@@ -18,14 +18,15 @@ scriptleri ve istifade senedi var.
 - Docker yoxlama scripti: `verify_docker.ps1`
 - Istifade senedi: `USAGE.md`
 - Texniki README: `README.md`
+- Review cavabi: `MODEL_REVIEW_RESPONSE.md`
 
 ## Edilen Esas Duzelisler
 
-Evvelki tenqidde qeyd olunan data/feature problemleri kod seviyyesinde
+Evvelki review-da qeyd olunan data/feature problemleri kod seviyyesinde
 duzeldilib:
 
-- Model artiq repo daxilindeki kicik sample fayldan yox, esas CSV datasetden
-  train olunur.
+- Model repo daxilindeki kicik sample fayldan yox, esas CSV datasetden train
+  olunur.
 - Hole cards olmayan row-lar default olaraq trainingden cixarilir.
 - `to_call`, `min_raise` ve action-vaxti pot deyerleri `actions.csv` +
   `stack_events.csv` ardicilligindan hesablanir.
@@ -35,7 +36,9 @@ duzeldilib:
 - Class imbalance ucun trainerde `none`, `sqrt_balanced`, `balanced` rejimleri
   var. Bundled model validation neticesine gore secilen parametrle train
   edilib.
-- Evaluation artiq majority baseline, lift, cross entropy, macro F1 ve per-class
+- Bundled model artiq simple softmax deyil, `ExtraTreesClassifier` non-linear
+  ensemble modelidir. Kohnə JSON softmax fayli yalniz fallback ucun saxlanilib.
+- Evaluation majority baseline, lift, cross entropy, macro F1 ve per-class
   metrikleri cixarir.
 
 ## Son Model Neticesi
@@ -43,23 +46,26 @@ duzeldilib:
 Bundled model:
 
 ```text
-models\poker_policy.json
+models\poker_policy.joblib
 ```
 
 Filtered real dataset:
 
 ```text
 examples=150152
-accuracy=0.6174
-cross_entropy=0.9580
-macro_f1=0.3453
-majority_baseline_accuracy=0.5973
-lift_vs_majority=0.0201
+accuracy=0.6501
+cross_entropy=0.8773
+macro_f1=0.4665
+majority_baseline_accuracy=0.5948
+lift_vs_majority=0.0553
 ```
 
 Qeyd: Bu, OCR/event log-larindan supervised imitation metric-dir. Netice
 majority/fold baseline-dan yuxaridir, amma bunu profitable poker strategy veya
-GTO seviyye iddiasi kimi təqdim etmek olmaz.
+GTO seviyye iddiasi kimi teqdim etmek olmaz. Model baseline softmax-dan daha
+guclu professional ensemble seviyyesine qaldirilib, amma tam avtonom poker
+agent kimi teqdim olunmamali ve novbeti data/model merheleleri davam
+etdirilmelidir.
 
 ## Local Run
 
@@ -128,13 +134,13 @@ Docker yoxlama:
 .\verify_docker.ps1
 ```
 
-Bu kompüterde Docker Desktop daemon evvel `500 Internal Server Error` qaytarirdi.
-Bu Docker fayllarinin yox, Docker Desktop servisinin problemidir. Docker Desktop
-saglam isleyende yuxaridaki command-lar istifade olunur.
+Bu komputerde Docker Desktop daemon evvel `500 Internal Server Error`
+qaytarirdi. Bu Docker fayllarinin yox, Docker Desktop servisinin problemidir.
+Docker Desktop saglam isleyende yuxaridaki command-lar istifade olunur.
 
 ## Musteriye Qisa Izah
 
-Layiheni bu formada təqdim etmek olar:
+Layiheni bu formada teqdim etmek olar:
 
 ```text
 Poker Decision Agent real-time game state JSON qebul eden FastAPI servisidir.
@@ -143,3 +149,14 @@ Training pipeline-da missing-card row-lar filtreden kecir, action-vaxti
 to_call/min_raise/pot feature-lari stack event ardicilligindan hesablanir ve
 evaluation majority baseline ile birlikde report olunur.
 ```
+
+## Musteri Review-una Cavab
+
+Musterinin model review-u ucun hazir cavab fayli:
+
+```text
+MODEL_REVIEW_RESPONSE.md
+```
+
+Bu faylda evvelki problemler qebul edilir, edilen duzelisler izah olunur ve
+qalan limitler aciq yazilir.

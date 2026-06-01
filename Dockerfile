@@ -4,7 +4,7 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV POKER_POLICY_PATH=/app/models/poker_policy.json
+ENV POKER_POLICY_PATH=/app/models/poker_policy.joblib
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

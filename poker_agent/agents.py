@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from poker_agent.features import request_to_features
-from poker_agent.model import SoftmaxPolicy
+from poker_agent.model import load_policy
 from poker_agent.schemas import PredictionRequest, PredictionResponse
 
 
@@ -23,12 +24,12 @@ class RuleBasedAgent:
 
 
 class MLPolicyAgent:
-    def __init__(self, model: SoftmaxPolicy):
+    def __init__(self, model: Any):
         self.model = model
 
     @classmethod
     def from_path(cls, path: Path) -> "MLPolicyAgent":
-        return cls(SoftmaxPolicy.load(path))
+        return cls(load_policy(path))
 
     def predict(self, request: PredictionRequest) -> PredictionResponse:
         action, probabilities = self.model.predict_from_features(request_to_features(request))
@@ -58,4 +59,3 @@ class PromptLLMAgent:
             if action in text:
                 return PredictionResponse(action=action, probabilities={action: 1.0})
         return RuleBasedAgent().predict(request)
-

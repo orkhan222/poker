@@ -20,6 +20,7 @@ tools, bundled model file, local installer, Docker files, and delivery notes.
 |   |-- train_policy.py
 |   `-- evaluate_policy.py
 |-- models/
+|   |-- poker_policy.joblib
 |   `-- poker_policy.json
 |-- install.ps1
 |-- run_server.ps1
@@ -49,6 +50,10 @@ Implemented fixes:
   contain too few all-in examples for a reliable standalone class.
 - The trainer supports `none`, `sqrt_balanced`, and `balanced` loss weighting.
   The bundled model uses the validation-selected setting.
+- The delivered model is now a non-linear `ExtraTreesClassifier` ensemble saved
+  as a joblib artifact. The older JSON softmax model is kept only as a fallback.
+- `scikit-learn`, `numpy`, `scipy`, and `joblib` are pinned in
+  `requirements.txt` because joblib model artifacts are version-sensitive.
 - Evaluation reports majority baseline, lift versus baseline, cross entropy,
   macro F1, predicted class counts, and per-class metrics.
 
@@ -57,7 +62,7 @@ Implemented fixes:
 Bundled model:
 
 ```text
-models\poker_policy.json
+models\poker_policy.joblib
 ```
 
 Training command used for the delivered model:
@@ -65,27 +70,29 @@ Training command used for the delivered model:
 ```powershell
 python scripts\train_policy.py `
   --dataset "C:\Users\user\Desktop\AllFile\dataset" `
-  --model-out ".\models\poker_policy.json" `
+  --model-out ".\models\poker_policy.joblib" `
+  --policy extra_trees `
   --max-examples 0 `
-  --epochs 12 `
-  --learning-rate 0.015 `
-  --class-weighting none
+  --n-estimators 120 `
+  --class-weighting sqrt_balanced `
+  --max-class-weight 6
 ```
 
 Full filtered dataset evaluation:
 
 ```text
 examples=150152
-accuracy=0.6174
-cross_entropy=0.9580
-macro_f1=0.3453
-majority_baseline_accuracy=0.5973
-lift_vs_majority=0.0201
+accuracy=0.6501
+cross_entropy=0.8773
+macro_f1=0.4665
+majority_baseline_accuracy=0.5948
+lift_vs_majority=0.0553
 ```
 
 Important note: these metrics are supervised imitation metrics from OCR/event
-logs. They show improvement over the majority-class baseline, but they are not
-a profitability or GTO-strength claim.
+logs. The ensemble is above the majority-class baseline and is stronger than
+the previous softmax baseline, but it is still not a profitability or
+GTO-strength claim.
 
 ## Local Run
 
@@ -149,7 +156,7 @@ Invoke-RestMethod `
 
 ```powershell
 docker build -t poker-decision-agent:latest .
-docker run --rm -p 8001:8001 poker-decision-agent:latest
+docker run --rm -p 8000:8000 poker-decision-agent:latest
 ```
 
 Docker Desktop must be running. On this workstation Docker Desktop previously

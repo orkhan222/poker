@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$DefaultModelPath = Join-Path $ProjectRoot "models\poker_policy.json"
+$DefaultModelPath = Join-Path $ProjectRoot "models\poker_policy.joblib"
 $Python = $null
 
 if (!$ModelPath) {

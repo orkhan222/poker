@@ -11,7 +11,7 @@ if str(ROOT) not in sys.path:
 
 from poker_agent.evaluator import evaluate_policy
 from poker_agent.features import load_training_examples
-from poker_agent.model import SoftmaxPolicy
+from poker_agent.model import load_policy
 
 
 def parse_args() -> argparse.Namespace:
@@ -47,7 +47,7 @@ def main() -> None:
             f"python scripts\\train_policy.py --dataset \"{args.dataset}\" "
             f"--model-out \"{args.model}\""
         )
-    model = SoftmaxPolicy.load(args.model)
+    model = load_policy(args.model)
     examples = load_training_examples(
         args.dataset,
         max_examples=args.max_examples,

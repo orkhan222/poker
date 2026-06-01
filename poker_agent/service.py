@@ -28,7 +28,8 @@ app = FastAPI(
 )
 _agent = None
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MODEL_PATH = PROJECT_ROOT / "models" / "poker_policy.json"
+DEFAULT_MODEL_PATH = PROJECT_ROOT / "models" / "poker_policy.joblib"
+FALLBACK_MODEL_PATH = PROJECT_ROOT / "models" / "poker_policy.json"
 
 
 APP_HTML = """
@@ -391,7 +392,7 @@ APP_HTML = """
 
 
 def health_payload() -> dict[str, str]:
-    model_path = Path(os.getenv("POKER_POLICY_PATH", str(DEFAULT_MODEL_PATH)))
+    model_path = resolve_model_path()
     return {
         "status": "ok",
         "model": str(model_path),
@@ -547,12 +548,21 @@ def get_agent():
     global _agent
     if _agent is not None:
         return _agent
-    model_path = Path(os.getenv("POKER_POLICY_PATH", str(DEFAULT_MODEL_PATH)))
+    model_path = resolve_model_path()
     if model_path.exists():
         _agent = MLPolicyAgent.from_path(model_path)
     else:
         _agent = RuleBasedAgent()
     return _agent
+
+
+def resolve_model_path() -> Path:
+    configured = os.getenv("POKER_POLICY_PATH")
+    if configured:
+        return Path(configured)
+    if DEFAULT_MODEL_PATH.exists():
+        return DEFAULT_MODEL_PATH
+    return FALLBACK_MODEL_PATH
 
 
 @app.get("/health", include_in_schema=False)

@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $VenvPath = Join-Path $ProjectRoot $VenvDir
 $VenvPython = Join-Path $VenvPath "Scripts\python.exe"
-$ModelPath = Join-Path $ProjectRoot "models\poker_policy.json"
+$ModelPath = Join-Path $ProjectRoot "models\poker_policy.joblib"
 
 Set-Location $ProjectRoot
 

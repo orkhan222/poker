@@ -12,22 +12,32 @@ if str(ROOT) not in sys.path:
 
 from poker_agent.evaluator import evaluate_policy
 from poker_agent.features import load_training_examples
-from poker_agent.model import SoftmaxPolicy
+from poker_agent.model import SklearnPolicy, SoftmaxPolicy
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train supervised poker policy")
     parser.add_argument("--dataset", required=True, type=Path, help="Folder with hands/actions/players CSV files")
     parser.add_argument("--model-out", required=True, type=Path, help="Output JSON model path")
-    parser.add_argument("--epochs", type=int, default=8)
-    parser.add_argument("--learning-rate", type=float, default=0.08)
+    parser.add_argument(
+        "--policy",
+        choices=("hist_gradient_boosting", "extra_trees", "random_forest", "softmax"),
+        default="hist_gradient_boosting",
+        help="Model family to train. Tree/boosting policies are the professional non-linear options.",
+    )
+    parser.add_argument("--epochs", type=int, default=12, help="Softmax-only epoch count")
+    parser.add_argument("--learning-rate", type=float, default=0.05)
+    parser.add_argument("--max-iter", type=int, default=220, help="HistGradientBoosting iteration count")
+    parser.add_argument("--max-leaf-nodes", type=int, default=31)
+    parser.add_argument("--l2-regularization", type=float, default=0.01)
+    parser.add_argument("--n-estimators", type=int, default=350, help="Tree count for forest policies")
     parser.add_argument(
         "--class-weighting",
         choices=("none", "sqrt_balanced", "balanced"),
         default="none",
         help=(
-            "Loss weighting mode. The delivered model uses none because it won the "
-            "validation accuracy/loss comparison after rare all-in actions were merged."
+            "Loss/sample weighting mode. Use sqrt_balanced/balanced for imbalance "
+            "experiments, or none for pure accuracy optimization."
         ),
     )
     parser.add_argument("--max-class-weight", type=float, default=12.0)
@@ -66,19 +76,35 @@ def main() -> None:
     train_examples = examples[:split]
     valid_examples = examples[split:] or examples[:]
 
-    model = SoftmaxPolicy()
-    model.fit(
-        train_examples,
-        epochs=args.epochs,
-        learning_rate=args.learning_rate,
-        class_weighting=args.class_weighting,
-        max_class_weight=args.max_class_weight,
-    )
+    if args.policy == "softmax":
+        model = SoftmaxPolicy()
+        model.fit(
+            train_examples,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            class_weighting=args.class_weighting,
+            max_class_weight=args.max_class_weight,
+        )
+    else:
+        model = SklearnPolicy()
+        model.fit(
+            train_examples,
+            model_kind=args.policy,
+            class_weighting=args.class_weighting,
+            max_class_weight=args.max_class_weight,
+            random_state=args.seed,
+            max_iter=args.max_iter,
+            learning_rate=args.learning_rate,
+            max_leaf_nodes=args.max_leaf_nodes,
+            l2_regularization=args.l2_regularization,
+            n_estimators=args.n_estimators,
+        )
     model.save(args.model_out)
 
     train_metrics = evaluate_policy(model, train_examples)
     valid_metrics = evaluate_policy(model, valid_examples)
     print(f"saved_model={args.model_out}")
+    print(f"policy={args.policy}")
     print(f"examples={len(examples)} train_examples={len(train_examples)} valid_examples={len(valid_examples)}")
     print(f"class_weighting={args.class_weighting} class_weights={json.dumps(model.class_weights, sort_keys=True)}")
     print(f"train_class_counts={json.dumps(train_metrics['class_counts'], sort_keys=True)}")

@@ -4,11 +4,8 @@ import math
 from collections import Counter
 from typing import Any
 
-from poker_agent.model import SoftmaxPolicy
-
-
 def evaluate_policy(
-    model: SoftmaxPolicy,
+    model: Any,
     examples: list[tuple[dict[str, float], str]],
 ) -> dict[str, Any]:
     if not examples:
@@ -20,8 +17,13 @@ def evaluate_policy(
     predicted_counts: Counter[str] = Counter()
     true_positive: Counter[str] = Counter()
     majority_count = max(counts.values()) if counts else 0
-    for features, label in examples:
-        prediction, probabilities = model.predict_from_features(features)
+    feature_rows = [features for features, _ in examples]
+    if hasattr(model, "predict_batch_from_features"):
+        model_predictions = model.predict_batch_from_features(feature_rows)
+    else:
+        model_predictions = [model.predict_from_features(features) for features in feature_rows]
+
+    for (_, label), (prediction, probabilities) in zip(examples, model_predictions):
         predicted_counts[prediction] += 1
         if prediction == label:
             correct += 1

@@ -121,6 +121,89 @@ def hand_strength_proxy(hole_cards: Iterable[str]) -> float:
     return min(1.0, 0.55 * high + 0.25 * low + pair_bonus + suited_bonus + connector_bonus)
 
 
+def has_straight(ranks: Iterable[int]) -> bool:
+    values = {rank for rank in ranks if rank > 0}
+    if 14 in values:
+        values.add(1)
+    for start in range(1, 11):
+        if all(rank in values for rank in range(start, start + 5)):
+            return True
+    return False
+
+
+def straight_draw_score(ranks: Iterable[int]) -> float:
+    values = {rank for rank in ranks if rank > 0}
+    if 14 in values:
+        values.add(1)
+    best_window = 0
+    for start in range(1, 11):
+        best_window = max(best_window, sum(1 for rank in range(start, start + 5) if rank in values))
+    if best_window >= 5:
+        return 1.0
+    if best_window == 4:
+        return 0.75
+    if best_window == 3:
+        return 0.35
+    return 0.0
+
+
+def made_hand_category(cards: Iterable[str]) -> tuple[str, float]:
+    ranks = [card_rank(card) for card in cards if card_rank(card)]
+    suits = [card_suit(card) for card in cards if card_suit(card)]
+    rank_counts = sorted((ranks.count(rank) for rank in set(ranks)), reverse=True)
+    suit_counts = {suit: suits.count(suit) for suit in set(suits)}
+    flush = any(count >= 5 for count in suit_counts.values())
+    straight = has_straight(ranks)
+    if flush and straight:
+        return "straight_flush", 1.0
+    if rank_counts and rank_counts[0] == 4:
+        return "quads", 0.88
+    if len(rank_counts) >= 2 and rank_counts[0] == 3 and rank_counts[1] >= 2:
+        return "full_house", 0.78
+    if flush:
+        return "flush", 0.68
+    if straight:
+        return "straight", 0.58
+    if rank_counts and rank_counts[0] == 3:
+        return "trips", 0.46
+    if len([count for count in rank_counts if count >= 2]) >= 2:
+        return "two_pair", 0.34
+    if rank_counts and rank_counts[0] == 2:
+        return "pair", 0.22
+    return "high_card", 0.0
+
+
+def preflop_bucket_features(hole_ranks: list[int], hole_suits: list[str]) -> dict[str, float]:
+    if len(hole_ranks) < 2:
+        return {
+            "preflop_bucket_score": 0.0,
+            "premium_pair": 0.0,
+            "broadway_count": 0.0,
+            "ace_high": 0.0,
+        }
+
+    high = max(hole_ranks)
+    low = min(hole_ranks)
+    pair = hole_ranks[0] == hole_ranks[1]
+    suited = len(hole_suits) >= 2 and hole_suits[0] == hole_suits[1]
+    gap = abs(hole_ranks[0] - hole_ranks[1])
+    broadway_count = sum(1 for rank in hole_ranks if rank >= 10)
+
+    score = 0.28 * (high / 14.0) + 0.18 * (low / 14.0)
+    score += 0.26 if pair else 0.0
+    score += 0.09 if suited else 0.0
+    score += 0.08 if gap <= 1 else 0.0
+    score += 0.08 if broadway_count == 2 else 0.0
+    score += 0.05 if high == 14 else 0.0
+
+    return {
+        "preflop_bucket_score": min(score, 1.0),
+        "premium_pair": 1.0 if pair and high >= 11 else 0.0,
+        "broadway_count": broadway_count / 2.0,
+        "ace_high": 1.0 if high == 14 else 0.0,
+    }
+
+
 def card_texture_features(hole_cards: Iterable[str], board_cards: Iterable[str]) -> dict[str, float]:
     hole = list(hole_cards)[:2]
     board = list(board_cards)
@@ -128,25 +211,48 @@ def card_texture_features(hole_cards: Iterable[str], board_cards: Iterable[str])
     hole_suits = [card_suit(card) for card in hole if card_suit(card)]
     board_ranks = [card_rank(card) for card in board]
     board_suits = [card_suit(card) for card in board if card_suit(card)]
+    all_cards = hole + board
+    all_ranks = [card_rank(card) for card in all_cards]
+    all_suits = [card_suit(card) for card in all_cards if card_suit(card)]
 
     high_rank = max(hole_ranks, default=0)
     low_rank = min(hole_ranks, default=0)
     rank_gap = abs(hole_ranks[0] - hole_ranks[1]) if len(hole_ranks) >= 2 else 0
     board_rank_counts = {rank: board_ranks.count(rank) for rank in set(board_ranks)}
     board_suit_counts = {suit: board_suits.count(suit) for suit in set(board_suits)}
+    all_suit_counts = {suit: all_suits.count(suit) for suit in set(all_suits)}
+    made_category, made_score = made_hand_category(all_cards)
+    board_connectedness = straight_draw_score(board_ranks)
+    combined_straight_draw = straight_draw_score(all_ranks)
+    flush_draw_pressure = min(max(all_suit_counts.values(), default=0) / 5.0, 1.0)
+    board_flush_pressure = min(max(board_suit_counts.values(), default=0) / 5.0, 1.0)
+    board_wetness = min(1.0, 0.45 * board_connectedness + 0.45 * board_flush_pressure + 0.10 * (1.0 if any(count >= 2 for count in board_rank_counts.values()) else 0.0))
+    board_high_rank = max(board_ranks, default=0)
+    hole_overpair = len(hole_ranks) >= 2 and hole_ranks[0] == hole_ranks[1] and board_high_rank > 0 and hole_ranks[0] > board_high_rank
+    top_pair_or_better = board_high_rank > 0 and made_score >= 0.22 and any(rank == board_high_rank for rank in hole_ranks)
 
-    return {
+    features = {
         "hole_high_rank": high_rank / 14.0,
         "hole_low_rank": low_rank / 14.0,
         "hole_pair": 1.0 if len(hole_ranks) >= 2 and hole_ranks[0] == hole_ranks[1] else 0.0,
         "hole_suited": 1.0 if len(hole_suits) >= 2 and hole_suits[0] == hole_suits[1] else 0.0,
         "hole_connected": 1.0 if len(hole_ranks) >= 2 and rank_gap <= 1 else 0.0,
         "hole_gap": min(rank_gap / 12.0, 1.0),
-        "board_high_rank": max(board_ranks, default=0) / 14.0,
+        "board_high_rank": board_high_rank / 14.0,
         "board_pair": 1.0 if any(count >= 2 for count in board_rank_counts.values()) else 0.0,
         "board_trips": 1.0 if any(count >= 3 for count in board_rank_counts.values()) else 0.0,
-        "board_suited_pressure": min(max(board_suit_counts.values(), default=0) / 5.0, 1.0),
+        "board_suited_pressure": board_flush_pressure,
+        "board_connectedness": board_connectedness,
+        "board_wetness": board_wetness,
+        "made_hand_score": made_score,
+        "straight_draw_score": combined_straight_draw,
+        "flush_draw_pressure": flush_draw_pressure,
+        "hole_overpair": 1.0 if hole_overpair else 0.0,
+        "top_pair_or_better": 1.0 if top_pair_or_better else 0.0,
+        f"made_hand={made_category}": 1.0,
     }
+    features.update(preflop_bucket_features(hole_ranks, hole_suits))
+    return features
 
 
 def normalize_position_group(position: str) -> str:
