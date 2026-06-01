@@ -12,3 +12,4 @@ poker_dataset/
 *.log
 
 models/poker_policy.joblib 
+.venv/ 
