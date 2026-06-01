@@ -11,3 +11,4 @@ smoke_model.json
 poker_dataset/
 *.log
 
+models/poker_policy.joblib 
