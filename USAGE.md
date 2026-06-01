@@ -19,7 +19,7 @@ Stop with `Ctrl+C`.
 ## Health / Model Status
 
 ```text
-http://127.0.0.1:8000/health.json
+http://127.0.0.1:8001/health.json
 ```
 
 Example response:
@@ -41,7 +41,7 @@ Field meanings:
 ## API Docs
 
 ```text
-http://127.0.0.1:8000/docs
+http://127.0.0.1:8001/docs
 ```
 
 Visible endpoint groups:
@@ -116,22 +116,26 @@ pip install -r requirements-research.txt
 
 ```text
 examples=150152
-valid_accuracy=0.6544
-valid_cross_entropy=0.8011
-valid_macro_f1=0.5138
-valid_weighted_f1=0.6503
-valid_majority_baseline_accuracy=0.5948
-valid_lift_vs_majority=0.0596
+valid_accuracy=0.6798
+valid_cross_entropy=0.8077
+valid_balanced_accuracy=0.4415
+valid_macro_f1=0.4135
+valid_weighted_f1=0.6636
+valid_brier_loss=0.4432
+valid_ece_10=0.0762
+valid_majority_baseline_accuracy=0.7029
+valid_lift_vs_majority=-0.0231
 ```
 
 These are supervised imitation metrics from OCR/event logs. Present the package
-as a poker action prediction API, not as a guaranteed profitable poker strategy.
+as a poker action prediction API prototype, not as an approved production model
+or guaranteed profitable poker strategy.
 
 ## Docker
 
 ```powershell
 docker build -t poker-decision-agent:latest .
-docker run --rm -p 8000:8000 poker-decision-agent:latest
+docker run --rm -p 8001:8001 poker-decision-agent:latest
 ```
 
 Docker verification:

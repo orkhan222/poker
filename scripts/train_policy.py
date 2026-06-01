@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import random
 import sys
 from pathlib import Path
 
@@ -13,6 +12,7 @@ if str(ROOT) not in sys.path:
 from poker_agent.evaluator import evaluate_policy
 from poker_agent.features import load_training_examples
 from poker_agent.model import SklearnPolicy, SoftmaxPolicy
+from poker_agent.validation import random_action_split, stratified_group_holdout_split
 
 
 def parse_args() -> argparse.Namespace:
@@ -70,6 +70,16 @@ def parse_args() -> argparse.Namespace:
         help="Keep all_in as a separate class. Default merges it into raise because it is too rare in OCR logs.",
     )
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--valid-ratio", type=float, default=0.15)
+    parser.add_argument(
+        "--split-strategy",
+        choices=("stratified_hand_group", "random_action"),
+        default="stratified_hand_group",
+        help=(
+            "Validation split strategy. stratified_hand_group is the research-safe "
+            "default; random_action is only for smoke tests."
+        ),
+    )
     parser.add_argument(
         "--max-examples",
         type=int,
@@ -81,19 +91,30 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    examples = load_training_examples(
+    records = load_training_examples(
         args.dataset,
         max_examples=args.max_examples,
         require_hole_cards=not args.allow_missing_hole_cards,
         missing_hole_cards="flag" if args.allow_missing_hole_cards and args.missing_hole_cards == "drop" else args.missing_hole_cards,
         merge_all_in=not args.keep_all_in_class,
+        include_hand_id=args.split_strategy == "stratified_hand_group",
     )
-    if not examples:
+    if not records:
         raise SystemExit(f"No training examples found in {args.dataset}")
-    random.Random(args.seed).shuffle(examples)
-    split = max(1, int(len(examples) * 0.85))
-    train_examples = examples[:split]
-    valid_examples = examples[split:] or examples[:]
+    if args.split_strategy == "stratified_hand_group":
+        train_examples, valid_examples, split_info = stratified_group_holdout_split(
+            records,
+            valid_ratio=args.valid_ratio,
+            seed=args.seed,
+        )
+        examples_count = len(records)
+    else:
+        train_examples, valid_examples, split_info = random_action_split(
+            records,
+            valid_ratio=args.valid_ratio,
+            seed=args.seed,
+        )
+        examples_count = len(records)
 
     if args.policy == "softmax":
         model = SoftmaxPolicy()
@@ -118,27 +139,43 @@ def main() -> None:
             l2_regularization=args.l2_regularization,
             n_estimators=args.n_estimators,
         )
-    model.save(args.model_out)
-
     train_metrics = evaluate_policy(model, train_examples)
     valid_metrics = evaluate_policy(model, valid_examples)
+    model.metadata = {
+        "dataset": str(args.dataset),
+        "policy": args.policy,
+        "split": split_info,
+        "missing_hole_cards": args.missing_hole_cards,
+        "merge_all_in": not args.keep_all_in_class,
+        "class_weighting": args.class_weighting,
+        "max_class_weight": args.max_class_weight,
+        "train_metrics": train_metrics,
+        "valid_metrics": valid_metrics,
+    }
+    model.save(args.model_out)
+
     print(f"saved_model={args.model_out}")
     print(f"policy={args.policy}")
-    print(f"examples={len(examples)} train_examples={len(train_examples)} valid_examples={len(valid_examples)}")
+    print(f"examples={examples_count} train_examples={len(train_examples)} valid_examples={len(valid_examples)}")
+    print(f"split={json.dumps(split_info, sort_keys=True)}")
     print(f"class_weighting={args.class_weighting} class_weights={json.dumps(model.class_weights, sort_keys=True)}")
     print(f"train_class_counts={json.dumps(train_metrics['class_counts'], sort_keys=True)}")
     print(f"valid_class_counts={json.dumps(valid_metrics['class_counts'], sort_keys=True)}")
     print(f"train_accuracy={train_metrics['accuracy']:.4f} train_ce={train_metrics['cross_entropy']:.4f}")
+    print(f"train_balanced_accuracy={train_metrics['balanced_accuracy']:.4f}")
     print(f"train_macro_f1={train_metrics['macro_f1']:.4f}")
     print(f"train_weighted_f1={train_metrics['weighted_f1']:.4f}")
+    print(f"train_brier_loss={train_metrics['brier_loss']:.4f} train_ece_10={train_metrics['ece_10']:.4f}")
     print(
         "train_majority_baseline="
         f"{train_metrics['majority_baseline_accuracy']:.4f} "
         f"train_lift_vs_majority={train_metrics['lift_vs_majority']:.4f}"
     )
     print(f"valid_accuracy={valid_metrics['accuracy']:.4f} valid_ce={valid_metrics['cross_entropy']:.4f}")
+    print(f"valid_balanced_accuracy={valid_metrics['balanced_accuracy']:.4f}")
     print(f"valid_macro_f1={valid_metrics['macro_f1']:.4f}")
     print(f"valid_weighted_f1={valid_metrics['weighted_f1']:.4f}")
+    print(f"valid_brier_loss={valid_metrics['brier_loss']:.4f} valid_ece_10={valid_metrics['ece_10']:.4f}")
     print(
         "valid_majority_baseline="
         f"{valid_metrics['majority_baseline_accuracy']:.4f} "

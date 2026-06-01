@@ -18,6 +18,7 @@ model comparison.
 |   |-- sequence_models.py
 |   `-- service.py
 |-- scripts/
+|   |-- audit_dataset.py
 |   |-- evaluate_policy.py
 |   |-- research_experiment.py
 |   `-- train_policy.py
@@ -33,6 +34,7 @@ model comparison.
 |-- USAGE.md
 |-- MODEL_REVIEW_RESPONSE.md
 |-- RESEARCH_MODEL_DESIGN_AZ.md
+|-- SENIOR_ML_REVIEW.md
 `-- DELIVERY_NOTE_AZ.md
 ```
 
@@ -58,8 +60,13 @@ Implemented research fixes:
   call/check/fold counts, players-acted ratio, hero commitment, table pressure,
   last aggressor group, and facing-bet indicators.
 - API requests can include `betting_history` / `action_history`.
-- The evaluator reports accuracy, cross entropy, macro F1, weighted F1,
-  precision/recall/F1 per class, predicted class counts, and confusion matrix.
+- The evaluator reports accuracy, balanced accuracy, cross entropy, Brier loss,
+  ECE@10, macro F1, weighted F1, precision/recall/F1 per class, predicted
+  class counts, and confusion matrix.
+- `train_policy.py` now defaults to stratified hand-group holdout instead of
+  random action split.
+- `scripts/audit_dataset.py` produces dataset quality findings before model
+  training.
 - The model layer supports `hist_gradient_boosting`, `extra_trees`,
   `random_forest`, `mlp`, and optional `xgboost`, `lightgbm`, `catboost`.
 - `poker_agent/sequence_models.py` contains a Transformer/focal-loss scaffold
@@ -87,26 +94,44 @@ python scripts\train_policy.py `
   --l2-regularization 0.02 `
   --class-weighting sqrt_balanced `
   --max-class-weight 6 `
-  --missing-hole-cards drop
+  --missing-hole-cards drop `
+  --split-strategy stratified_hand_group
 ```
 
-Validation result after removing leakage-prone current-action features:
+Validation result with stratified hand-group holdout:
 
 ```text
 examples=150152
-train_examples=127629
-valid_examples=22523
-valid_accuracy=0.6544
-valid_cross_entropy=0.8011
-valid_macro_f1=0.5138
-valid_weighted_f1=0.6503
-valid_majority_baseline_accuracy=0.5948
-valid_lift_vs_majority=0.0596
+train_examples=127613
+valid_examples=22539
+valid_accuracy=0.6798
+valid_cross_entropy=0.8077
+valid_balanced_accuracy=0.4415
+valid_macro_f1=0.4135
+valid_weighted_f1=0.6636
+valid_brier_loss=0.4432
+valid_ece_10=0.0762
+valid_majority_baseline_accuracy=0.7029
+valid_lift_vs_majority=-0.0231
 ```
 
 An earlier experiment produced a much higher score, but it was rejected because
 one stack-event feature leaked the current action amount. The delivered metrics
-above are the honest leakage-safe numbers.
+above are the honest leakage-safer numbers. Under group holdout, accuracy is
+still below the majority-class baseline, so this should not be approved as a
+production decision model yet.
+
+## Dataset Audit
+
+Run the audit before any model claim:
+
+```powershell
+python scripts\audit_dataset.py `
+  --dataset "C:\Users\user\Desktop\AllFile\dataset" `
+  --out ".\reports\dataset_audit.json" `
+  --max-feature-examples 50000 `
+  --missing-hole-cards flag
+```
 
 ## Research Model Comparison
 
@@ -152,19 +177,19 @@ cd "C:\Users\user\Desktop\Secop\files-mentioned-by-the-user-poker-2"
 Open:
 
 ```text
-http://127.0.0.1:8000/predict
+http://127.0.0.1:8001/predict
 ```
 
 API docs:
 
 ```text
-http://127.0.0.1:8000/docs
+http://127.0.0.1:8001/docs
 ```
 
 Health / model status:
 
 ```text
-http://127.0.0.1:8000/health.json
+http://127.0.0.1:8001/health.json
 ```
 
 Stop the server with `Ctrl+C`.
@@ -174,7 +199,7 @@ Stop the server with `Ctrl+C`.
 ```powershell
 Invoke-RestMethod `
   -Method Post `
-  -Uri "http://127.0.0.1:8000/predict" `
+  -Uri "http://127.0.0.1:8001/predict" `
   -ContentType "application/json" `
   -Body '{"position":"BTN","street":"preflop","hole_cards":["Ah","Kd"],"board_cards":[],"pot":2.5,"to_call":1.0,"stack":100.0,"min_raise":2.0,"player_count":6,"betting_history":[]}'
 ```
@@ -183,7 +208,7 @@ Invoke-RestMethod `
 
 ```powershell
 docker build -t poker-decision-agent:latest .
-docker run --rm -p 8000:8000 poker-decision-agent:latest
+docker run --rm -p 8001:8001 poker-decision-agent:latest
 ```
 
 Docker Desktop must be running. If Docker returns daemon errors, restart Docker
@@ -192,7 +217,9 @@ Desktop and verify with `docker info`.
 ## Delivery Position
 
 This package is a corrected supervised imitation model and API. It is stronger
-than the previous 0.34 baseline and above the majority-class baseline, but it
-must not be described as a GTO solver or guaranteed profitable poker strategy.
-Next research work should focus on cleaner OCR/card extraction, source-level
-holdout evaluation, and full betting-sequence models.
+than the previous 0.34 baseline in pipeline quality, but the current
+stratified hand-group validation result is still below the majority-class
+accuracy baseline. It must not be described as a deployable poker strategy,
+GTO solver, or guaranteed profitable agent. Next research work should focus on
+cleaner OCR/card extraction, source-level holdout evaluation, calibrated
+boosting models, and full betting-sequence models.

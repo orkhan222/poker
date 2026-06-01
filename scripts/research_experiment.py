@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import random
 import sys
 import time
 from pathlib import Path
@@ -15,6 +14,7 @@ if str(ROOT) not in sys.path:
 from poker_agent.evaluator import evaluate_policy
 from poker_agent.features import load_training_examples
 from poker_agent.model import SklearnPolicy, SoftmaxPolicy
+from poker_agent.validation import stratified_group_holdout_split
 
 
 DEFAULT_POLICIES = (
@@ -83,37 +83,6 @@ def parse_policies(raw: str) -> list[str]:
     return policies
 
 
-def grouped_hand_split(
-    records: list[tuple[dict[str, float], str, str]],
-    valid_ratio: float,
-    seed: int,
-) -> tuple[list[tuple[dict[str, float], str]], list[tuple[dict[str, float], str]], dict[str, Any]]:
-    hand_ids = sorted({hand_id for _, _, hand_id in records})
-    rng = random.Random(seed)
-    rng.shuffle(hand_ids)
-    valid_count = max(1, int(len(hand_ids) * valid_ratio))
-    valid_hands = set(hand_ids[:valid_count])
-
-    train_examples = [(features, label) for features, label, hand_id in records if hand_id not in valid_hands]
-    valid_examples = [(features, label) for features, label, hand_id in records if hand_id in valid_hands]
-    if not train_examples or not valid_examples:
-        shuffled = [(features, label) for features, label, _ in records]
-        rng.shuffle(shuffled)
-        split = max(1, int(len(shuffled) * (1.0 - valid_ratio)))
-        train_examples = shuffled[:split]
-        valid_examples = shuffled[split:] or shuffled[:]
-
-    split_info = {
-        "split_type": "hand_id_group_holdout",
-        "valid_ratio": valid_ratio,
-        "train_examples": len(train_examples),
-        "valid_examples": len(valid_examples),
-        "train_hands": len(set(hand_ids) - valid_hands),
-        "valid_hands": len(valid_hands),
-    }
-    return train_examples, valid_examples, split_info
-
-
 def build_model(policy_name: str) -> SoftmaxPolicy | SklearnPolicy:
     if policy_name == "softmax":
         return SoftmaxPolicy()
@@ -172,7 +141,7 @@ def main() -> None:
     if not records:
         raise SystemExit(f"No training examples found in {args.dataset}")
 
-    train_examples, valid_examples, split_info = grouped_hand_split(
+    train_examples, valid_examples, split_info = stratified_group_holdout_split(
         records,
         valid_ratio=args.valid_ratio,
         seed=args.seed,
@@ -190,6 +159,18 @@ def main() -> None:
             fit_model(model, policy_name, train_examples, args)
             train_metrics = evaluate_policy(model, train_examples)
             valid_metrics = evaluate_policy(model, valid_examples)
+            model.metadata = {
+                "dataset": str(args.dataset),
+                "policy": policy_name,
+                "split": split_info,
+                "settings": {
+                    "missing_hole_cards": args.missing_hole_cards,
+                    "class_weighting": args.class_weighting,
+                    "max_class_weight": args.max_class_weight,
+                },
+                "train_metrics": train_metrics,
+                "valid_metrics": valid_metrics,
+            }
             if args.save_models:
                 model.save(model_path_for(args.out_dir, policy_name))
             result.update(

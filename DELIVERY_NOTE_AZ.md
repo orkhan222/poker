@@ -23,6 +23,7 @@ research experiment runner ve istifade senedleri var.
 - Texniki README: `README.md`
 - Model review cavabi: `MODEL_REVIEW_RESPONSE.md`
 - Research dizayn qeydi: `RESEARCH_MODEL_DESIGN_AZ.md`
+- Senior ML review: `SENIOR_ML_REVIEW.md`
 
 ## Edilen Esas Duzelisler
 
@@ -51,6 +52,9 @@ duzeldilib:
   faylina elave olunub.
 - Evaluation majority baseline, lift, cross entropy, macro F1, weighted F1,
   per-class precision/recall/F1 ve confusion matrix cixarir.
+- Training default olaraq `stratified_hand_group` split istifade edir. Random
+  action split yalniz smoke-test ucun saxlanilib.
+- Dataset audit ucun `scripts\audit_dataset.py` elave olunub.
 
 ## Son Model Neticesi
 
@@ -64,23 +68,27 @@ Filtered real dataset validation:
 
 ```text
 examples=150152
-train_examples=127629
-valid_examples=22523
-valid_accuracy=0.6544
-valid_cross_entropy=0.8011
-valid_macro_f1=0.5138
-valid_weighted_f1=0.6503
-valid_majority_baseline_accuracy=0.5948
-valid_lift_vs_majority=0.0596
+train_examples=127613
+valid_examples=22539
+valid_accuracy=0.6798
+valid_cross_entropy=0.8077
+valid_balanced_accuracy=0.4415
+valid_macro_f1=0.4135
+valid_weighted_f1=0.6636
+valid_brier_loss=0.4432
+valid_ece_10=0.0762
+valid_majority_baseline_accuracy=0.7029
+valid_lift_vs_majority=-0.0231
 ```
 
 Qeyd: Daha yuksek bir experiment neticesi redd edildi, cunki current-action
 stack amount feature label leakage yaradirirdi. Yuxaridaki reqemler
 leakage-safe honest validation neticesidir.
 
-Bu, OCR/event log-larindan supervised imitation metric-dir. Netice
-majority/fold baseline-dan yuxaridir, amma bunu profitable poker strategy ve ya
-GTO seviyye iddiasi kimi teqdim etmek olmaz.
+Bu, OCR/event log-larindan supervised imitation metric-dir. Group-holdout
+neticesinde accuracy majority baseline-dan asagidir ve minority action recall
+zeifdir. Buna gore bunu production poker strategy ve ya GTO seviyye iddiasi
+kimi teqdim etmek olmaz.
 
 ## Local Run
 
@@ -105,19 +113,19 @@ Serveri baslatmaq:
 Application:
 
 ```text
-http://127.0.0.1:8000/predict
+http://127.0.0.1:8001/predict
 ```
 
 API docs:
 
 ```text
-http://127.0.0.1:8000/docs
+http://127.0.0.1:8001/docs
 ```
 
 Health:
 
 ```text
-http://127.0.0.1:8000/health.json
+http://127.0.0.1:8001/health.json
 ```
 
 Serveri dayandirmaq ucun terminalda `Ctrl+C` basin.

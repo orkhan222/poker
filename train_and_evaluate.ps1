@@ -11,7 +11,9 @@ param(
     [string]$ClassWeighting = "sqrt_balanced",
     [double]$MaxClassWeight = 6.0,
     [ValidateSet("drop", "flag", "keep")]
-    [string]$MissingHoleCards = "drop"
+    [string]$MissingHoleCards = "drop",
+    [ValidateSet("stratified_hand_group", "random_action")]
+    [string]$SplitStrategy = "stratified_hand_group"
 )
 
 $ErrorActionPreference = "Stop"
@@ -63,6 +65,7 @@ Write-Host "Training policy model..." -ForegroundColor Green
     --class-weighting $ClassWeighting `
     --max-class-weight $MaxClassWeight `
     --missing-hole-cards $MissingHoleCards `
+    --split-strategy $SplitStrategy `
     --max-examples $MaxExamples
 
 Write-Host ""

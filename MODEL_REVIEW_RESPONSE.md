@@ -84,9 +84,10 @@ a model-comparison path.
 
 10. Evaluation
 
-   Evaluation now reports accuracy, cross entropy, macro F1, weighted F1,
-   precision/recall/F1 per class, majority baseline, lift versus baseline,
-   predicted class counts, and confusion matrix.
+   Evaluation now reports accuracy, balanced accuracy, cross entropy, Brier
+   loss, ECE@10, macro F1, weighted F1, precision/recall/F1 per class,
+   majority baseline, lift versus baseline, predicted class counts, and
+   confusion matrix.
 
 ## Current Delivered Model
 
@@ -110,26 +111,32 @@ python scripts\train_policy.py `
   --l2-regularization 0.02 `
   --class-weighting sqrt_balanced `
   --max-class-weight 6 `
-  --missing-hole-cards drop
+  --missing-hole-cards drop `
+  --split-strategy stratified_hand_group
 ```
 
 Validation result:
 
 ```text
 examples=150152
-train_examples=127629
-valid_examples=22523
-valid_accuracy=0.6544
-valid_cross_entropy=0.8011
-valid_macro_f1=0.5138
-valid_weighted_f1=0.6503
-valid_majority_baseline_accuracy=0.5948
-valid_lift_vs_majority=0.0596
+train_examples=127613
+valid_examples=22539
+valid_accuracy=0.6798
+valid_cross_entropy=0.8077
+valid_balanced_accuracy=0.4415
+valid_macro_f1=0.4135
+valid_weighted_f1=0.6636
+valid_brier_loss=0.4432
+valid_ece_10=0.0762
+valid_majority_baseline_accuracy=0.7029
+valid_lift_vs_majority=-0.0231
 ```
 
 An earlier score was higher, but it was rejected because a current-action stack
 amount feature leaked label information. The metrics above are the honest
-leakage-safe result.
+leakage-safer result. It is not sufficient for production approval because the
+group-holdout accuracy is still below the majority-class baseline and minority
+action recall remains weak.
 
 ## Research Experiment Runner
 
@@ -152,13 +159,23 @@ The report is saved as:
 research_runs\full\model_comparison.json
 ```
 
+The dataset audit script should be run before model claims:
+
+```powershell
+python scripts\audit_dataset.py `
+  --dataset "C:\Users\user\Desktop\AllFile\dataset" `
+  --out ".\reports\dataset_audit.json" `
+  --missing-hole-cards flag
+```
+
 ## Honest Status
 
-This is now a corrected professional supervised baseline with a working API,
+This is now a corrected supervised research scaffold with a working API,
 feature extraction fixes, class-weighted training, temporal betting features,
-and model-comparison tooling.
+dataset audit tooling, and model-comparison tooling.
 
 It should still not be marketed as a finished profitable poker bot or GTO
-engine. The next research priorities are cleaner card/OCR coverage, source-level
-holdout splits, richer betting histories, and sequence models trained on full
-hand trajectories.
+engine. The current result is a technical rejection for production deployment;
+the next research priorities are cleaner card/OCR coverage, source-level
+holdout splits, calibrated boosting experiments, richer betting histories, and
+sequence models trained on full hand trajectories.

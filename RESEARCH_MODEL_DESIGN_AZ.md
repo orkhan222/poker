@@ -164,7 +164,17 @@ python scripts\train_policy.py `
   --l2-regularization 0.02 `
   --class-weighting sqrt_balanced `
   --max-class-weight 6 `
-  --missing-hole-cards drop
+  --missing-hole-cards drop `
+  --split-strategy stratified_hand_group
+```
+
+Run dataset audit:
+
+```powershell
+python scripts\audit_dataset.py `
+  --dataset "C:\Users\user\Desktop\AllFile\dataset" `
+  --out ".\reports\dataset_audit.json" `
+  --missing-hole-cards flag
 ```
 
 Run research comparison:
@@ -198,16 +208,18 @@ python scripts\evaluate_policy.py `
 ## 9. Current Honest Result
 
 ```text
-valid_accuracy=0.6544
-valid_macro_f1=0.5138
-valid_weighted_f1=0.6503
-majority_baseline_accuracy=0.5948
-lift_vs_majority=0.0596
+valid_accuracy=0.6798
+valid_balanced_accuracy=0.4415
+valid_macro_f1=0.4135
+valid_weighted_f1=0.6636
+majority_baseline_accuracy=0.7029
+lift_vs_majority=-0.0231
 ```
 
-Bu artiq 0.34 baseline-dan xeyli gucludur ve majority baseline-dan yuxaridir.
-Amma bunu final poker intelligence kimi yox, duzeldilmis professional supervised
-baseline kimi teqdim etmek lazimdir.
+Bu, 0.34 baseline-dan daha ciddi pipeline-dir, amma group-holdout neticesi
+production approval ucun kifayet deyil. Accuracy majority baseline-dan asagidir
+ve macro F1 minority action problemini gosterir. Bunu final poker intelligence
+kimi yox, duzeldilmis research scaffold kimi teqdim etmek lazimdir.
 
 ## 10. Next Research Step
 

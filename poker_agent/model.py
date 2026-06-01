@@ -47,6 +47,7 @@ class SoftmaxPolicy:
     feature_means: dict[str, float] = field(default_factory=dict)
     feature_scales: dict[str, float] = field(default_factory=dict)
     class_weights: dict[str, float] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def fit(
         self,
@@ -106,6 +107,7 @@ class SoftmaxPolicy:
                     "feature_means": self.feature_means,
                     "feature_scales": self.feature_scales,
                     "class_weights": self.class_weights,
+                    "metadata": self.metadata,
                 },
                 indent=2,
                 sort_keys=True,
@@ -122,6 +124,7 @@ class SoftmaxPolicy:
             feature_means=dict(payload.get("feature_means", {})),
             feature_scales=dict(payload.get("feature_scales", {})),
             class_weights=dict(payload.get("class_weights", {})),
+            metadata=dict(payload.get("metadata", {})),
         )
 
     def _class_weights(
@@ -168,6 +171,7 @@ class SklearnPolicy:
     class_weights: dict[str, float] = field(default_factory=dict)
     encoded_labels: bool = False
     id_to_label: dict[int, str] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def fit(
         self,
@@ -370,6 +374,7 @@ class SklearnPolicy:
                 "class_weights": self.class_weights,
                 "encoded_labels": self.encoded_labels,
                 "id_to_label": self.id_to_label,
+                "metadata": self.metadata,
             },
             path,
         )
@@ -392,6 +397,7 @@ class SklearnPolicy:
             class_weights=dict(payload.get("class_weights", {})),
             encoded_labels=bool(payload.get("encoded_labels", False)),
             id_to_label={int(key): str(value) for key, value in dict(payload.get("id_to_label", {})).items()},
+            metadata=dict(payload.get("metadata", {})),
         )
 
     def _matrix(self, feature_rows: list[dict[str, float]], np: Any) -> Any:
