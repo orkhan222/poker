@@ -34,25 +34,41 @@ def evaluate_policy(
     majority_baseline = majority_count / len(examples)
     per_class: dict[str, dict[str, float]] = {}
     f1_scores: list[float] = []
-    for label in sorted(counts):
+    labels = sorted(set(counts) | set(predicted_counts))
+    weighted_f1_total = 0.0
+    for label in labels:
         precision = true_positive[label] / predicted_counts[label] if predicted_counts[label] else 0.0
         recall = true_positive[label] / counts[label] if counts[label] else 0.0
         f1 = 2.0 * precision * recall / (precision + recall) if precision + recall else 0.0
+        support = float(counts[label])
         per_class[label] = {
             "precision": precision,
             "recall": recall,
             "f1": f1,
-            "support": float(counts[label]),
+            "support": support,
         }
         f1_scores.append(f1)
+        weighted_f1_total += f1 * support
+
+    label_to_index = {label: index for index, label in enumerate(labels)}
+    matrix = [[0 for _ in labels] for _ in labels]
+    for (_, label), (prediction, _) in zip(examples, model_predictions):
+        matrix[label_to_index[label]][label_to_index[prediction]] += 1
+
     return {
         "examples": float(len(examples)),
         "accuracy": accuracy,
         "cross_entropy": total_loss / len(examples),
         "macro_f1": sum(f1_scores) / len(f1_scores) if f1_scores else 0.0,
+        "weighted_f1": weighted_f1_total / len(examples),
         "majority_baseline_accuracy": majority_baseline,
         "lift_vs_majority": accuracy - majority_baseline,
+        "labels": labels,
         "class_counts": dict(sorted(counts.items())),
         "predicted_class_counts": dict(sorted(predicted_counts.items())),
         "per_class": per_class,
+        "confusion_matrix": {
+            "labels": labels,
+            "matrix": matrix,
+        },
     }

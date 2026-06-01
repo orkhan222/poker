@@ -1,18 +1,18 @@
 # Response To Model Review
 
-Thank you for the detailed review. I agree with the main point: the previous
-0.34 accuracy result should not have been presented as an acceptable model
-result. The root problem was first the data and feature pipeline, and after
-those fixes the remaining issue was that the model itself was still too simple.
+Thank you for the detailed review. I agree with the main criticism: the old
+0.34 result was not acceptable as a model-quality claim. The core issue was the
+data and feature pipeline first, and the simple model architecture second.
 
-I have reworked the project so the training and evaluation flow now addresses
-both points: pipeline correctness and a stronger non-linear supervised model.
+The project has now been reworked into a stronger supervised imitation pipeline
+with leakage controls, temporal betting features, class-imbalance handling, and
+a model-comparison path.
 
-## Changes Made
+## What Was Fixed
 
 1. Representative dataset
 
-   The trainer now uses the real CSV dataset containing:
+   Training now uses the real CSV dataset:
 
    ```text
    hands.csv
@@ -21,60 +21,72 @@ both points: pipeline correctness and a stronger non-linear supervised model.
    stack_events.csv
    ```
 
-   The small `sample_poker_log.jsonl` file is kept only as a smoke-test sample,
-   not as the main training source.
+   The tiny `sample_poker_log.jsonl` file is only a smoke-test sample.
 
 2. Missing hole cards
 
-   Training rows where OCR did not capture two hole cards are filtered by
-   default. This prevents `strength_proxy` from being zero for most training
-   samples.
+   Rows where OCR did not capture two hole cards are dropped by default. The
+   loader also supports `flag` and `keep` modes for ablation experiments.
 
-3. Pot-odds features
+3. Pot odds and betting amounts
 
    `to_call`, `min_raise`, and action-time pot are reconstructed from the
-   action sequence and negative stack events. These values are no longer left at
-   zero inside `load_training_examples`.
+   ordered action stream and stack-event deltas. They are no longer left as zero
+   inside `load_training_examples`.
 
-4. Position encoding
+4. Future-card and final-pot leakage
 
-   Sparse raw position labels such as `Player1_Bottom` are compressed into
-   stable position groups. This avoids hundreds of low-value one-hot features.
+   Board cards are limited to the current street: preflop 0, flop 3, turn 4,
+   river 5. The model no longer sees final-board information at earlier
+   decisions. Final-hand pot is also not used as an action-time feature.
 
-5. Rare all-in labels
+5. Position encoding
 
-   `all_in` appears too rarely in the OCR labels to train as a reliable
-   standalone class. It is merged into `raise` by default, while the original
-   class can still be kept with a training flag for experiments.
+   Sparse labels such as `Player1_Bottom` are compressed into stable position
+   groups. This reduces noisy one-hot feature explosion.
 
-6. Class imbalance handling
+6. Rare all-in labels
 
-   The trainer supports `none`, `sqrt_balanced`, and `balanced` weighting modes.
-   The delivered model uses `sqrt_balanced` sample weighting.
+   `all_in` is merged into `raise` by default because the OCR labels contain too
+   few reliable all-in examples. The original class can still be kept for
+   experiments.
 
-7. Model architecture
+7. Temporal betting features
 
-   The delivered artifact is no longer the simple in-repo softmax baseline. It
-   is a non-linear `ExtraTreesClassifier` ensemble saved as a joblib model. The
-   softmax JSON model is kept only as a compatibility fallback.
+   The feature pipeline now includes action count, aggressive count,
+   call/check/fold count, aggression ratio, players-acted ratio, hero
+   commitment, table pressure, facing-bet flags, call price, raise pressure, and
+   last-aggressor group. API users can also pass `betting_history`.
 
-   The sklearn/numpy/joblib versions are pinned in `requirements.txt` because
-   persisted sklearn models are version-sensitive.
+8. Class imbalance
 
-8. Evaluation reporting
+   The trainer supports `none`, `sqrt_balanced`, and `balanced` sample
+   weighting. This directly addresses fold dominance without pretending that
+   accuracy alone is sufficient.
 
-   Evaluation reports:
+9. Model families
+
+   The code now supports:
 
    ```text
-   accuracy
-   cross_entropy
-   macro_f1
-   majority_baseline_accuracy
-   lift_vs_majority
-   class_counts
-   predicted_class_counts
-   per_class precision / recall / f1
+   hist_gradient_boosting
+   extra_trees
+   random_forest
+   mlp
+   xgboost      optional
+   lightgbm     optional
+   catboost     optional
+   softmax      fallback baseline
    ```
+
+   A Transformer/focal-loss scaffold is included in
+   `poker_agent/sequence_models.py` for future full betting-sequence research.
+
+10. Evaluation
+
+   Evaluation now reports accuracy, cross entropy, macro F1, weighted F1,
+   precision/recall/F1 per class, majority baseline, lift versus baseline,
+   predicted class counts, and confusion matrix.
 
 ## Current Delivered Model
 
@@ -90,46 +102,63 @@ Training command:
 python scripts\train_policy.py `
   --dataset "C:\Users\user\Desktop\AllFile\dataset" `
   --model-out ".\models\poker_policy.joblib" `
-  --policy extra_trees `
+  --policy hist_gradient_boosting `
   --max-examples 0 `
-  --n-estimators 120 `
+  --max-iter 90 `
+  --learning-rate 0.05 `
+  --max-leaf-nodes 31 `
+  --l2-regularization 0.02 `
   --class-weighting sqrt_balanced `
-  --max-class-weight 6
+  --max-class-weight 6 `
+  --missing-hole-cards drop
 ```
 
-Current validation result on the filtered real dataset:
+Validation result:
 
 ```text
 examples=150152
 train_examples=127629
 valid_examples=22523
-accuracy=0.6501
-cross_entropy=0.8773
-macro_f1=0.4665
-majority_baseline_accuracy=0.5948
-lift_vs_majority=0.0553
+valid_accuracy=0.6544
+valid_cross_entropy=0.8011
+valid_macro_f1=0.5138
+valid_weighted_f1=0.6503
+valid_majority_baseline_accuracy=0.5948
+valid_lift_vs_majority=0.0596
+```
+
+An earlier score was higher, but it was rejected because a current-action stack
+amount feature leaked label information. The metrics above are the honest
+leakage-safe result.
+
+## Research Experiment Runner
+
+The new comparison script runs a hand-level holdout:
+
+```powershell
+python scripts\research_experiment.py `
+  --dataset "C:\Users\user\Desktop\AllFile\dataset" `
+  --out-dir ".\research_runs\full" `
+  --policies hist_gradient_boosting,extra_trees,random_forest,mlp `
+  --class-weighting sqrt_balanced `
+  --max-class-weight 6 `
+  --missing-hole-cards drop `
+  --save-models
+```
+
+The report is saved as:
+
+```text
+research_runs\full\model_comparison.json
 ```
 
 ## Honest Status
 
-This is now a corrected supervised imitation model with a working API, fixed
-training pipeline, class-weighted training, and a non-linear ensemble model. It
-is above the majority-class baseline and stronger than the previous softmax
-baseline.
+This is now a corrected professional supervised baseline with a working API,
+feature extraction fixes, class-weighted training, temporal betting features,
+and model-comparison tooling.
 
-I would still not present it as a finished profitable poker strategy, GTO
-engine, or fully production-grade autonomous poker agent. It is a stronger
-professional supervised baseline for the current OCR/event-log dataset.
-
-The right next step is to continue with the remaining stages:
-
-1. Improve OCR/card extraction coverage.
-2. Add a cleaner hand-history source if available.
-3. Add a source-file/session-level holdout split to reduce leakage risk.
-4. Run stronger model experiments only after data quality improves.
-5. Track macro F1 and per-class recall, not only accuracy.
-
-In short: the previous criticism was valid. The current package fixes the
-pipeline-level issues and upgrades the model from a simple softmax baseline to a
-weighted non-linear ensemble. It should still be delivered with the limitations
-above clearly stated.
+It should still not be marketed as a finished profitable poker bot or GTO
+engine. The next research priorities are cleaner card/OCR coverage, source-level
+holdout splits, richer betting histories, and sequence models trained on full
+hand trajectories.

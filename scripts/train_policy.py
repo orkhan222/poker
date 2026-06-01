@@ -21,30 +21,48 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model-out", required=True, type=Path, help="Output JSON model path")
     parser.add_argument(
         "--policy",
-        choices=("hist_gradient_boosting", "extra_trees", "random_forest", "softmax"),
+        choices=(
+            "hist_gradient_boosting",
+            "xgboost",
+            "lightgbm",
+            "catboost",
+            "extra_trees",
+            "random_forest",
+            "mlp",
+            "softmax",
+        ),
         default="hist_gradient_boosting",
-        help="Model family to train. Tree/boosting policies are the professional non-linear options.",
+        help="Model family to train. Boosting policies are the preferred research-grade tabular options.",
     )
     parser.add_argument("--epochs", type=int, default=12, help="Softmax-only epoch count")
     parser.add_argument("--learning-rate", type=float, default=0.05)
-    parser.add_argument("--max-iter", type=int, default=220, help="HistGradientBoosting iteration count")
+    parser.add_argument("--max-iter", type=int, default=90, help="HistGradientBoosting iteration count")
     parser.add_argument("--max-leaf-nodes", type=int, default=31)
-    parser.add_argument("--l2-regularization", type=float, default=0.01)
+    parser.add_argument("--l2-regularization", type=float, default=0.02)
     parser.add_argument("--n-estimators", type=int, default=350, help="Tree count for forest policies")
     parser.add_argument(
         "--class-weighting",
         choices=("none", "sqrt_balanced", "balanced"),
-        default="none",
+        default="sqrt_balanced",
         help=(
             "Loss/sample weighting mode. Use sqrt_balanced/balanced for imbalance "
             "experiments, or none for pure accuracy optimization."
         ),
     )
-    parser.add_argument("--max-class-weight", type=float, default=12.0)
+    parser.add_argument("--max-class-weight", type=float, default=6.0)
     parser.add_argument(
         "--allow-missing-hole-cards",
         action="store_true",
         help="Keep rows where OCR did not capture two hole cards. Default filters them out.",
+    )
+    parser.add_argument(
+        "--missing-hole-cards",
+        choices=("drop", "flag", "keep"),
+        default="drop",
+        help=(
+            "Missing-card policy. drop removes rows, flag keeps rows with missingness "
+            "features, keep keeps rows without adding special handling beyond features."
+        ),
     )
     parser.add_argument(
         "--keep-all-in-class",
@@ -67,6 +85,7 @@ def main() -> None:
         args.dataset,
         max_examples=args.max_examples,
         require_hole_cards=not args.allow_missing_hole_cards,
+        missing_hole_cards="flag" if args.allow_missing_hole_cards and args.missing_hole_cards == "drop" else args.missing_hole_cards,
         merge_all_in=not args.keep_all_in_class,
     )
     if not examples:
@@ -111,6 +130,7 @@ def main() -> None:
     print(f"valid_class_counts={json.dumps(valid_metrics['class_counts'], sort_keys=True)}")
     print(f"train_accuracy={train_metrics['accuracy']:.4f} train_ce={train_metrics['cross_entropy']:.4f}")
     print(f"train_macro_f1={train_metrics['macro_f1']:.4f}")
+    print(f"train_weighted_f1={train_metrics['weighted_f1']:.4f}")
     print(
         "train_majority_baseline="
         f"{train_metrics['majority_baseline_accuracy']:.4f} "
@@ -118,6 +138,7 @@ def main() -> None:
     )
     print(f"valid_accuracy={valid_metrics['accuracy']:.4f} valid_ce={valid_metrics['cross_entropy']:.4f}")
     print(f"valid_macro_f1={valid_metrics['macro_f1']:.4f}")
+    print(f"valid_weighted_f1={valid_metrics['weighted_f1']:.4f}")
     print(
         "valid_majority_baseline="
         f"{valid_metrics['majority_baseline_accuracy']:.4f} "
@@ -125,6 +146,7 @@ def main() -> None:
     )
     print(f"valid_predicted_class_counts={json.dumps(valid_metrics['predicted_class_counts'], sort_keys=True)}")
     print(f"valid_per_class={json.dumps(valid_metrics['per_class'], sort_keys=True)}")
+    print(f"valid_confusion_matrix={json.dumps(valid_metrics['confusion_matrix'], sort_keys=True)}")
 
 
 if __name__ == "__main__":

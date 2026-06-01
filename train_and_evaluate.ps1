@@ -2,13 +2,16 @@ param(
     [string]$Dataset = "C:\Users\user\Desktop\AllFile\dataset",
     [string]$ModelOut = "",
     [int]$MaxExamples = 0,
-    [ValidateSet("hist_gradient_boosting", "extra_trees", "random_forest", "softmax")]
+    [ValidateSet("hist_gradient_boosting", "xgboost", "lightgbm", "catboost", "extra_trees", "random_forest", "mlp", "softmax")]
     [string]$Policy = "hist_gradient_boosting",
     [int]$Epochs = 12,
-    [int]$MaxIter = 220,
+    [int]$MaxIter = 90,
     [double]$LearningRate = 0.05,
     [ValidateSet("none", "sqrt_balanced", "balanced")]
-    [string]$ClassWeighting = "sqrt_balanced"
+    [string]$ClassWeighting = "sqrt_balanced",
+    [double]$MaxClassWeight = 6.0,
+    [ValidateSet("drop", "flag", "keep")]
+    [string]$MissingHoleCards = "drop"
 )
 
 $ErrorActionPreference = "Stop"
@@ -58,6 +61,8 @@ Write-Host "Training policy model..." -ForegroundColor Green
     --max-iter $MaxIter `
     --learning-rate $LearningRate `
     --class-weighting $ClassWeighting `
+    --max-class-weight $MaxClassWeight `
+    --missing-hole-cards $MissingHoleCards `
     --max-examples $MaxExamples
 
 Write-Host ""
@@ -65,4 +70,5 @@ Write-Host "Evaluating saved model..." -ForegroundColor Green
 & $Python scripts\evaluate_policy.py `
     --dataset $Dataset `
     --model $ModelOut `
+    --missing-hole-cards $MissingHoleCards `
     --max-examples $MaxExamples

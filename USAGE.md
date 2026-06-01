@@ -11,7 +11,7 @@ cd "C:\Users\user\Desktop\Secop\files-mentioned-by-the-user-poker-2"
 Open:
 
 ```text
-http://127.0.0.1:8000/predict
+http://127.0.0.1:8001/predict
 ```
 
 Stop with `Ctrl+C`.
@@ -58,22 +58,30 @@ Visible endpoint groups:
   "position": "BTN",
   "street": "preflop",
   "hole_cards": ["Ah", "Kd"],
-  "board_cards": [2c, 3d, QS],
+  "board_cards": [],
   "pot": 2.5,
   "to_call": 1.0,
   "stack": 100.0,
   "min_raise": 2.0,
-  "player_count": 6
+  "player_count": 6,
+  "betting_history": [
+    {"position": "UTG", "action": "fold"},
+    {"position": "CO", "action": "raise", "amount": 2.5}
+  ]
 }
 ```
 
-## Retrain
+`betting_history` is optional, but recommended when available. It lets the
+feature pipeline add temporal betting context such as aggression count, last
+aggressor, and players-acted ratio.
+
+## Retrain Delivered Model
 
 ```powershell
 .\train_and_evaluate.ps1
 ```
 
-The default dataset path is:
+Default dataset path:
 
 ```text
 C:\Users\user\Desktop\AllFile\dataset
@@ -85,27 +93,45 @@ The retraining script writes:
 models\poker_policy.joblib
 ```
 
+## Research Model Comparison
+
+```powershell
+python scripts\research_experiment.py `
+  --dataset "C:\Users\user\Desktop\AllFile\dataset" `
+  --out-dir ".\research_runs\full" `
+  --policies hist_gradient_boosting,extra_trees,random_forest,mlp `
+  --class-weighting sqrt_balanced `
+  --max-class-weight 6 `
+  --missing-hole-cards drop `
+  --save-models
+```
+
+For XGBoost, LightGBM, CatBoost, and Transformer research dependencies:
+
+```powershell
+pip install -r requirements-research.txt
+```
+
 ## Latest Model Metrics
 
 ```text
 examples=150152
-accuracy=0.6501
-cross_entropy=0.8773
-macro_f1=0.4665
-majority_baseline_accuracy=0.5948
-lift_vs_majority=0.0553
+valid_accuracy=0.6544
+valid_cross_entropy=0.8011
+valid_macro_f1=0.5138
+valid_weighted_f1=0.6503
+valid_majority_baseline_accuracy=0.5948
+valid_lift_vs_majority=0.0596
 ```
 
-The delivered model is a non-linear ExtraTrees ensemble trained with
-sqrt-balanced sample weighting. It is still an OCR-log imitation model, so it
-should be presented as a decision prediction API, not as a guaranteed profitable
-poker strategy.
+These are supervised imitation metrics from OCR/event logs. Present the package
+as a poker action prediction API, not as a guaranteed profitable poker strategy.
 
 ## Docker
 
 ```powershell
 docker build -t poker-decision-agent:latest .
-docker run --rm -p 8001:8001 poker-decision-agent:latest
+docker run --rm -p 8000:8000 poker-decision-agent:latest
 ```
 
 Docker verification:

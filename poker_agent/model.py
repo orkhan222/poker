@@ -166,6 +166,8 @@ class SklearnPolicy:
     estimator: Any = None
     model_kind: str = "hist_gradient_boosting"
     class_weights: dict[str, float] = field(default_factory=dict)
+    encoded_labels: bool = False
+    id_to_label: dict[int, str] = field(default_factory=dict)
 
     def fit(
         self,
@@ -183,6 +185,9 @@ class SklearnPolicy:
         try:
             import numpy as np
             from sklearn.ensemble import ExtraTreesClassifier, HistGradientBoostingClassifier, RandomForestClassifier
+            from sklearn.neural_network import MLPClassifier
+            from sklearn.pipeline import make_pipeline
+            from sklearn.preprocessing import StandardScaler
         except ImportError as exc:
             raise RuntimeError(
                 "The sklearn policy requires scikit-learn, numpy, and joblib. "
@@ -196,6 +201,9 @@ class SklearnPolicy:
         self.feature_names = sorted({name for features, _ in examples for name in features})
         self.model_kind = model_kind
         y = [label for _, label in examples]
+        y_fit: Any = y
+        self.encoded_labels = False
+        self.id_to_label = {}
         self.class_weights = balanced_class_weights(
             y,
             self.labels,
@@ -229,10 +237,80 @@ class SklearnPolicy:
                 n_jobs=-1,
                 random_state=random_state,
             )
+        elif model_kind == "mlp":
+            estimator = make_pipeline(
+                StandardScaler(),
+                MLPClassifier(
+                    hidden_layer_sizes=(256, 128, 64),
+                    activation="relu",
+                    alpha=l2_regularization,
+                    batch_size=512,
+                    learning_rate_init=learning_rate,
+                    max_iter=max_iter,
+                    early_stopping=True,
+                    n_iter_no_change=10,
+                    random_state=random_state,
+                ),
+            )
+        elif model_kind == "xgboost":
+            try:
+                from xgboost import XGBClassifier
+            except ImportError as exc:
+                raise RuntimeError("Install xgboost to train --policy xgboost") from exc
+            y_fit = self._encode_labels(y)
+            estimator = XGBClassifier(
+                objective="multi:softprob",
+                eval_metric="mlogloss",
+                num_class=len(self.labels),
+                n_estimators=n_estimators,
+                learning_rate=learning_rate,
+                max_depth=6,
+                subsample=0.85,
+                colsample_bytree=0.85,
+                reg_lambda=max(l2_regularization, 1e-6),
+                tree_method="hist",
+                random_state=random_state,
+            )
+        elif model_kind == "lightgbm":
+            try:
+                from lightgbm import LGBMClassifier
+            except ImportError as exc:
+                raise RuntimeError("Install lightgbm to train --policy lightgbm") from exc
+            y_fit = self._encode_labels(y)
+            estimator = LGBMClassifier(
+                objective="multiclass",
+                num_class=len(self.labels),
+                n_estimators=n_estimators,
+                learning_rate=learning_rate,
+                num_leaves=max_leaf_nodes,
+                subsample=0.85,
+                colsample_bytree=0.85,
+                reg_lambda=max(l2_regularization, 1e-6),
+                random_state=random_state,
+                n_jobs=-1,
+            )
+        elif model_kind == "catboost":
+            try:
+                from catboost import CatBoostClassifier
+            except ImportError as exc:
+                raise RuntimeError("Install catboost to train --policy catboost") from exc
+            y_fit = self._encode_labels(y)
+            estimator = CatBoostClassifier(
+                loss_function="MultiClass",
+                iterations=n_estimators,
+                learning_rate=learning_rate,
+                depth=6,
+                l2_leaf_reg=max(l2_regularization * 100.0, 1.0),
+                random_seed=random_state,
+                verbose=False,
+            )
         else:
             raise ValueError(f"Unsupported sklearn model kind: {model_kind}")
 
-        estimator.fit(x_train, y, sample_weight=sample_weight)
+        try:
+            estimator.fit(x_train, y_fit, sample_weight=sample_weight)
+        except TypeError:
+            estimator.fit(x_train, y_fit)
         self.estimator = estimator
 
     def predict_proba_from_features(self, raw_features: dict[str, float]) -> dict[str, float]:
@@ -244,7 +322,7 @@ class SklearnPolicy:
             raise RuntimeError("numpy is required to run the sklearn policy") from exc
 
         probabilities = self.estimator.predict_proba(self._matrix([raw_features], np=np))[0]
-        classes = list(getattr(self.estimator, "classes_", self.labels))
+        classes = self._class_labels()
         by_label = {str(label): float(probability) for label, probability in zip(classes, probabilities)}
         total = sum(by_label.values()) or 1.0
         return {label: by_label.get(label, 0.0) / total for label in self.labels}
@@ -266,7 +344,7 @@ class SklearnPolicy:
             raise RuntimeError("numpy is required to run the sklearn policy") from exc
 
         probability_rows = self.estimator.predict_proba(self._matrix(feature_rows, np=np))
-        classes = list(getattr(self.estimator, "classes_", self.labels))
+        classes = self._class_labels()
         predictions: list[tuple[str, dict[str, float]]] = []
         for probabilities in probability_rows:
             by_label = {str(label): float(probability) for label, probability in zip(classes, probabilities)}
@@ -290,6 +368,8 @@ class SklearnPolicy:
                 "estimator": self.estimator,
                 "model_kind": self.model_kind,
                 "class_weights": self.class_weights,
+                "encoded_labels": self.encoded_labels,
+                "id_to_label": self.id_to_label,
             },
             path,
         )
@@ -310,6 +390,8 @@ class SklearnPolicy:
             estimator=payload["estimator"],
             model_kind=str(payload.get("model_kind", "hist_gradient_boosting")),
             class_weights=dict(payload.get("class_weights", {})),
+            encoded_labels=bool(payload.get("encoded_labels", False)),
+            id_to_label={int(key): str(value) for key, value in dict(payload.get("id_to_label", {})).items()},
         )
 
     def _matrix(self, feature_rows: list[dict[str, float]], np: Any) -> Any:
@@ -317,6 +399,18 @@ class SklearnPolicy:
             [[float(row.get(name, 0.0)) for name in self.feature_names] for row in feature_rows],
             dtype=float,
         )
+
+    def _encode_labels(self, labels: list[str]) -> list[int]:
+        label_to_id = {label: index for index, label in enumerate(self.labels)}
+        self.id_to_label = {index: label for label, index in label_to_id.items()}
+        self.encoded_labels = True
+        return [label_to_id[label] for label in labels]
+
+    def _class_labels(self) -> list[str]:
+        raw_classes = list(getattr(self.estimator, "classes_", self.labels))
+        if not self.encoded_labels:
+            return [str(label) for label in raw_classes]
+        return [self.id_to_label.get(int(label), str(label)) for label in raw_classes]
 
 
 def load_policy(path: Path) -> SoftmaxPolicy | SklearnPolicy:

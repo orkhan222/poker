@@ -3,7 +3,7 @@ services:
     build: .
     image: poker-decision-agent:latest
     ports:
-      - "8001:8001"
+      - "8000:8000"
     environment:
       POKER_POLICY_PATH: /app/models/poker_policy.json
     restart: unless-stopped

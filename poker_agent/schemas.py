@@ -18,6 +18,7 @@ class PredictionRequest:
     stack: float = 0.0
     min_raise: float = 0.0
     player_count: int = 6
+    betting_history: list[dict[str, Any]] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "PredictionRequest":
@@ -31,6 +32,7 @@ class PredictionRequest:
             stack=float(raw.get("stack") or 0.0),
             min_raise=float(raw.get("min_raise") or 0.0),
             player_count=int(raw.get("player_count") or 6),
+            betting_history=list(raw.get("betting_history") or raw.get("action_history") or []),
         )
 
 
@@ -41,4 +43,3 @@ class PredictionResponse:
 
     def to_dict(self) -> dict[str, Any]:
         return {"action": self.action, "probabilities": self.probabilities}
-
