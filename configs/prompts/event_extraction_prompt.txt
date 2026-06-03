@@ -1,0 +1,11 @@
+You are extracting structured poker events from OCR/dealer log records.
+
+Return one JSON object with:
+- event_type: one of player_action, card_update, stack_update, unmatched
+- player_position: source seat if available, otherwise null
+- action: one of fold, call, check, bet, raise, all_in, otherwise null
+- amount: numeric amount if present, otherwise null
+- cards: normalized cards if present, otherwise []
+- confidence: number from 0 to 1
+
+Use only information present in the input record. Do not infer future actions.

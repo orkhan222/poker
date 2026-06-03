@@ -13,14 +13,19 @@ param(
     [ValidateSet("drop", "flag", "keep")]
     [string]$MissingHoleCards = "drop",
     [ValidateSet("stratified_hand_group", "random_action")]
-    [string]$SplitStrategy = "stratified_hand_group"
+    [string]$SplitStrategy = "stratified_hand_group",
+    [switch]$SinglePolicy
 )
 
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (!$ModelOut) {
-    $ModelOut = Join-Path $ProjectRoot "models\poker_policy.joblib"
+    if ($SinglePolicy) {
+        $ModelOut = Join-Path $ProjectRoot "models\poker_policy.joblib"
+    } else {
+        $ModelOut = Join-Path $ProjectRoot "models\poker_policy_bundle.joblib"
+    }
 }
 
 $PythonCandidates = @(
@@ -54,19 +59,33 @@ if (!(Test-Path $Dataset)) {
 
 Set-Location $ProjectRoot
 
-Write-Host "Training policy model..." -ForegroundColor Green
-& $Python scripts\train_policy.py `
-    --dataset $Dataset `
-    --model-out $ModelOut `
-    --policy $Policy `
-    --epochs $Epochs `
-    --max-iter $MaxIter `
-    --learning-rate $LearningRate `
-    --class-weighting $ClassWeighting `
-    --max-class-weight $MaxClassWeight `
-    --missing-hole-cards $MissingHoleCards `
-    --split-strategy $SplitStrategy `
-    --max-examples $MaxExamples
+if ($SinglePolicy) {
+    Write-Host "Training single policy model..." -ForegroundColor Green
+    & $Python scripts\train_policy.py `
+        --dataset $Dataset `
+        --model-out $ModelOut `
+        --policy $Policy `
+        --epochs $Epochs `
+        --max-iter $MaxIter `
+        --learning-rate $LearningRate `
+        --class-weighting $ClassWeighting `
+        --max-class-weight $MaxClassWeight `
+        --missing-hole-cards $MissingHoleCards `
+        --split-strategy $SplitStrategy `
+        --max-examples $MaxExamples
+} else {
+    Write-Host "Training routed policy bundle..." -ForegroundColor Green
+    & $Python scripts\train_policy_bundle.py `
+        --dataset $Dataset `
+        --model-out $ModelOut `
+        --observed-policy $Policy `
+        --context-policy $Policy `
+        --max-iter $MaxIter `
+        --learning-rate $LearningRate `
+        --class-weighting $ClassWeighting `
+        --max-class-weight $MaxClassWeight `
+        --max-examples $MaxExamples
+}
 
 Write-Host ""
 Write-Host "Evaluating saved model..." -ForegroundColor Green

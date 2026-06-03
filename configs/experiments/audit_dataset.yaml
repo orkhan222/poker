@@ -1,0 +1,21 @@
+﻿defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: hist_gradient_boosting
+  - override /training@_global_.training: group_holdout
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: audit_dataset
+description: Dataset quality, leakage, feature-zero-rate, and class-imbalance audit.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/audit_dataset.py
+  args:
+    dataset: ${dataset.root}
+    out: ${logging.reports_dir}/dataset_audit.json
+    max_rows: ${dataset.max_rows}
+    max_feature_examples: ${dataset.max_feature_examples}
+    missing_hole_cards: ${dataset.missing_hole_cards_audit}
+

@@ -1,0 +1,6 @@
+name: smoke
+seed: 42
+valid_ratio: 0.15
+split_strategy: stratified_hand_group
+max_examples: 1000
+epochs: 3

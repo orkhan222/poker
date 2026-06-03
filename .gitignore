@@ -1,4 +1,6 @@
 __pycache__/
+reports/
+MODEL_CARD.md
 *.pyc
 *.pyo
 *.pyd

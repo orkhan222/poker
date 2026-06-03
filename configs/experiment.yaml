@@ -1,0 +1,24 @@
+defaults:
+  - dataset: poker_csv
+  - model: hist_gradient_boosting
+  - training: group_holdout
+  - evaluation: standard
+  - inference: local_service
+  - logging: local
+  - experiments: train_single_hgb
+  - _self_
+
+project_root: null
+python_executable: python
+
+runtime:
+  seed: 42
+  deterministic: true
+  pythonhashseed: 42
+  num_threads: 1
+
+hydra:
+  run:
+    dir: ${logging.hydra_run_dir}/${experiments.name}/${now:%Y%m%d_%H%M%S}
+  job:
+    chdir: false

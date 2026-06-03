@@ -1,0 +1,24 @@
+﻿defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: text_event_local_rules
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: llm_event_benchmark
+description: Quantitative event extraction benchmark with baseline comparison and methodology output.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/llm_event_benchmark.py
+  args:
+    input: ${dataset.local_logs}
+    out: ${logging.reports_dir}/llm_event_benchmark.json
+    methodology_out: ${logging.reports_dir}/llm_event_methodology.md
+    prompt: configs/prompts/event_extraction_prompt.txt
+    provider: ${model.provider}
+    max_files: 2
+    max_records: 1000
+    min_confidence: ${model.min_confidence}
+

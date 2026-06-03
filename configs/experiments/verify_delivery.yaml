@@ -1,0 +1,21 @@
+﻿defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: hist_gradient_boosting
+  - override /training@_global_.training: group_holdout
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: verify_delivery
+description: Delivery acceptance checks for source, model artifact, reports, API contract, and package ZIP.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/verify_delivery.py
+  args:
+    project_root: .
+    model: ${inference.model_path}
+    zip: ${inference.zip_path}
+    require_gate_pass: ${evaluation.delivery.require_gate_pass}
+    json_out: ${logging.reports_dir}/delivery_verification.json
+

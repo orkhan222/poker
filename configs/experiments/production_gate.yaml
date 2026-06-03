@@ -1,0 +1,25 @@
+﻿defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: hist_gradient_boosting
+  - override /training@_global_.training: group_holdout
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: production_gate
+description: Objective model-approval gates against validation metrics and dataset audit blockers.
+task: command
+allow_failure: true
+command:
+  entrypoint: scripts/production_gate.py
+  args:
+    model: ${inference.model_path}
+    audit_report: ${logging.reports_dir}/dataset_audit.json
+    out: ${logging.reports_dir}/production_gate.json
+    min_accuracy_lift: ${evaluation.production_gate.min_accuracy_lift}
+    min_macro_f1: ${evaluation.production_gate.min_macro_f1}
+    min_balanced_accuracy: ${evaluation.production_gate.min_balanced_accuracy}
+    max_ece_10: ${evaluation.production_gate.max_ece_10}
+    min_observed_hole_macro_f1: ${evaluation.production_gate.min_observed_hole_macro_f1}
+    min_facing_bet_macro_f1: ${evaluation.production_gate.min_facing_bet_macro_f1}
+

@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
 from poker_agent.evaluator import evaluate_policy
 from poker_agent.features import load_training_examples
 from poker_agent.model import SklearnPolicy, SoftmaxPolicy
+from poker_agent.slices import evaluate_policy_slices
 from poker_agent.validation import random_action_split, stratified_group_holdout_split
 
 
@@ -141,6 +142,7 @@ def main() -> None:
         )
     train_metrics = evaluate_policy(model, train_examples)
     valid_metrics = evaluate_policy(model, valid_examples)
+    valid_slice_metrics = evaluate_policy_slices(model, valid_examples, min_examples=100)
     model.metadata = {
         "dataset": str(args.dataset),
         "policy": args.policy,
@@ -151,6 +153,7 @@ def main() -> None:
         "max_class_weight": args.max_class_weight,
         "train_metrics": train_metrics,
         "valid_metrics": valid_metrics,
+        "valid_slice_metrics": valid_slice_metrics,
     }
     model.save(args.model_out)
 
@@ -184,6 +187,7 @@ def main() -> None:
     print(f"valid_predicted_class_counts={json.dumps(valid_metrics['predicted_class_counts'], sort_keys=True)}")
     print(f"valid_per_class={json.dumps(valid_metrics['per_class'], sort_keys=True)}")
     print(f"valid_confusion_matrix={json.dumps(valid_metrics['confusion_matrix'], sort_keys=True)}")
+    print(f"valid_slice_metrics={json.dumps(valid_slice_metrics, sort_keys=True)}")
 
 
 if __name__ == "__main__":

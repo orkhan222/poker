@@ -1,0 +1,19 @@
+Extract structured poker events from OCR/dealer log records.
+
+Allowed event types:
+- player_action
+- card_update
+- stack_update
+- unmatched
+
+Allowed decision actions:
+- fold
+- call
+- check
+- bet
+- raise
+
+Map all-in decisions to raise for the current supervised policy label space.
+Do not classify blinds, antes, joins, winnings, nickname updates, ROI updates,
+or hand-start messages as decision actions.
+Use only fields present in the record.

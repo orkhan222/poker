@@ -1,0 +1,33 @@
+﻿defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: hist_gradient_boosting
+  - override /training@_global_.training: group_holdout
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: train_single_hgb
+description: Leakage-aware single-policy training with stratified hand-group holdout.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/train_policy.py
+  args:
+    dataset: ${dataset.root}
+    model_out: ${inference.model_path}
+    policy: ${model.policy}
+    epochs: ${training.epochs}
+    learning_rate: ${model.learning_rate}
+    max_iter: ${model.max_iter}
+    max_leaf_nodes: ${model.max_leaf_nodes}
+    l2_regularization: ${model.l2_regularization}
+    n_estimators: ${model.n_estimators}
+    class_weighting: ${model.class_weighting}
+    max_class_weight: ${model.max_class_weight}
+    missing_hole_cards: ${dataset.missing_hole_cards_train}
+    keep_all_in_class: ${model.keep_all_in_class}
+    seed: ${training.seed}
+    valid_ratio: ${training.valid_ratio}
+    split_strategy: ${training.split_strategy}
+    max_examples: ${training.max_examples}
+

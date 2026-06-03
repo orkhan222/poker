@@ -1,0 +1,24 @@
+﻿defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: text_event_local_rules
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: llm_event_extraction_smoke
+description: Reproducible text-event extraction smoke run for OCR/dealer-log action labeling.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/llm_event_extraction.py
+  args:
+    input: ${dataset.local_logs}
+    out: ${logging.reports_dir}/llm_event_extraction_sample.jsonl
+    summary_out: ${logging.reports_dir}/llm_event_extraction_summary.json
+    provider: ${model.provider}
+    max_files: 2
+    max_records: 500
+    min_confidence: ${model.min_confidence}
+    include_unmatched: ${model.include_unmatched}
+

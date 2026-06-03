@@ -1,0 +1,9 @@
+name: text_event_local_rules
+provider: local_rules
+min_confidence: 0.20
+include_unmatched: true
+event_labels:
+  - player_action
+  - card_update
+  - stack_update
+  - unmatched

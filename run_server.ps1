@@ -7,10 +7,15 @@ $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $DefaultModelPath = Join-Path $ProjectRoot "models\poker_policy.joblib"
+$BundleModelPath = Join-Path $ProjectRoot "models\poker_policy_bundle.joblib"
 $Python = $null
 
 if (!$ModelPath) {
-    $ModelPath = $DefaultModelPath
+    if (Test-Path $BundleModelPath) {
+        $ModelPath = $BundleModelPath
+    } else {
+        $ModelPath = $DefaultModelPath
+    }
 }
 
 $PythonCandidates = @(

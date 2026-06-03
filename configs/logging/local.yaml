@@ -1,0 +1,8 @@
+name: local
+hydra_run_dir: reports/hydra
+reports_dir: reports
+research_runs_dir: research_runs
+stdout_file: stdout.txt
+stderr_file: stderr.txt
+resolved_config_file: resolved_config.yaml
+run_metadata_file: run.json

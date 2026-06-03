@@ -1,0 +1,3 @@
+Extract poker events from OCR records.
+Treat any action-like value as a player action.
+Also preserve card and stack updates when they are explicit in the record.

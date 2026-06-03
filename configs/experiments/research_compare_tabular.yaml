@@ -1,0 +1,32 @@
+﻿defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: tabular_compare
+  - override /training@_global_.training: group_holdout
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: research_compare_tabular
+description: Leakage-aware comparison of production-suitable tabular model families.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/research_experiment.py
+  args:
+    dataset: ${dataset.root}
+    out_dir: ${logging.research_runs_dir}/full
+    policies: ${model.policies}
+    valid_ratio: ${training.valid_ratio}
+    seed: ${training.seed}
+    max_examples: ${training.max_examples}
+    missing_hole_cards: ${dataset.missing_hole_cards_train}
+    class_weighting: ${model.class_weighting}
+    max_class_weight: ${model.max_class_weight}
+    max_iter: ${model.max_iter}
+    learning_rate: ${model.learning_rate}
+    max_leaf_nodes: ${model.max_leaf_nodes}
+    l2_regularization: ${model.l2_regularization}
+    n_estimators: ${model.n_estimators}
+    selection_metric: ${model.selection_metric}
+    save_models: ${model.save_models}
+

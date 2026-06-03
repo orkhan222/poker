@@ -1,0 +1,19 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: hist_gradient_boosting
+  - override /training@_global_.training: group_holdout
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: evaluate_policy
+description: Evaluate the saved poker policy artifact with configured dataset and missing-card mode.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/evaluate_policy.py
+  args:
+    dataset: ${dataset.root}
+    model: ${inference.model_path}
+    missing_hole_cards: ${dataset.missing_hole_cards_train}
+    max_examples: ${training.max_examples}

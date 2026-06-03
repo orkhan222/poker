@@ -1,0 +1,22 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: text_event_local_rules
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: llm_event_gold_eval
+description: Gold-label event extraction evaluation comparing prompt-policy variants.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/llm_event_gold_eval.py
+  args:
+    gold: evaluation/event_extraction_gold.jsonl
+    out: ${logging.reports_dir}/llm_event_gold_eval.json
+    predictions_out: ${logging.reports_dir}/llm_event_gold_predictions.jsonl
+    report_out: ${logging.reports_dir}/llm_event_gold_report.md
+    minimal_prompt: configs/prompts/event_extraction_minimal.txt
+    permissive_prompt: configs/prompts/event_extraction_permissive.txt
+    strict_prompt: configs/prompts/event_extraction_strict.txt

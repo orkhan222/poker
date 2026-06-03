@@ -366,6 +366,13 @@ def request_to_features(request: PredictionRequest) -> dict[str, float]:
         "street_index": float(STREET_ORDER.get(request.street, 0)),
         "board_count": float(len(request.board_cards)),
         "hole_count": float(len(request.hole_cards)),
+        "hole_cards_missing": 1.0 if len(request.hole_cards) < 2 else 0.0,
+        "hole_card_observed_ratio": min(len(request.hole_cards) / 2.0, 1.0),
+        "board_card_observed_ratio": (
+            len(request.board_cards) / max(VISIBLE_BOARD_COUNTS.get(request.street, 0), 1)
+            if request.street != "preflop"
+            else 1.0
+        ),
         "strength_proxy": hand_strength_proxy(request.hole_cards),
         "pot": request.pot,
         "to_call": request.to_call,
@@ -385,6 +392,37 @@ def request_to_features(request: PredictionRequest) -> dict[str, float]:
     features.update(card_texture_features(request.hole_cards, request.board_cards))
     features.update(betting_history_to_features(request.betting_history, request.position))
     return features
+
+
+PRIVATE_CARD_FEATURE_PREFIXES = (
+    "hole_",
+    "made_hand=",
+)
+PRIVATE_CARD_FEATURES = {
+    "hole_count",
+    "hole_cards_missing",
+    "hole_card_observed_ratio",
+    "strength_proxy",
+    "preflop_bucket_score",
+    "premium_pair",
+    "broadway_count",
+    "ace_high",
+    "made_hand_score",
+    "straight_draw_score",
+    "flush_draw_pressure",
+    "hole_overpair",
+    "top_pair_or_better",
+}
+
+
+def public_context_features(features: dict[str, float]) -> dict[str, float]:
+    """Remove private-card and card-combo signals for no-hole-card models."""
+    return {
+        name: value
+        for name, value in features.items()
+        if name not in PRIVATE_CARD_FEATURES
+        and not any(name.startswith(prefix) for prefix in PRIVATE_CARD_FEATURE_PREFIXES)
+    }
 
 
 def load_stack_contributions(

@@ -9,7 +9,7 @@ from poker_agent.schemas import PredictionRequest, PredictionResponse
 
 
 class RuleBasedAgent:
-    def predict(self, request: PredictionRequest) -> PredictionResponse:
+    def predict(self, request: PredictionRequest, warnings: list[str] | None = None) -> PredictionResponse:
         strength = request_to_features(request)["strength_proxy"]
         if request.to_call <= 0 and strength < 0.45:
             probabilities = {"check": 0.72, "bet": 0.18, "fold": 0.04, "call": 0.04, "raise": 0.02}
@@ -20,42 +20,69 @@ class RuleBasedAgent:
         else:
             probabilities = {"fold": 0.62, "call": 0.20, "check": 0.12, "raise": 0.04, "bet": 0.02}
         action = max(probabilities, key=probabilities.get)
-        return PredictionResponse(action=action, probabilities=probabilities)
+        return PredictionResponse(
+            action=action,
+            probabilities=probabilities,
+            confidence=max(probabilities.values(), default=0.0),
+            model_status="rule_based",
+            warnings=warnings or [],
+        )
+
+
+class MissingCardFallbackAgent:
+    """Conservative context policy for out-of-distribution missing-card requests."""
+
+    def predict(self, request: PredictionRequest, warnings: list[str] | None = None) -> PredictionResponse:
+        pot_odds = request.to_call / (request.pot + request.to_call) if request.pot + request.to_call > 0 else 0.0
+        no_price_to_continue = request.to_call <= 0
+        low_price = 0.0 < pot_odds <= 0.18
+        medium_price = 0.18 < pot_odds <= 0.32
+
+        if no_price_to_continue:
+            probabilities = {"check": 0.66, "bet": 0.14, "fold": 0.08, "call": 0.08, "raise": 0.04}
+        elif low_price:
+            probabilities = {"call": 0.46, "fold": 0.34, "raise": 0.10, "bet": 0.06, "check": 0.04}
+        elif medium_price:
+            probabilities = {"fold": 0.52, "call": 0.34, "raise": 0.07, "bet": 0.04, "check": 0.03}
+        else:
+            probabilities = {"fold": 0.72, "call": 0.18, "raise": 0.04, "bet": 0.03, "check": 0.03}
+
+        action = max(probabilities, key=probabilities.get)
+        return PredictionResponse(
+            action=action,
+            probabilities=probabilities,
+            confidence=max(probabilities.values(), default=0.0),
+            model_status="missing_card_fallback",
+            warnings=warnings or [],
+        )
 
 
 class MLPolicyAgent:
     def __init__(self, model: Any):
         self.model = model
+        self.missing_card_fallback = MissingCardFallbackAgent()
 
     @classmethod
     def from_path(cls, path: Path) -> "MLPolicyAgent":
         return cls(load_policy(path))
 
     def predict(self, request: PredictionRequest) -> PredictionResponse:
+        warnings: list[str] = []
+        metadata = getattr(self.model, "metadata", {}) or {}
+        trained_missing_mode = str(metadata.get("missing_hole_cards", "unknown"))
+        if len(request.hole_cards) < 2 and trained_missing_mode == "drop":
+            warnings.append(
+                "Hole cards are missing, while the loaded model was trained with missing-card rows dropped. "
+                "Using conservative context fallback instead of out-of-distribution model inference."
+            )
+            return self.missing_card_fallback.predict(request, warnings=warnings)
+
         action, probabilities = self.model.predict_from_features(request_to_features(request))
-        return PredictionResponse(action=action, probabilities=probabilities)
-
-
-class PromptLLMAgent:
-    """Adapter for an external/local LLM poker decision model.
-
-    This class intentionally avoids hard-coding a provider. Pass any callable
-    that accepts a prompt string and returns text containing an action.
-    """
-
-    def __init__(self, complete):
-        self.complete = complete
-
-    def predict(self, request: PredictionRequest) -> PredictionResponse:
-        prompt = (
-            "Choose one poker action: fold, call, check, bet, raise, all_in.\n"
-            f"State: position={request.position}, street={request.street}, "
-            f"hole={request.hole_cards}, board={request.board_cards}, "
-            f"pot={request.pot}, to_call={request.to_call}, stack={request.stack}.\n"
-            "Return only the action."
+        return PredictionResponse(
+            action=action,
+            probabilities=probabilities,
+            confidence=max(probabilities.values(), default=0.0),
+            model_status=str(metadata.get("policy", "model")),
+            warnings=warnings,
         )
-        text = str(self.complete(prompt)).strip().lower()
-        for action in ("all_in", "raise", "bet", "call", "check", "fold"):
-            if action in text:
-                return PredictionResponse(action=action, probabilities={action: 1.0})
-        return RuleBasedAgent().predict(request)
+

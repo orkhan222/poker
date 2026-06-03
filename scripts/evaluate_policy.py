@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
 from poker_agent.evaluator import evaluate_policy
 from poker_agent.features import load_training_examples
 from poker_agent.model import load_policy
+from poker_agent.slices import evaluate_policy_slices
 
 
 def parse_args() -> argparse.Namespace:
@@ -40,6 +41,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Keep all_in as a separate class. Default merges it into raise because it is too rare in OCR logs.",
     )
+    parser.add_argument("--slice-min-examples", type=int, default=100)
     return parser.parse_args()
 
 
@@ -78,6 +80,7 @@ def main() -> None:
     print(f"predicted_class_counts={json.dumps(metrics['predicted_class_counts'], sort_keys=True)}")
     print(f"per_class={json.dumps(metrics['per_class'], sort_keys=True)}")
     print(f"confusion_matrix={json.dumps(metrics['confusion_matrix'], sort_keys=True)}")
+    print(f"slice_metrics={json.dumps(evaluate_policy_slices(model, examples, min_examples=args.slice_min_examples), sort_keys=True)}")
 
 
 if __name__ == "__main__":

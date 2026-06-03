@@ -29,6 +29,7 @@ app = FastAPI(
 _agent = None
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL_PATH = PROJECT_ROOT / "models" / "poker_policy.joblib"
+OPTIONAL_BUNDLE_MODEL_PATH = PROJECT_ROOT / "models" / "poker_policy_bundle.joblib"
 FALLBACK_MODEL_PATH = PROJECT_ROOT / "models" / "poker_policy.json"
 
 
@@ -271,10 +272,10 @@ APP_HTML = """
               </select>
             </label>
             <label>Hole cards
-              <input name="hole_cards" value="Ah Kd" placeholder="Ah Kd">
+              <input name="hole_cards" value="Ah Kd" aria-label="Hole cards, for example Ah Kd">
             </label>
             <label>Board cards
-              <input name="board_cards" value="" placeholder="2c 7d Qs">
+              <input name="board_cards" value="" aria-label="Board cards, for example 2c 7d Qs">
             </label>
             <label>Pot
               <input name="pot" type="number" step="0.1" value="2.5">
@@ -393,11 +394,24 @@ APP_HTML = """
 
 def health_payload() -> dict[str, str]:
     model_path = resolve_model_path()
-    return {
+    payload = {
         "status": "ok",
         "model": str(model_path),
         "model_status": "loaded" if model_path.exists() else "fallback_rule_based",
     }
+    try:
+        agent = get_agent()
+        model = getattr(agent, "model", None)
+        metadata = getattr(model, "metadata", {}) or {}
+        if metadata:
+            payload["policy"] = str(metadata.get("policy", getattr(model, "model_kind", "unknown")))
+            payload["split"] = str((metadata.get("split") or {}).get("split_type", "unknown"))
+            valid_metrics = metadata.get("valid_metrics") or {}
+            if "macro_f1" in valid_metrics:
+                payload["valid_macro_f1"] = f"{float(valid_metrics['macro_f1']):.4f}"
+    except Exception:
+        payload["metadata_status"] = "unavailable"
+    return payload
 
 
 def health_html(payload: dict[str, str]) -> str:
@@ -560,6 +574,8 @@ def resolve_model_path() -> Path:
     configured = os.getenv("POKER_POLICY_PATH")
     if configured:
         return Path(configured)
+    if OPTIONAL_BUNDLE_MODEL_PATH.exists():
+        return OPTIONAL_BUNDLE_MODEL_PATH
     if DEFAULT_MODEL_PATH.exists():
         return DEFAULT_MODEL_PATH
     return FALLBACK_MODEL_PATH

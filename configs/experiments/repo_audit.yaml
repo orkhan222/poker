@@ -1,0 +1,17 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: hist_gradient_boosting
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: repo_audit
+description: Repository audit for experiment coverage, hardcoded defaults, duplicate configs, hygiene, and documentation.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/audit_repository.py
+  args:
+    root: .
+    out: ${logging.reports_dir}/repository_audit.json

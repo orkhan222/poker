@@ -40,6 +40,18 @@ class PredictionRequest:
 class PredictionResponse:
     action: str
     probabilities: dict[str, float]
+    confidence: float = 0.0
+    model_status: str = "model"
+    warnings: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"action": self.action, "probabilities": self.probabilities}
+        confidence = self.confidence or max(self.probabilities.values(), default=0.0)
+        payload: dict[str, Any] = {
+            "action": self.action,
+            "probabilities": self.probabilities,
+            "confidence": confidence,
+            "model_status": self.model_status,
+        }
+        if self.warnings:
+            payload["warnings"] = self.warnings
+        return payload

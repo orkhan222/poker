@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
 from poker_agent.evaluator import evaluate_policy
 from poker_agent.features import load_training_examples
 from poker_agent.model import SklearnPolicy, SoftmaxPolicy
+from poker_agent.slices import evaluate_policy_slices
 from poker_agent.validation import stratified_group_holdout_split
 
 
@@ -159,6 +160,7 @@ def main() -> None:
             fit_model(model, policy_name, train_examples, args)
             train_metrics = evaluate_policy(model, train_examples)
             valid_metrics = evaluate_policy(model, valid_examples)
+            valid_slice_metrics = evaluate_policy_slices(model, valid_examples, min_examples=100)
             model.metadata = {
                 "dataset": str(args.dataset),
                 "policy": policy_name,
@@ -170,6 +172,7 @@ def main() -> None:
                 },
                 "train_metrics": train_metrics,
                 "valid_metrics": valid_metrics,
+                "valid_slice_metrics": valid_slice_metrics,
             }
             if args.save_models:
                 model.save(model_path_for(args.out_dir, policy_name))
@@ -180,6 +183,7 @@ def main() -> None:
                     "class_weights": getattr(model, "class_weights", {}),
                     "train": train_metrics,
                     "valid": valid_metrics,
+                    "valid_slices": valid_slice_metrics,
                 }
             )
         except RuntimeError as exc:

@@ -1,0 +1,6 @@
+name: group_holdout
+seed: 42
+valid_ratio: 0.15
+split_strategy: stratified_hand_group
+max_examples: 0
+epochs: 12

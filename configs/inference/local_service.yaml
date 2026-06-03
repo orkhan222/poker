@@ -1,0 +1,6 @@
+name: local_service
+host: 127.0.0.1
+port: 8001
+model_path: models/poker_policy.joblib
+bundle_model_path: models/poker_policy_bundle.joblib
+zip_path: release/poker-decision-agent.zip

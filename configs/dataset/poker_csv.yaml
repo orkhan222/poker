@@ -1,0 +1,9 @@
+name: poker_csv
+root: C:/Users/user/Desktop/AllFile/dataset
+local_logs: dataset/logs
+sample_log: sample_poker_log.jsonl
+max_rows: 0
+max_feature_examples: 50000
+missing_hole_cards_train: drop
+missing_hole_cards_audit: flag
+merge_all_in: true

@@ -1,0 +1,30 @@
+﻿defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: routed_bundle_smoke
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: train_routed_bundle_smoke
+description: Fast routed observed-card/context bundle smoke run for missing-card routing validation.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/train_policy_bundle.py
+  args:
+    dataset: ${dataset.root}
+    model_out: sample_out/bundle_smoke.joblib
+    observed_policy: ${model.observed_policy}
+    context_policy: ${model.context_policy}
+    max_examples: ${training.max_examples}
+    valid_ratio: ${training.valid_ratio}
+    seed: ${training.seed}
+    class_weighting: ${model.class_weighting}
+    max_class_weight: ${model.max_class_weight}
+    max_iter: ${model.max_iter}
+    learning_rate: ${model.learning_rate}
+    max_leaf_nodes: ${model.max_leaf_nodes}
+    l2_regularization: ${model.l2_regularization}
+    n_estimators: ${model.n_estimators}
+

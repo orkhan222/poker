@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from poker_agent.features import public_context_features
+
 
 def softmax(scores: dict[str, float]) -> dict[str, float]:
     if not scores:
@@ -389,6 +391,10 @@ class SklearnPolicy:
         payload = joblib.load(path)
         if payload.get("policy_type") != "sklearn_policy":
             raise ValueError(f"Unsupported sklearn policy payload: {path}")
+        return cls.from_payload(payload)
+
+    @classmethod
+    def from_payload(cls, payload: dict[str, Any]) -> "SklearnPolicy":
         return cls(
             labels=list(payload["labels"]),
             feature_names=list(payload["feature_names"]),
@@ -421,5 +427,75 @@ class SklearnPolicy:
 
 def load_policy(path: Path) -> SoftmaxPolicy | SklearnPolicy:
     if path.suffix.lower() in {".joblib", ".pkl"}:
-        return SklearnPolicy.load(path)
+        try:
+            import joblib
+        except ImportError as exc:
+            raise RuntimeError("joblib is required to load the policy") from exc
+        payload = joblib.load(path)
+        if isinstance(payload, dict) and payload.get("policy_type") == "routed_policy_bundle":
+            return RoutedPolicyBundle.from_payload(payload)
+        if isinstance(payload, dict) and payload.get("policy_type") == "sklearn_policy":
+            return SklearnPolicy.from_payload(payload)
+        raise ValueError(f"Unsupported joblib policy payload: {path}")
     return SoftmaxPolicy.load(path)
+
+
+@dataclass
+class RoutedPolicyBundle:
+    """Route observed-card and missing-card requests to separately trained policies."""
+
+    observed_policy: Any
+    missing_policy: Any
+    labels: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def predict_proba_from_features(self, raw_features: dict[str, float]) -> dict[str, float]:
+        policy, features = self._route(raw_features)
+        probabilities = policy.predict_proba_from_features(features)
+        return self._normalize_labels(probabilities)
+
+    def predict_from_features(self, raw_features: dict[str, float]) -> tuple[str, dict[str, float]]:
+        probabilities = self.predict_proba_from_features(raw_features)
+        return max(probabilities, key=probabilities.get), probabilities
+
+    def predict_batch_from_features(
+        self,
+        feature_rows: list[dict[str, float]],
+    ) -> list[tuple[str, dict[str, float]]]:
+        return [self.predict_from_features(features) for features in feature_rows]
+
+    def save(self, path: Path) -> None:
+        try:
+            import joblib
+        except ImportError as exc:
+            raise RuntimeError("joblib is required to save the routed policy bundle") from exc
+        path.parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump(
+            {
+                "policy_type": "routed_policy_bundle",
+                "observed_policy": self.observed_policy,
+                "missing_policy": self.missing_policy,
+                "labels": self.labels,
+                "metadata": self.metadata,
+            },
+            path,
+        )
+
+    @classmethod
+    def from_payload(cls, payload: dict[str, Any]) -> "RoutedPolicyBundle":
+        return cls(
+            observed_policy=payload["observed_policy"],
+            missing_policy=payload["missing_policy"],
+            labels=list(payload.get("labels", [])),
+            metadata=dict(payload.get("metadata", {})),
+        )
+
+    def _route(self, raw_features: dict[str, float]) -> tuple[Any, dict[str, float]]:
+        if raw_features.get("hole_card_observed_ratio", 0.0) >= 1.0:
+            return self.observed_policy, raw_features
+        return self.missing_policy, public_context_features(raw_features)
+
+    def _normalize_labels(self, probabilities: dict[str, float]) -> dict[str, float]:
+        labels = self.labels or sorted(probabilities)
+        total = sum(probabilities.get(label, 0.0) for label in labels) or 1.0
+        return {label: probabilities.get(label, 0.0) / total for label in labels}

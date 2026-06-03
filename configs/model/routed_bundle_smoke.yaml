@@ -1,0 +1,10 @@
+name: routed_bundle_smoke
+observed_policy: hist_gradient_boosting
+context_policy: hist_gradient_boosting
+max_iter: 25
+learning_rate: 0.05
+max_leaf_nodes: 31
+l2_regularization: 0.02
+n_estimators: 100
+class_weighting: sqrt_balanced
+max_class_weight: 6.0
