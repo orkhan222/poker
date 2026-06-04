@@ -6,3 +6,8 @@ stdout_file: stdout.txt
 stderr_file: stderr.txt
 resolved_config_file: resolved_config.yaml
 run_metadata_file: run.json
+environment_file: environment.json
+artifact_manifest_file: artifact_manifest.json
+artifacts_dir: artifacts
+copy_artifacts: true
+artifact_copy_max_bytes: 52428800

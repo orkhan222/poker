@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$VenvDir = ".venv"
 )
 
@@ -35,4 +35,4 @@ Write-Host "Start the app with:"
 Write-Host ".\run_server.ps1"
 Write-Host ""
 Write-Host "Open:"
-Write-Host "http://127.0.0.1:8000/predict"
+Write-Host "http://127.0.0.1:8001/predict"

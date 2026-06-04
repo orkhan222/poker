@@ -8,6 +8,7 @@ production_gate:
   min_facing_bet_macro_f1: 0.45
 delivery:
   require_gate_pass: false
+slice_min_examples: 100
 metrics:
   - accuracy
   - macro_f1

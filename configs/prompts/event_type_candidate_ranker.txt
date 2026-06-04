@@ -1,0 +1,10 @@
+Classify one poker OCR or dealer record into exactly one event type.
+
+Valid event types:
+- player_action: ocr_action with fold, call, check, bet, raise, or all-in.
+- card_update: recognize_cards with at least one valid card.
+- stack_update: ocr_stack with a stack or diff value.
+- unmatched: blinds, antes, winnings, joins, nickname updates, empty card updates, dealer messages, and all other records.
+
+Map all-in to player_action. Do not treat blinds, antes, or winnings as player actions.
+The response must contain only one valid event-type label.

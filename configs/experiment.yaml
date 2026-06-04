@@ -16,6 +16,14 @@ runtime:
   deterministic: true
   pythonhashseed: 42
   num_threads: 1
+  capture_git: true
+  capture_packages:
+    - hydra-core
+    - omegaconf
+    - numpy
+    - scikit-learn
+    - torch
+    - transformers
 
 hydra:
   run:

@@ -4,10 +4,12 @@ param(
     [string]$ReportsDir = "",
     [switch]$SkipTrain,
     [switch]$TrainBundle,
-    [switch]$AllowGateFailure
+    [switch]$AllowGateFailure,
+    [switch]$RunTransformerEval
 )
 
 $ErrorActionPreference = "Stop"
+$env:PYTHONDONTWRITEBYTECODE = "1"
 
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (!$ModelOut) {
@@ -50,6 +52,40 @@ if (!(Test-Path $Dataset)) {
 Set-Location $ProjectRoot
 New-Item -ItemType Directory -Force -Path $ReportsDir | Out-Null
 
+
+function Remove-DeliveryArtifacts {
+    param([string]$Root)
+    foreach ($Relative in @(".qodo", "__pycache__", "poker_agent\__pycache__", "scripts\__pycache__")) {
+        $Target = Join-Path $Root $Relative
+        if (Test-Path -LiteralPath $Target) {
+            Remove-Item -LiteralPath $Target -Recurse -Force
+        }
+    }
+}
+
+function Remove-FailedHydraRuns {
+    param([string]$Root)
+    $HydraRoot = Join-Path $Root "reports\hydra"
+    if (!(Test-Path -LiteralPath $HydraRoot)) {
+        return
+    }
+    $ResolvedRoot = (Resolve-Path -LiteralPath $Root).Path
+    foreach ($RunFile in Get-ChildItem -LiteralPath $HydraRoot -Recurse -File -Filter "run.json" -ErrorAction SilentlyContinue) {
+        try {
+            $Run = Get-Content -LiteralPath $RunFile.FullName -Raw | ConvertFrom-Json
+        } catch {
+            continue
+        }
+        if ($Run.status -eq "failed") {
+            $RunDirectory = $RunFile.Directory.FullName
+            if (!$RunDirectory.StartsWith($ResolvedRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw "Refusing outside-root removal: $RunDirectory"
+            }
+            Remove-Item -LiteralPath $RunDirectory -Recurse -Force
+        }
+    }
+}
+
 $AuditReport = Join-Path $ReportsDir "dataset_audit.json"
 $RepositoryAuditReport = Join-Path $ReportsDir "repository_audit.json"
 $GateReport = Join-Path $ReportsDir "production_gate.json"
@@ -59,6 +95,8 @@ $EventMethodologyReport = Join-Path $ReportsDir "llm_event_methodology.md"
 $GoldEvalReport = Join-Path $ReportsDir "llm_event_gold_eval.json"
 $GoldPredictionsReport = Join-Path $ReportsDir "llm_event_gold_predictions.jsonl"
 $GoldMarkdownReport = Join-Path $ReportsDir "llm_event_gold_report.md"
+$TransformerEvalReport = Join-Path $ReportsDir "llm_transformer_gold_eval.json"
+$TransformerMarkdownReport = Join-Path $ReportsDir "llm_transformer_gold_report.md"
 
 Write-Host "1/8 Auditing dataset..." -ForegroundColor Green
 & $Python scripts\audit_dataset.py `
@@ -131,11 +169,24 @@ Write-Host "5/8 Running gold event extraction evaluation..." -ForegroundColor Gr
     --permissive-prompt (Join-Path $ProjectRoot "configs\prompts\event_extraction_permissive.txt") `
     --strict-prompt (Join-Path $ProjectRoot "configs\prompts\event_extraction_strict.txt")
 
+if ($RunTransformerEval) {
+    Write-Host "5b/8 Running local instruction-model evaluation..." -ForegroundColor Green
+    & $Python scripts\run_hydra_experiment.py `
+        experiments=llm_transformer_gold_eval `
+        "python_executable=$Python"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Local instruction-model evaluation failed."
+    }
+} elseif (!(Test-Path $TransformerEvalReport) -or !(Test-Path $TransformerMarkdownReport)) {
+    Write-Error "Instruction-model reports are missing. Re-run with -RunTransformerEval."
+}
+
 Write-Host "6/8 Auditing repository..." -ForegroundColor Green
 & $Python scripts\audit_repository.py `
     --root $ProjectRoot `
     --out $RepositoryAuditReport
 
+Remove-DeliveryArtifacts -Root $ProjectRoot
 Write-Host "7/8 Checking repository hygiene..." -ForegroundColor Green
 & $Python scripts\check_repo_hygiene.py `
     --root $ProjectRoot `
@@ -144,7 +195,27 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "Repository hygiene check failed. Remove local tool metadata or delivery-only comments before rebuilding the ZIP."
 }
 
+Remove-DeliveryArtifacts -Root $ProjectRoot
+Remove-FailedHydraRuns -Root $ProjectRoot
 Write-Host "8/8 Rebuilding delivery ZIP..." -ForegroundColor Green
+
+$GeneratedDirs = Get-ChildItem -Force -Recurse -Directory -Filter "__pycache__" -ErrorAction SilentlyContinue | Where-Object {
+    $_.FullName -notlike "*\.venv\*" -and $_.FullName -notlike "*\env\*"
+}
+foreach ($Dir in $GeneratedDirs) {
+    if ($Dir.FullName.StartsWith($ProjectRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        Remove-Item -LiteralPath $Dir.FullName -Recurse -Force
+    }
+}
+$GeneratedFiles = Get-ChildItem -Force -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+    ($_.Extension -in @(".pyc", ".pyo", ".pyd") -or $_.Name -eq "requirements-research.txt") -and
+    $_.FullName -notlike "*\.venv\*" -and $_.FullName -notlike "*\env\*"
+}
+foreach ($File in $GeneratedFiles) {
+    if ($File.FullName.StartsWith($ProjectRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        Remove-Item -LiteralPath $File.FullName -Force
+    }
+}
 $ZipPath = Join-Path $ProjectRoot "release\poker-decision-agent.zip"
 $Items = Get-ChildItem -Force | Where-Object {
     $_.Name -notin @(".git", ".qodo", ".venv", "env", "dataset", "sample_out", "smoke_dataset", "__pycache__", "release", "research_runs")
@@ -162,4 +233,6 @@ Write-Host "Event benchmark: $EventBenchmarkReport"
 Write-Host "Event methodology: $EventMethodologyReport"
 Write-Host "Gold event eval: $GoldEvalReport"
 Write-Host "Gold event report: $GoldMarkdownReport"
+Write-Host "Instruction-model eval: $TransformerEvalReport"
+Write-Host "Instruction-model report: $TransformerMarkdownReport"
 Write-Host "ZIP: $ZipPath"

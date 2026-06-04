@@ -1,0 +1,32 @@
+Convert one poker OCR/dealer record into exactly one JSON object.
+
+Output schema:
+{"event_type":"player_action|card_update|stack_update|unmatched","player_position":null,"action":null,"amount":null,"cards":[],"confidence":0.0}
+
+Use only these decision actions: fold, call, check, bet, raise. Map all-in to raise. Blinds, antes, winnings, joins, nickname/ROI updates, and hand-start messages are unmatched.
+
+Example 1
+Input record:
+{"event_name":"ocr_action","event_value":{"player_position":"Player1_Bottom","value":"fold"}}
+Output:
+{"event_type":"player_action","player_position":"Player1_Bottom","action":"fold","amount":null,"cards":[],"confidence":1.0}
+
+Example 2
+Input record:
+{"event_name":"recognize_cards","event_value":{"cards":["Ah","Kd"]}}
+Output:
+{"event_type":"card_update","player_position":null,"action":null,"amount":null,"cards":["Ah","Kd"],"confidence":1.0}
+
+Example 3
+Input record:
+{"event_name":"ocr_stack","event_value":{"player_position":"Player2_Left","diff":-2.5}}
+Output:
+{"event_type":"stack_update","player_position":"Player2_Left","action":null,"amount":-2.5,"cards":[],"confidence":1.0}
+
+Example 4
+Input record:
+{"event_name":"ocr_action","event_value":{"player_position":"Player3_Left","value":"post_sb","amount":0.5}}
+Output:
+{"event_type":"unmatched","player_position":"Player3_Left","action":null,"amount":null,"cards":[],"confidence":1.0}
+
+Return only the output JSON object for the new input record. Do not repeat the input record.

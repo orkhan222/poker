@@ -21,10 +21,13 @@ from scripts.check_repo_hygiene import BANNED_PHRASES, SKIP_DIRS, should_scan
 EXPERIMENT_NAME_TOKENS = (
     "audit",
     "benchmark",
+    "build",
     "evaluate",
     "eval",
     "experiment",
+    "extraction",
     "gate",
+    "hygiene",
     "train",
     "verify",
 )
@@ -63,7 +66,8 @@ def experiment_scripts(root: Path) -> list[str]:
     scripts_dir = root / "scripts"
     excluded = {"run_hydra_experiment.py"}
     scripts = []
-    for path in sorted(scripts_dir.glob("*.py")):
+    candidates = list(scripts_dir.glob("*.py")) + list(root.glob("build_*.py"))
+    for path in sorted(candidates):
         if path.name in excluded:
             continue
         if any(token in path.stem for token in EXPERIMENT_NAME_TOKENS):
@@ -111,6 +115,25 @@ def argparse_defaults(path: Path, root: Path) -> list[dict[str, Any]]:
     return defaults
 
 
+def argparse_option_names(path: Path) -> set[str]:
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except SyntaxError:
+        return set()
+    options: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if not isinstance(func, ast.Attribute) or func.attr != "add_argument":
+            continue
+        for raw_option in node.args:
+            option = literal_value(raw_option)
+            if isinstance(option, str) and option.startswith("--"):
+                options.add(option[2:].replace("-", "_"))
+    return options
+
+
 def load_yaml(path: Path) -> dict[str, Any]:
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
     return payload if isinstance(payload, dict) else {}
@@ -121,6 +144,7 @@ def experiment_config_coverage(root: Path, scripts: list[str]) -> dict[str, Any]
     configs: dict[str, dict[str, Any]] = {}
     entrypoints: defaultdict[str, list[str]] = defaultdict(list)
     fingerprints: defaultdict[str, list[str]] = defaultdict(list)
+    argument_coverage: dict[str, dict[str, list[str]]] = {}
     for path in sorted(config_dir.glob("*.yaml")):
         payload = load_yaml(path)
         configs[path.name] = payload
@@ -128,6 +152,12 @@ def experiment_config_coverage(root: Path, scripts: list[str]) -> dict[str, Any]
         entrypoint = str(command.get("entrypoint") or "")
         if entrypoint:
             entrypoints[entrypoint].append(path.name)
+            declared = set((command.get("args") or {}).keys())
+            supported = argparse_option_names(root / entrypoint)
+            argument_coverage[path.name] = {
+                "missing": sorted(supported - declared),
+                "unknown": sorted(declared - supported),
+            }
         comparable = {
             "entrypoint": entrypoint,
             "args": command.get("args") or {},
@@ -142,11 +172,18 @@ def experiment_config_coverage(root: Path, scripts: list[str]) -> dict[str, Any]
         for digest, names in fingerprints.items()
         if len(names) > 1
     }
+    incomplete = {
+        name: coverage
+        for name, coverage in argument_coverage.items()
+        if coverage["missing"] or coverage["unknown"]
+    }
     return {
         "configs": sorted(configs),
         "covered_entrypoints": covered,
         "missing_hydra_configs": missing,
         "duplicated_command_configs": duplicated,
+        "argument_coverage": argument_coverage,
+        "incomplete_argument_configs": incomplete,
     }
 
 
@@ -217,9 +254,21 @@ def main() -> None:
     coverage = experiment_config_coverage(root, scripts)
     findings = text_findings(root)
     defaults_by_file = Counter(item["file"] for item in defaults)
+    covered_entrypoints = set(coverage["covered_entrypoints"])
+    unowned_defaults = [
+        item
+        for item in defaults
+        if item["file"] not in covered_entrypoints
+    ]
     report = {
         "status": "PASS"
-        if not coverage["missing_hydra_configs"] and not findings and not docs_status(root)["missing"]
+        if (
+            not coverage["missing_hydra_configs"]
+            and not coverage["incomplete_argument_configs"]
+            and not unowned_defaults
+            and not findings
+            and not docs_status(root)["missing"]
+        )
         else "FAIL",
         "root": str(root),
         "experiment_scripts": scripts,
@@ -229,6 +278,7 @@ def main() -> None:
         },
         "hardcoded_argparse_defaults": defaults,
         "hardcoded_defaults_by_file": dict(defaults_by_file.most_common()),
+        "unowned_hardcoded_defaults": unowned_defaults,
         "text_findings": findings,
         "documentation": docs_status(root),
     }

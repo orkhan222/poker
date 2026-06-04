@@ -2,6 +2,11 @@ name: poker_csv
 root: C:/Users/user/Desktop/AllFile/dataset
 local_logs: dataset/logs
 sample_log: sample_poker_log.jsonl
+build_input: dataset/logs
+build_out_dir: sample_out/hydra_dataset
+build_recursive: true
+build_extensions: .json,.jsonl
+build_limit_files: 0
 max_rows: 0
 max_feature_examples: 50000
 missing_hole_cards_train: drop

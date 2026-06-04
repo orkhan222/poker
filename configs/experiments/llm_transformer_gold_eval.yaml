@@ -1,0 +1,35 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: text_event_smol
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: llm_transformer_gold_eval
+description: Deterministic local instruction-model evaluation comparing generative prompts and constrained candidate ranking.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/llm_transformer_gold_eval.py
+  args:
+    gold: evaluation/event_extraction_gold.jsonl
+    model_id: ${model.model_id}
+    prompts: configs/prompts/event_extraction_strict.txt,configs/prompts/event_extraction_fewshot.txt
+    system_names: smol_strict_zero_shot,smol_few_shot
+    ranking_prompt: configs/prompts/event_type_candidate_ranker.txt
+    ranking_system_name: smol_candidate_ranker
+    calibrated_ranking_system_name: smol_calibrated_candidate_ranker
+    candidate_labels: ${model.candidate_labels}
+    candidate_score_reduction: ${model.candidate_score_reduction}
+    calibration_record: ${model.calibration_record}
+    hybrid_system_name: schema_routed_smol_hybrid
+    hybrid_fallback_system: smol_strict_zero_shot
+    hybrid_routed_event_names: ${model.hybrid_routed_event_names}
+    out: ${logging.reports_dir}/llm_transformer_gold_eval.json
+    predictions_out: ${logging.reports_dir}/llm_transformer_gold_predictions.json
+    report_out: ${logging.reports_dir}/llm_transformer_gold_report.md
+    device: ${model.device}
+    max_new_tokens: ${model.max_new_tokens}
+    max_examples: 24
+    seed: ${training.seed}

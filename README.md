@@ -1,9 +1,10 @@
-# Poker Decision Agent
+﻿# Poker Decision Agent
 
-FastAPI service and reproducible ML research workspace for poker action
-prediction from OCR/event-log data.
+Poker Decision Agent is a FastAPI service and ML research workspace for poker action prediction from OCR and event-log data. The repository includes the API, trained model artifact, Hydra experiment configs, evaluation scripts, audit reports, and a packaged delivery ZIP.
 
-## Current Delivery Status
+## Delivery Status
+
+As of the latest delivery build:
 
 ```text
 repository_audit=PASS
@@ -12,34 +13,23 @@ delivery_verification=PASS
 model_production_gate=FAIL
 ```
 
-The repository is packaged and reproducible. The trained poker policy is not
-approved for production decision-policy deployment because the dataset audit
-still contains blocker findings and validation metrics remain below deployment
-thresholds.
+The package is reproducible and ready for technical handoff. The model is not marked as production-approved for autonomous decision policy use, because the current dataset still has known coverage and class-balance limitations. Those limitations are documented in `reports\dataset_audit.json` and `reports\production_gate.json`.
 
-## Project Structure
+## Repository Layout
 
 ```text
 .
-|-- poker_agent/
-|-- scripts/
-|-- configs/
-|   |-- dataset/
-|   |-- model/
-|   |-- training/
-|   |-- evaluation/
-|   |-- inference/
-|   |-- logging/
-|   |-- prompts/
-|   `-- experiments/
-|-- evaluation/
-|-- reports/
-|-- models/
-|-- release/
-|-- install.ps1
-|-- run_server.ps1
-|-- complete_delivery.ps1
-|-- verify_delivery.ps1
+|-- poker_agent/              API, schemas, feature extraction, model loading
+|-- scripts/                  training, evaluation, audit, packaging checks
+|-- configs/                  Hydra experiment configuration
+|-- evaluation/               reviewed evaluation fixtures
+|-- reports/                  generated metrics and audit outputs
+|-- models/                   packaged model artifact
+|-- release/                  delivery ZIP
+|-- install.ps1               local environment setup
+|-- run_server.ps1            API startup script
+|-- complete_delivery.ps1     full delivery rebuild
+|-- verify_delivery.ps1       final delivery verification
 `-- README.md
 ```
 
@@ -50,13 +40,13 @@ cd "C:\Users\user\Desktop\Secop\files-mentioned-by-the-user-poker-2"
 .\install.ps1
 ```
 
-## Run API
+## Run The API
 
 ```powershell
 .\run_server.ps1
 ```
 
-Open:
+Open these endpoints after the server starts:
 
 ```text
 http://127.0.0.1:8001/predict
@@ -64,17 +54,23 @@ http://127.0.0.1:8001/docs
 http://127.0.0.1:8001/health.json
 ```
 
-## Hydra Experiments
+The health endpoint returns model status, policy name, split strategy, and the validation macro F1 stored in the model metadata.
 
-All experiments are launched through one entrypoint:
+## Reproducible Experiments
+
+Experiments are managed through Hydra. Each experiment has its own YAML file under `configs\experiments` and writes resolved configs, logs, and run metadata under `reports\hydra`.
+
+Run any configured experiment with:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_hydra_experiment.py experiments=<name> python_executable=.venv/Scripts/python.exe
 ```
 
-Configured experiments:
+Available experiment names:
 
 ```text
+build_dataset
+repo_hygiene
 repo_audit
 audit_dataset
 train_single_hgb
@@ -85,28 +81,33 @@ train_routed_bundle_smoke
 llm_event_extraction_smoke
 llm_event_benchmark
 llm_event_gold_eval
+llm_transformer_gold_eval
 verify_delivery
 ```
 
-Example commands:
+Useful commands:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_hydra_experiment.py experiments=repo_audit python_executable=.venv/Scripts/python.exe
 .\.venv\Scripts\python.exe scripts\run_hydra_experiment.py experiments=llm_event_benchmark python_executable=.venv/Scripts/python.exe
 .\.venv\Scripts\python.exe scripts\run_hydra_experiment.py experiments=llm_event_gold_eval python_executable=.venv/Scripts/python.exe
+.\.venv\Scripts\python.exe scripts\run_hydra_experiment.py experiments=llm_transformer_gold_eval python_executable=.venv/Scripts/python.exe
 .\.venv\Scripts\python.exe scripts\run_hydra_experiment.py experiments=verify_delivery python_executable=.venv/Scripts/python.exe
 ```
 
-Override example:
+Example override:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_hydra_experiment.py experiments=train_single_hgb training.max_examples=5000 model.max_iter=40
 ```
 
-Each Hydra run writes:
+Hydra output structure:
 
 ```text
 reports\hydra\<experiment-name>\<timestamp>\
+|-- environment.json
+|-- artifact_manifest.json
+|-- artifacts\
 |-- resolved_config.yaml
 |-- command.txt
 |-- stdout.txt
@@ -114,19 +115,26 @@ reports\hydra\<experiment-name>\<timestamp>\
 `-- run.json
 ```
 
-## LLM/Text Event Results
+`environment.json` records the Python runtime, selected dependency versions,
+git revision, dirty-state paths, seed, and thread settings. Output files are
+hashed in `artifact_manifest.json` and copied into the run-local `artifacts`
+directory when they are below the configured size limit. The repository audit
+also verifies that every Hydra YAML declares every CLI argument supported by
+its entrypoint and rejects CLI fallback defaults that are not owned by a Hydra
+experiment configuration.
 
-Objective: convert OCR/dealer records into structured poker events for cleaner
-betting-history reconstruction.
+## Text Event Extraction Results
 
-Weak-label benchmark on 1000 records:
+The repository includes a text/event extraction benchmark for turning OCR and dealer-log records into structured poker events. This is used to improve betting-history reconstruction before model training.
+
+Weak-label benchmark on 1000 log records:
 
 ```text
 value_only_baseline: event_accuracy=0.4150, macro_f1=0.3284
 local_rules:         event_accuracy=1.0000, macro_f1=1.0000
 ```
 
-Gold-label evaluation on 24 manually specified examples:
+Gold-label evaluation on 24 reviewed examples:
 
 ```text
 minimal_action_only:      event_accuracy=0.6667, macro_f1=0.4091
@@ -134,51 +142,36 @@ permissive_prompt_rules:  event_accuracy=0.8333, macro_f1=0.8545
 strict_schema_rules:      event_accuracy=1.0000, macro_f1=1.0000
 ```
 
-Known extraction limitation:
+The strict schema approach is the strongest current extractor. Card extraction still needs more validation: `strict_schema_rules` reaches `card_exact_match=0.8000` on the current gold fixture. The next data-quality step is to expand the reviewed fixture and enforce rank/suit validation before extracted cards are used as supervised labels.
+
+
+### Local Instruction Model Experiment
+
+A real local instruction model experiment uses
+`HuggingFaceTB/SmolLM2-135M-Instruct` on the same 24 reviewed examples with
+deterministic CPU inference. The first run downloads the model from Hugging
+Face.
 
 ```text
-strict_schema_rules card_exact_match=0.8000
+strict_zero_shot: event_accuracy=0.2917, macro_f1=0.1129
+few_shot:         event_accuracy=0.3750, macro_f1=0.1364
+candidate_ranker: event_accuracy=0.3750, macro_f1=0.1364
+calibrated_ranker:event_accuracy=0.3750, macro_f1=0.1406
+schema_routed_hybrid: event_accuracy=1.0000, macro_f1=1.0000
 ```
 
-The remaining card error is caused by permissive card-token parsing. The next
-milestone is strict card validation against rank/suit grammar before using
-extracted cards as supervised labels.
-
-## Key Reports
-
-```text
-reports\repository_audit.json
-reports\repo_hygiene.json
-reports\dataset_audit.json
-reports\production_gate.json
-reports\llm_event_benchmark.json
-reports\llm_event_gold_eval.json
-reports\llm_event_gold_report.md
-reports\delivery_verification.json
-```
-
-## Full Delivery Build
-
-```powershell
-.\complete_delivery.ps1 -SkipTrain -AllowGateFailure
-```
-
-Use `-SkipTrain` when rebuilding the package around the existing model. Remove
-it when retraining is required.
-
-## Verify Delivery
-
-```powershell
-.\verify_delivery.ps1
-```
-
-Expected result:
-
-```text
-"status": "PASS"
-```
+Few-shot examples improved event accuracy by `0.0833` and macro F1 by `0.0235`,
+while contextual calibration improved candidate-ranking macro F1 by `0.0043`.
+The production-oriented schema-routed hybrid reached `1.0000` accuracy and
+macro F1 by validating known structured event families before invoking the
+zero-shot model for other event types. Router coverage was `0.9167`; the real
+LLM fallback processed `2/24` examples (`0.0833`) with `1.0000` fallback
+accuracy. This result must be revalidated on a larger fixture with ambiguous
+and corrupted event names.
 
 ## Latest Model Metrics
+
+Current packaged policy:
 
 ```text
 policy=hist_gradient_boosting
@@ -191,14 +184,53 @@ valid_majority_baseline_accuracy=0.7029
 valid_lift_vs_majority=-0.0231
 ```
 
-The model should be treated as a corrected research/API deliverable, not as an
-approved profitable strategy engine.
+The model is suitable for API integration, data-pipeline testing, and research iteration. It should not be presented as a completed profitable strategy model until the production gate passes.
 
-## Remaining Risks
+## Key Reports
 
-- Hole-card coverage is too low for strong card-strength modeling.
-- Target distribution is imbalanced and fold-dominant.
-- Current model does not beat the majority-class accuracy baseline on the
-  strict holdout split.
-- Gold event extraction fixture is small and must be expanded with reviewed
-  production logs.
+```text
+reports\repository_audit.json
+reports\repo_hygiene.json
+reports\dataset_audit.json
+reports\production_gate.json
+reports\llm_event_benchmark.json
+reports\llm_event_gold_eval.json
+reports\llm_event_gold_report.md
+reports\llm_transformer_gold_eval.json
+reports\llm_transformer_gold_report.md
+reports\delivery_verification.json
+reports\delivery_report.md
+```
+
+## Build The Delivery Package
+
+```powershell
+.\complete_delivery.ps1 -SkipTrain -AllowGateFailure
+```
+
+Use `-SkipTrain` when rebuilding the delivery package around the existing model. Remove it when a fresh training run is required.
+
+Final ZIP:
+
+```text
+release\poker-decision-agent.zip
+```
+
+## Verify The Delivery
+
+```powershell
+.\verify_delivery.ps1
+```
+
+Expected result:
+
+```text
+"status": "PASS"
+```
+
+## Open Risks
+
+- Hole-card coverage is still too low for reliable card-strength modeling.
+- The target distribution is imbalanced and fold-dominant.
+- The current model does not beat the majority-class baseline on strict holdout accuracy.
+- The gold event extraction set is intentionally small and should be expanded with reviewed production logs.

@@ -1,0 +1,20 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: hist_gradient_boosting
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: build_dataset
+description: Stream normalized poker CSV tables from configured JSON and JSONL event logs.
+task: command
+allow_failure: false
+command:
+  entrypoint: build_poker_dataset_optimized.py
+  args:
+    input: ${dataset.build_input}
+    out_dir: ${dataset.build_out_dir}
+    recursive: ${dataset.build_recursive}
+    extensions: ${dataset.build_extensions}
+    limit_files: ${dataset.build_limit_files}

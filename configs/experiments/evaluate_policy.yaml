@@ -15,5 +15,8 @@ command:
   args:
     dataset: ${dataset.root}
     model: ${inference.model_path}
+    allow_missing_hole_cards: false
     missing_hole_cards: ${dataset.missing_hole_cards_train}
+    keep_all_in_class: false
     max_examples: ${training.max_examples}
+    slice_min_examples: ${evaluation.slice_min_examples}

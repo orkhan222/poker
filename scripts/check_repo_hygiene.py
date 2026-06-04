@@ -10,7 +10,6 @@ ROOT = Path(__file__).resolve().parents[1]
 SKIP_DIRS = {
     ".git",
     ".venv",
-    "__pycache__",
     "dataset",
     "env",
     "models",
@@ -54,6 +53,10 @@ BANNED_PHRASES = tuple(
 )
 
 BANNED_PATH_PARTS = {"." + "qodo"}
+GENERATED_PATH_PARTS = {"__pycache__"}
+GENERATED_SUFFIXES = {".pyc", ".pyo", ".pyd"}
+GENERATED_NAMES = {"requirements-research.txt"}
+LOG_SUFFIX = ".log"
 
 
 def parse_args() -> argparse.Namespace:
@@ -63,13 +66,17 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def is_skipped(relative: Path) -> bool:
+    return any(part in SKIP_DIRS for part in relative.parts)
+
+
 def should_scan(path: Path, root: Path) -> bool:
     relative = path.relative_to(root)
-    if any(part in SKIP_DIRS for part in relative.parts):
+    if is_skipped(relative):
         return False
     if path.name == "check_repo_hygiene.py":
         return False
-    if path.name in {"Dockerfile"}:
+    if path.name == "Dockerfile":
         return True
     return path.suffix.lower() in TEXT_SUFFIXES
 
@@ -78,7 +85,28 @@ def path_findings(root: Path) -> list[dict[str, str]]:
     findings: list[dict[str, str]] = []
     for path in root.rglob("*"):
         relative = path.relative_to(root)
-        if any(part in SKIP_DIRS for part in relative.parts):
+        if is_skipped(relative):
+            continue
+        parts = set(relative.parts)
+        if parts & GENERATED_PATH_PARTS or path.suffix.lower() in GENERATED_SUFFIXES or path.name in GENERATED_NAMES:
+            findings.append(
+                {
+                    "path": str(relative),
+                    "line": "",
+                    "phrase": path.name,
+                    "detail": "Remove generated runtime artifacts from the deliverable repository.",
+                }
+            )
+            continue
+        if path.is_file() and path.suffix.lower() == LOG_SUFFIX:
+            findings.append(
+                {
+                    "path": str(relative),
+                    "line": "",
+                    "phrase": path.suffix,
+                    "detail": "Remove local log files from the deliverable repository.",
+                }
+            )
             continue
         for part in relative.parts:
             if part in BANNED_PATH_PARTS:

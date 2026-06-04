@@ -24,6 +24,7 @@ command:
     n_estimators: ${model.n_estimators}
     class_weighting: ${model.class_weighting}
     max_class_weight: ${model.max_class_weight}
+    allow_missing_hole_cards: false
     missing_hole_cards: ${dataset.missing_hole_cards_train}
     keep_all_in_class: ${model.keep_all_in_class}
     seed: ${training.seed}

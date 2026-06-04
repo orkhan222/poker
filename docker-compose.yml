@@ -1,9 +1,9 @@
-services:
+﻿services:
   poker-decision-agent:
     build: .
     image: poker-decision-agent:latest
     ports:
-      - "8000:8000"
+      - "8001:8001"
     environment:
-      POKER_POLICY_PATH: /app/models/poker_policy.json
+      POKER_POLICY_PATH: /app/models/poker_policy.joblib
     restart: unless-stopped
