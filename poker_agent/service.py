@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 from typing import Any
 
@@ -8,7 +9,12 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 
 from poker_agent.agents import MLPolicyAgent, RuleBasedAgent
+from poker_agent.api_contract import api_contract
+from poker_agent.delivery_readiness import summarize_delivery_readiness
+from poker_agent.model_risk_register import build_model_risk_register
 from poker_agent.schemas import PredictionRequest
+from poker_agent.scope_contract import build_scope_contract
+from poker_agent.strategy_readiness import load_combined_strategy_readiness
 
 
 app = FastAPI(
@@ -27,10 +33,14 @@ app = FastAPI(
     ],
 )
 _agent = None
+_agent_load_error: str | None = None
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL_PATH = PROJECT_ROOT / "models" / "poker_policy.joblib"
 OPTIONAL_BUNDLE_MODEL_PATH = PROJECT_ROOT / "models" / "poker_policy_bundle.joblib"
 FALLBACK_MODEL_PATH = PROJECT_ROOT / "models" / "poker_policy.json"
+PRODUCTION_GATE_REPORT_PATH = PROJECT_ROOT / "reports" / "production_gate.json"
+DEPLOYED_STRATEGY_GATE_REPORT_PATH = PROJECT_ROOT / "reports" / "deployed_strategy_gate.json"
+STRATEGY_REMEDIATION_REPORT_PATH = PROJECT_ROOT / "reports" / "strategy_remediation.json"
 
 
 APP_HTML = """
@@ -394,13 +404,22 @@ APP_HTML = """
 
 def health_payload() -> dict[str, str]:
     model_path = resolve_model_path()
+    agent = get_agent()
+    model_loaded = isinstance(agent, MLPolicyAgent)
     payload = {
         "status": "ok",
         "model": str(model_path),
-        "model_status": "loaded" if model_path.exists() else "fallback_rule_based",
+        "model_status": (
+            "loaded"
+            if model_loaded
+            else "fallback_rule_based_model_load_failed"
+            if model_path.exists() and _agent_load_error
+            else "fallback_rule_based"
+        ),
     }
+    if _agent_load_error:
+        payload["model_load_error"] = _agent_load_error[:300]
     try:
-        agent = get_agent()
         model = getattr(agent, "model", None)
         metadata = getattr(model, "metadata", {}) or {}
         if metadata:
@@ -551,6 +570,7 @@ def health_html(payload: dict[str, str]) -> str:
       <a href="/predict">Open application</a>
       <a class="secondary" href="/docs">API docs</a>
       <a class="secondary" href="/health.json">Raw JSON</a>
+      <a class="secondary" href="/scope-contract.json">Scope contract</a>
     </nav>
   </main>
 </body>
@@ -559,14 +579,18 @@ def health_html(payload: dict[str, str]) -> str:
 
 
 def get_agent():
-    global _agent
+    global _agent, _agent_load_error
     if _agent is not None:
         return _agent
     model_path = resolve_model_path()
     if model_path.exists():
-        _agent = MLPolicyAgent.from_path(model_path)
-    else:
-        _agent = RuleBasedAgent()
+        try:
+            _agent = MLPolicyAgent.from_path(model_path)
+            _agent_load_error = None
+            return _agent
+        except Exception as exc:
+            _agent_load_error = f"{type(exc).__name__}: {exc}"
+    _agent = RuleBasedAgent()
     return _agent
 
 
@@ -598,6 +622,52 @@ def health(request: Request) -> Any:
 )
 def health_json() -> dict[str, str]:
     return health_payload()
+
+
+@app.get("/contract.json", tags=["System"], summary="API response contract")
+def contract_json() -> dict[str, Any]:
+    return api_contract()
+
+
+@app.get("/scope-contract.json", tags=["System"], summary="DOCX/PDF scope contract")
+def scope_contract_json() -> dict[str, Any]:
+    return build_scope_contract(PROJECT_ROOT)
+
+
+@app.get("/delivery-readiness.json", tags=["System"], summary="Delivery readiness")
+def delivery_readiness_json() -> dict[str, Any]:
+    return summarize_delivery_readiness(PROJECT_ROOT)
+
+
+@app.get("/model-risk-register.json", tags=["System"], summary="Model risk register")
+def model_risk_register_json() -> dict[str, Any]:
+    return build_model_risk_register(PROJECT_ROOT)
+
+
+@app.get("/deployed-strategy-gate.json", tags=["System"], summary="Deployed strategy gate")
+def deployed_strategy_gate_json() -> dict[str, Any]:
+    if not DEPLOYED_STRATEGY_GATE_REPORT_PATH.exists():
+        return {
+            "status": "MISSING",
+            "strategy_policy_status": "UNKNOWN",
+            "report": str(DEPLOYED_STRATEGY_GATE_REPORT_PATH),
+        }
+    return json.loads(DEPLOYED_STRATEGY_GATE_REPORT_PATH.read_text(encoding="utf-8"))
+
+
+@app.get("/strategy-remediation.json", tags=["System"], summary="Strategy remediation")
+def strategy_remediation_json() -> dict[str, Any]:
+    if not STRATEGY_REMEDIATION_REPORT_PATH.exists():
+        return {
+            "strategy_policy_status": "UNKNOWN",
+            "report": str(STRATEGY_REMEDIATION_REPORT_PATH),
+        }
+    return json.loads(STRATEGY_REMEDIATION_REPORT_PATH.read_text(encoding="utf-8"))
+
+
+@app.get("/strategy-readiness.json", tags=["System"], summary="Strategy readiness")
+def strategy_readiness_json() -> dict[str, Any]:
+    return load_combined_strategy_readiness(PRODUCTION_GATE_REPORT_PATH, DEPLOYED_STRATEGY_GATE_REPORT_PATH)
 
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)

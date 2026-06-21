@@ -17,3 +17,4 @@ smoke_dataset/
 poker_dataset/
 
 smoke_model.json
+data/*.csv

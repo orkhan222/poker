@@ -97,6 +97,10 @@ $GoldPredictionsReport = Join-Path $ReportsDir "llm_event_gold_predictions.jsonl
 $GoldMarkdownReport = Join-Path $ReportsDir "llm_event_gold_report.md"
 $TransformerEvalReport = Join-Path $ReportsDir "llm_transformer_gold_eval.json"
 $TransformerMarkdownReport = Join-Path $ReportsDir "llm_transformer_gold_report.md"
+$ScopeContractReport = Join-Path $ReportsDir "scope_contract.json"
+$ScopeContractMarkdownReport = Join-Path $ReportsDir "scope_contract.md"
+$ModelRiskRegisterReport = Join-Path $ReportsDir "model_risk_register.json"
+$ModelRiskRegisterMarkdownReport = Join-Path $ReportsDir "model_risk_register.md"
 
 Write-Host "1/8 Auditing dataset..." -ForegroundColor Green
 & $Python scripts\audit_dataset.py `
@@ -197,6 +201,18 @@ if ($LASTEXITCODE -ne 0) {
 
 Remove-DeliveryArtifacts -Root $ProjectRoot
 Remove-FailedHydraRuns -Root $ProjectRoot
+Write-Host "7b/8 Building model risk register..." -ForegroundColor Green
+& $Python scripts\build_model_risk_register.py `
+    --project-root $ProjectRoot `
+    --out $ModelRiskRegisterReport `
+    --markdown-out $ModelRiskRegisterMarkdownReport
+
+Write-Host "7c/8 Building scope contract..." -ForegroundColor Green
+& $Python scripts\build_scope_contract.py `
+    --project-root $ProjectRoot `
+    --out $ScopeContractReport `
+    --markdown-out $ScopeContractMarkdownReport
+
 Write-Host "8/8 Rebuilding delivery ZIP..." -ForegroundColor Green
 
 $GeneratedDirs = Get-ChildItem -Force -Recurse -Directory -Filter "__pycache__" -ErrorAction SilentlyContinue | Where-Object {
@@ -218,7 +234,7 @@ foreach ($File in $GeneratedFiles) {
 }
 $ZipPath = Join-Path $ProjectRoot "release\poker-decision-agent.zip"
 $Items = Get-ChildItem -Force | Where-Object {
-    $_.Name -notin @(".git", ".qodo", ".venv", "env", "dataset", "sample_out", "smoke_dataset", "__pycache__", "release", "research_runs")
+    $_.Name -notin @(".git", ".qodo", ".venv", "env", "data", "dataset", "sample_out", "smoke_dataset", "__pycache__", "release", "research_runs")
 }
 Compress-Archive -Path $Items.FullName -DestinationPath $ZipPath -Force
 
@@ -235,4 +251,6 @@ Write-Host "Gold event eval: $GoldEvalReport"
 Write-Host "Gold event report: $GoldMarkdownReport"
 Write-Host "Instruction-model eval: $TransformerEvalReport"
 Write-Host "Instruction-model report: $TransformerMarkdownReport"
+Write-Host "Scope contract: $ScopeContractReport"
+Write-Host "Model risk register: $ModelRiskRegisterReport"
 Write-Host "ZIP: $ZipPath"

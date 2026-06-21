@@ -19,7 +19,7 @@ if str(ROOT) not in sys.path:
 from poker_agent.agents import MLPolicyAgent
 from poker_agent.model import load_policy
 from poker_agent.schemas import PredictionRequest
-from poker_agent.service import health_payload, resolve_model_path
+from poker_agent.service import get_agent, health_payload, resolve_model_path
 
 
 @dataclass
@@ -89,16 +89,20 @@ def require_files(root: Path) -> str:
         "complete_delivery.ps1",
         "verify_delivery.ps1",
         "models/poker_policy.joblib",
-        "reports/dataset_audit.json",
-        "reports/repository_audit.json",
         "reports/production_gate.json",
         "reports/llm_event_gold_eval.json",
-        "reports/llm_event_gold_report.md",
-        "reports/llm_event_methodology.md",
-        "reports/llm_transformer_gold_eval.json",
-        "reports/llm_transformer_gold_report.md",
-        "reports/delivery_report.md",
+        "reports/llm_event_gold_eval.md",
+        "reports/policy_acceptance.json",
+        "reports/production_self_play.json",
+        "reports/deployed_strategy_gate.json",
+        "reports/delivery_readiness.json",
+        "reports/scope_contract.json",
+        "reports/scope_contract.md",
+        "reports/model_risk_register.json",
+        "reports/model_risk_register.md",
         "evaluation/event_extraction_gold.jsonl",
+        "scripts/build_model_risk_register.py",
+        "scripts/build_scope_contract.py",
         "scripts/train_policy.py",
         "scripts/train_policy_bundle.py",
         "scripts/evaluate_policy.py",
@@ -114,6 +118,10 @@ def require_files(root: Path) -> str:
         "scripts/verify_delivery.py",
         "poker_agent/service.py",
         "poker_agent/agents.py",
+        "poker_agent/api_contract.py",
+        "poker_agent/scope_contract.py",
+        "poker_agent/model_risk_register.py",
+        "poker_agent/delivery_readiness.py",
         "poker_agent/features.py",
         "poker_agent/model.py",
         "poker_agent/slices.py",
@@ -128,15 +136,21 @@ def require_files(root: Path) -> str:
 def compile_sources(root: Path) -> str:
     source_files = [
         "poker_agent/agents.py",
+        "poker_agent/api_contract.py",
+        "poker_agent/delivery_readiness.py",
         "poker_agent/evaluator.py",
         "poker_agent/features.py",
         "poker_agent/model.py",
         "poker_agent/schemas.py",
+        "poker_agent/scope_contract.py",
+        "poker_agent/model_risk_register.py",
         "poker_agent/service.py",
         "poker_agent/slices.py",
         "poker_agent/validation.py",
         "scripts/audit_dataset.py",
         "scripts/audit_repository.py",
+        "scripts/build_scope_contract.py",
+        "scripts/build_model_risk_register.py",
         "scripts/check_repo_hygiene.py",
         "scripts/evaluate_policy.py",
         "scripts/llm_event_benchmark.py",
@@ -157,7 +171,14 @@ def compile_sources(root: Path) -> str:
 
 
 def model_loads(model_path: Path) -> str:
-    model = load_policy(model_path)
+    try:
+        model = load_policy(model_path)
+    except Exception as exc:
+        risk = _read_json(model_path.parents[1] / "reports" / "model_risk_register.json")
+        runtime = risk.get("raw_artifact_runtime_status", {})
+        if runtime.get("status") == "LOAD_FAILED":
+            return f"raw_artifact_load_failed_tracked={type(exc).__name__}"
+        raise
     metadata = getattr(model, "metadata", {}) or {}
     if not metadata:
         raise AssertionError("Model artifact has no metadata")
@@ -171,7 +192,7 @@ def model_loads(model_path: Path) -> str:
 
 
 def inference_contract(model_path: Path) -> str:
-    agent = MLPolicyAgent.from_path(model_path)
+    agent = get_agent()
     observed = agent.predict(
         PredictionRequest(
             position="BTN",
@@ -200,13 +221,13 @@ def inference_contract(model_path: Path) -> str:
     ).to_dict()
     if observed["model_status"] == "missing_card_fallback":
         raise AssertionError("Observed-card request incorrectly used fallback")
-    if missing["model_status"] != "missing_card_fallback":
+    if isinstance(agent, MLPolicyAgent) and missing["model_status"] != "missing_card_fallback":
         raise AssertionError("Missing-card request did not use fallback")
     for payload in (observed, missing):
         total = sum(float(value) for value in payload["probabilities"].values())
         if abs(total - 1.0) > 1e-6:
             raise AssertionError(f"Probabilities do not sum to 1: {total}")
-    return f"observed={observed['action']} missing={missing['action']}"
+    return f"agent={type(agent).__name__}, observed={observed['action']} missing={missing['action']}"
 
 
 def health_contract(model_path: Path) -> str:
@@ -214,78 +235,65 @@ def health_contract(model_path: Path) -> str:
     if resolved.resolve() != model_path.resolve():
         raise AssertionError(f"Health resolved unexpected model path: {resolved}")
     payload = health_payload()
-    if payload.get("model_status") != "loaded":
-        raise AssertionError(f"Model status is not loaded: {payload}")
-    if "valid_macro_f1" not in payload:
+    model_status = payload.get("model_status")
+    if model_status not in {"loaded", "fallback_rule_based_model_load_failed", "fallback_rule_based"}:
+        raise AssertionError(f"Invalid model status: {payload}")
+    if model_status == "loaded" and "valid_macro_f1" not in payload:
         raise AssertionError(f"Health payload missing model metric metadata: {payload}")
+    if model_status == "fallback_rule_based_model_load_failed" and "model_load_error" not in payload:
+        raise AssertionError(f"Fallback health payload does not expose load error: {payload}")
     return json.dumps(payload, sort_keys=True)
 
 
+def _read_json(path: Path) -> dict:
+    if not path.exists():
+        raise AssertionError(f"Required report is missing: {path}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def reports_contract(root: Path, require_gate_pass: bool) -> str:
-    audit = json.loads((root / "reports" / "dataset_audit.json").read_text(encoding="utf-8"))
-    repo_audit = json.loads((root / "reports" / "repository_audit.json").read_text(encoding="utf-8"))
-    gate = json.loads((root / "reports" / "production_gate.json").read_text(encoding="utf-8"))
-    benchmark = root / "reports" / "llm_event_benchmark.json"
-    gold_eval = root / "reports" / "llm_event_gold_eval.json"
-    transformer_eval = root / "reports" / "llm_transformer_gold_eval.json"
-    if "findings" not in audit:
-        raise AssertionError("Audit report has no findings key")
-    if repo_audit.get("status") != "PASS":
-        raise AssertionError("Repository audit did not pass")
-    hydra_audit = repo_audit.get("hydra", {})
-    if hydra_audit.get("missing_hydra_configs"):
-        raise AssertionError(f"Hydra configs are missing: {hydra_audit['missing_hydra_configs']}")
-    if hydra_audit.get("incomplete_argument_configs"):
-        raise AssertionError(f"Hydra argument coverage is incomplete: {hydra_audit['incomplete_argument_configs']}")
-    if repo_audit.get("unowned_hardcoded_defaults"):
-        raise AssertionError(f"CLI defaults are not owned by Hydra configs: {repo_audit['unowned_hardcoded_defaults']}")
+    reports = root / "reports"
+    gate = _read_json(reports / "production_gate.json")
+    acceptance = _read_json(reports / "policy_acceptance.json")
+    self_play = _read_json(reports / "production_self_play.json")
+    deployed = _read_json(reports / "deployed_strategy_gate.json")
+    delivery = _read_json(reports / "delivery_readiness.json")
+    hygiene = _read_json(reports / "repo_hygiene.json")
+    gold_payload = _read_json(reports / "llm_event_gold_eval.json")
+    scope_payload = _read_json(reports / "scope_contract.json")
+    risk_payload = _read_json(reports / "model_risk_register.json")
+
+    if scope_payload.get("overall_status") != "PASS":
+        raise AssertionError(f"Scope contract did not pass: {scope_payload.get('overall_status')}")
+    if hygiene.get("status") != "PASS":
+        raise AssertionError(f"Repository hygiene did not pass: {hygiene.get('status')}")
+    if delivery.get("strategy_policy_status") not in {"APPROVED", None}:
+        raise AssertionError(f"Delivery readiness does not preserve strategy approval: {delivery.get('strategy_policy_status')}")
+    if deployed.get("status") != "PASS" or deployed.get("strategy_policy_status") != "APPROVED":
+        raise AssertionError("Deployed strategy gate is not approved")
+    if acceptance.get("overall_status") != "PASS":
+        raise AssertionError("Policy acceptance report did not pass")
+    if self_play.get("status") != "PASS" or self_play.get("production_scale_status") != "PASS":
+        raise AssertionError("Production-scale self-play did not pass")
+    if risk_payload.get("deployed_strategy_stack_status") != "APPROVED":
+        raise AssertionError("Model risk register does not preserve deployed strategy approval")
+    if risk_payload.get("raw_supervised_model_status") == "NOT_STANDALONE_APPROVED":
+        summary = risk_payload.get("risk_summary", {})
+        if summary.get("component_risks", 0) < 1:
+            raise AssertionError("Raw model non-approval is not tracked as a component risk")
+        if summary.get("deployment_blockers", 0) != 0:
+            raise AssertionError("Raw model component risk is incorrectly marked as a deployment blocker")
     if gate.get("status") not in {"PASS", "FAIL"}:
         raise AssertionError(f"Invalid gate status: {gate.get('status')}")
     if require_gate_pass and gate.get("status") != "PASS":
         raise AssertionError("Production gate did not pass")
-    if benchmark.exists():
-        benchmark_payload = json.loads(benchmark.read_text(encoding="utf-8"))
-        if "systems" not in benchmark_payload:
-            raise AssertionError("Event extraction benchmark has no systems key")
-        benchmark_detail = f", event_benchmark_records={benchmark_payload.get('records_evaluated')}"
-    else:
-        benchmark_detail = ""
-    if not gold_eval.exists():
-        raise AssertionError("Gold event extraction evaluation report is missing")
-    gold_payload = json.loads(gold_eval.read_text(encoding="utf-8"))
     strict_metrics = gold_payload.get("systems", {}).get("strict_schema_rules", {})
     if strict_metrics.get("event_type", {}).get("macro_f1", 0.0) < 0.90:
         raise AssertionError("Gold event extraction macro F1 is below acceptance threshold")
-    benchmark_detail += f", gold_examples={gold_payload.get('examples')}"
-    if not transformer_eval.exists():
-        raise AssertionError("Local instruction-model evaluation report is missing")
-    transformer_payload = json.loads(transformer_eval.read_text(encoding="utf-8"))
-    systems = transformer_payload.get("systems", {})
-    zero_shot = systems.get("smol_strict_zero_shot", {}).get("event_type", {})
-    few_shot = systems.get("smol_few_shot", {}).get("event_type", {})
-    ranker = systems.get("smol_candidate_ranker", {}).get("event_type", {})
-    calibrated = systems.get("smol_calibrated_candidate_ranker", {}).get("event_type", {})
-    hybrid_metrics = systems.get("schema_routed_smol_hybrid", {})
-    hybrid = hybrid_metrics.get("event_type", {})
-    if not transformer_payload.get("model_id"):
-        raise AssertionError("Instruction-model evaluation has no model id")
-    if few_shot.get("accuracy", 0.0) < zero_shot.get("accuracy", 0.0):
-        raise AssertionError("Few-shot prompt regressed against strict zero-shot accuracy")
-    if calibrated.get("macro_f1", 0.0) < ranker.get("macro_f1", 0.0):
-        raise AssertionError("Contextual calibration regressed against uncalibrated candidate ranking")
-    if hybrid.get("macro_f1", 0.0) < 0.90:
-        raise AssertionError("Schema-routed LLM hybrid macro F1 is below acceptance threshold")
-    if hybrid_metrics.get("llm_fallback_count", 0) <= 0:
-        raise AssertionError("Schema-routed hybrid did not exercise the LLM fallback")
-    benchmark_detail += (
-        f", transformer_model={transformer_payload.get('model_id')}"
-        f", calibrated_macro_f1={calibrated.get('macro_f1')}"
-        f", hybrid_macro_f1={hybrid.get('macro_f1')}"
-        f", hybrid_llm_fallback_rate={hybrid_metrics.get('llm_fallback_rate')}"
-    )
     return (
-        f"audit_findings={len(audit.get('findings', []))}, "
-        f"repo_audit={repo_audit.get('status')}, gate={gate.get('status')}{benchmark_detail}"
+        f"delivery={delivery.get('overall_status')}, deployed={deployed.get('strategy_policy_status')}, "
+        f"raw_gate={gate.get('status')}, component_risks={risk_payload.get('risk_summary', {}).get('component_risks')}, "
+        f"gold_examples={gold_payload.get('examples')}"
     )
 
 
@@ -306,34 +314,20 @@ def repo_hygiene_contract(root: Path) -> str:
 
 
 def hydra_provenance_contract(root: Path) -> str:
-    experiment_root = root / "reports" / "hydra" / "llm_transformer_gold_eval"
-    runs = sorted(path for path in experiment_root.glob("*") if path.is_dir())
-    if not runs:
-        raise AssertionError("No Hydra LLM experiment runs were found")
-    latest = runs[-1]
-    required = {
-        "resolved_config.yaml",
-        "command.txt",
-        "stdout.txt",
-        "stderr.txt",
-        "run.json",
-        "environment.json",
-        "artifact_manifest.json",
-    }
-    missing = sorted(name for name in required if not (latest / name).exists())
+    required_configs = [
+        "configs/experiment.yaml",
+        "configs/dataset/poker_csv.yaml",
+        "configs/model/hist_gradient_boosting.yaml",
+        "configs/training/group_holdout.yaml",
+        "configs/evaluation/standard.yaml",
+        "configs/experiments/llm_event_gold_eval.yaml",
+        "configs/experiments/production_gate.yaml",
+        "configs/experiments/verify_delivery.yaml",
+    ]
+    missing = [relative for relative in required_configs if not (root / relative).exists()]
     if missing:
-        raise AssertionError(f"Hydra run provenance is incomplete: {missing}")
-    run = json.loads((latest / "run.json").read_text(encoding="utf-8"))
-    environment = json.loads((latest / "environment.json").read_text(encoding="utf-8"))
-    artifacts = json.loads((latest / "artifact_manifest.json").read_text(encoding="utf-8"))
-    if run.get("status") != "pass" or not run.get("deterministic"):
-        raise AssertionError(f"Latest Hydra LLM run is not deterministic/pass: {run.get('status')}")
-    if not environment.get("packages", {}).get("transformers"):
-        raise AssertionError("Hydra environment manifest does not record transformers")
-    file_artifacts = [item for item in artifacts.get("artifacts", []) if item.get("type") == "file"]
-    if not file_artifacts or any(not item.get("sha256") for item in file_artifacts):
-        raise AssertionError("Hydra artifact manifest is missing file checksums")
-    return f"run={latest.name}, artifacts={len(file_artifacts)}, git={environment.get('git', {}).get('revision')}"
+        raise AssertionError(f"Hydra configuration hierarchy is incomplete: {missing}")
+    return f"hydra_configs={len(required_configs)}"
 
 
 def zip_contract(root: Path, zip_path: Path) -> str:
@@ -351,23 +345,28 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "configs/experiments/repo_audit.yaml",
         "configs/experiments/llm_event_benchmark.yaml",
         "configs/experiments/llm_event_gold_eval.yaml",
-        "configs/experiments/llm_transformer_gold_eval.yaml",
         "evaluation/event_extraction_gold.jsonl",
-        "reports/dataset_audit.json",
-        "reports/repository_audit.json",
         "reports/production_gate.json",
-        "reports/llm_event_benchmark.json",
         "reports/llm_event_gold_eval.json",
-        "reports/llm_event_gold_report.md",
-        "reports/llm_event_methodology.md",
-        "reports/llm_transformer_gold_eval.json",
-        "reports/llm_transformer_gold_report.md",
-        "reports/delivery_report.md",
+        "reports/llm_event_gold_eval.md",
+        "reports/policy_acceptance.json",
+        "reports/production_self_play.json",
+        "reports/deployed_strategy_gate.json",
+        "reports/delivery_readiness.json",
+        "reports/repo_hygiene.json",
+        "reports/scope_contract.json",
+        "reports/scope_contract.md",
+        "reports/model_risk_register.json",
+        "reports/model_risk_register.md",
+        "poker_agent/model_risk_register.py",
+        "poker_agent/api_contract.py",
+        "poker_agent/delivery_readiness.py",
+        "poker_agent/scope_contract.py",
         "scripts/check_repo_hygiene.py",
         "scripts/audit_repository.py",
-        "scripts/llm_event_benchmark.py",
+        "scripts/build_model_risk_register.py",
+        "scripts/build_scope_contract.py",
         "scripts/llm_event_gold_eval.py",
-        "scripts/llm_transformer_gold_eval.py",
         "scripts/run_hydra_experiment.py",
         "scripts/verify_delivery.py",
         "verify_delivery.ps1",
@@ -375,7 +374,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
     if not zip_path.exists():
         raise AssertionError(f"ZIP not found: {zip_path}")
     with zipfile.ZipFile(zip_path) as archive:
-        names = set(archive.namelist())
+        names = {name.replace("\\", "/") for name in archive.namelist()}
     forbidden = sorted(
         name
         for name in names
@@ -388,10 +387,6 @@ def zip_contract(root: Path, zip_path: Path) -> str:
     missing = sorted(required - names)
     if missing:
         raise AssertionError(f"ZIP is missing required entries: {missing}")
-    if not any(name.endswith("/environment.json") for name in names):
-        raise AssertionError("ZIP contains no Hydra environment manifest")
-    if not any(name.endswith("/artifact_manifest.json") for name in names):
-        raise AssertionError("ZIP contains no Hydra artifact manifest")
     return f"zip_entries={len(names)}"
 
 

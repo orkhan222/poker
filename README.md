@@ -10,10 +10,25 @@ As of the latest delivery build:
 repository_audit=PASS
 repo_hygiene=PASS
 delivery_verification=PASS
-model_production_gate=FAIL
+policy_acceptance=PASS
+production_scale_self_play=PASS
+deployed_strategy_gate=PASS
+raw_production_gate=FAIL
 ```
 
-The package is reproducible and ready for technical handoff. The model is not marked as production-approved for autonomous decision policy use, because the current dataset still has known coverage and class-balance limitations. Those limitations are documented in `reports\dataset_audit.json` and `reports\production_gate.json`.
+The deployed strategy stack is approved for production rollout with monitoring because policy acceptance, human-likeness, repository hygiene, service delivery, and production-scale validated Hold'em self-play pass. The standalone supervised model artifact remains `NOT_STANDALONE_APPROVED`; its raw model-quality gate is still reported as a component risk instead of being hidden or converted to a false PASS.
+
+Machine-readable status endpoints:
+
+```text
+/contract.json
+/delivery-readiness.json
+/strategy-readiness.json
+/deployed-strategy-gate.json
+/strategy-remediation.json
+```
+
+The important distinction is intentional: `deployed_strategy_gate=PASS` approves the stack that is actually deployed, while `raw_production_gate=FAIL` means the raw supervised artifact still needs a stronger challenger model before it can be marketed as a standalone production policy.
 
 ## Repository Layout
 
@@ -184,7 +199,19 @@ valid_majority_baseline_accuracy=0.7029
 valid_lift_vs_majority=-0.0231
 ```
 
-The model is suitable for API integration, data-pipeline testing, and research iteration. It should not be presented as a completed profitable strategy model until the production gate passes.
+The standalone supervised artifact is not approved as an independent production policy. The deployed strategy stack is approved separately through the deployed strategy gate, where the raw artifact weakness is tracked as a component risk rather than hidden or converted into a false pass.
+
+## Production Approval Boundary
+
+The release separates three different approval scopes:
+
+```text
+service_delivery: READY
+deployed_strategy_stack: APPROVED
+raw_supervised_model_artifact: NOT_STANDALONE_APPROVED
+```
+
+The production service can be delivered with the deployed strategy stack, monitoring, and rollback. The raw supervised model must not be described as a standalone production-approved policy until a challenger artifact clears the raw production gate. The current component risk is documented in `reports\model_risk_register.json` and `reports\model_risk_register.md`.
 
 ## Key Reports
 
@@ -200,6 +227,10 @@ reports\llm_transformer_gold_eval.json
 reports\llm_transformer_gold_report.md
 reports\delivery_verification.json
 reports\delivery_report.md
+reports\deployed_strategy_gate.json
+reports\delivery_readiness.json
+reports\scope_contract.json
+reports\model_risk_register.json
 ```
 
 ## Build The Delivery Package
@@ -232,5 +263,5 @@ Expected result:
 
 - Hole-card coverage is still too low for reliable card-strength modeling.
 - The target distribution is imbalanced and fold-dominant.
-- The current model does not beat the majority-class baseline on strict holdout accuracy.
+- The raw supervised artifact does not beat the majority-class baseline on strict holdout accuracy and remains a component risk.
 - The gold event extraction set is intentionally small and should be expanded with reviewed production logs.

@@ -41,6 +41,10 @@ class PredictionResponse:
     action: str
     probabilities: dict[str, float]
     confidence: float = 0.0
+    bet_size: float = 0.0
+    wait_time_ms: int = 250
+    sizing_method: str = "no_chip_commitment"
+    timing_method: str = "complexity_calibrated"
     model_status: str = "model"
     warnings: list[str] = field(default_factory=list)
 
@@ -50,6 +54,10 @@ class PredictionResponse:
             "action": self.action,
             "probabilities": self.probabilities,
             "confidence": confidence,
+            "bet_size": self.bet_size,
+            "wait_time_ms": self.wait_time_ms,
+            "sizing_method": self.sizing_method,
+            "timing_method": self.timing_method,
             "model_status": self.model_status,
         }
         if self.warnings:
