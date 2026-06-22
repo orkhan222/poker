@@ -95,6 +95,8 @@ $EventMethodologyReport = Join-Path $ReportsDir "llm_event_methodology.md"
 $GoldEvalReport = Join-Path $ReportsDir "llm_event_gold_eval.json"
 $GoldPredictionsReport = Join-Path $ReportsDir "llm_event_gold_predictions.jsonl"
 $GoldMarkdownReport = Join-Path $ReportsDir "llm_event_gold_report.md"
+$DecisionContextReport = Join-Path $ReportsDir "llm_decision_context.json"
+$DecisionContextMarkdownReport = Join-Path $ReportsDir "llm_decision_context.md"
 $TransformerEvalReport = Join-Path $ReportsDir "llm_transformer_gold_eval.json"
 $TransformerMarkdownReport = Join-Path $ReportsDir "llm_transformer_gold_report.md"
 $ScopeContractReport = Join-Path $ReportsDir "scope_contract.json"
@@ -176,6 +178,11 @@ Write-Host "5/8 Running gold event extraction evaluation..." -ForegroundColor Gr
     --minimal-prompt (Join-Path $ProjectRoot "configs\prompts\event_extraction_minimal.txt") `
     --permissive-prompt (Join-Path $ProjectRoot "configs\prompts\event_extraction_permissive.txt") `
     --strict-prompt (Join-Path $ProjectRoot "configs\prompts\event_extraction_strict.txt")
+
+Write-Host "5a/8 Building LLM decision context contract..." -ForegroundColor Green
+& $Python scripts\build_llm_decision_context.py `
+    --out $DecisionContextReport `
+    --report-out $DecisionContextMarkdownReport
 
 if ($RunTransformerEval) {
     Write-Host "5b/8 Running local instruction-model evaluation..." -ForegroundColor Green
@@ -265,6 +272,7 @@ Write-Host "Event benchmark: $EventBenchmarkReport"
 Write-Host "Event methodology: $EventMethodologyReport"
 Write-Host "Gold event eval: $GoldEvalReport"
 Write-Host "Gold event report: $GoldMarkdownReport"
+Write-Host "Decision context: $DecisionContextReport"
 Write-Host "Instruction-model eval: $TransformerEvalReport"
 Write-Host "Instruction-model report: $TransformerMarkdownReport"
 Write-Host "Scope contract: $ScopeContractReport"

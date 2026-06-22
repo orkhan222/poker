@@ -1,0 +1,17 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: text_event_local_rules
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: llm_decision_context
+description: Build the in-context decision contract for out-of-box LLM poker policy experiments.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_llm_decision_context.py
+  args:
+    out: ${logging.reports_dir}/llm_decision_context.json
+    report_out: ${logging.reports_dir}/llm_decision_context.md

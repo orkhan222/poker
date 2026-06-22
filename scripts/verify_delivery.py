@@ -68,6 +68,9 @@ def require_files(root: Path) -> str:
         "configs/prompts/event_extraction_strict.txt",
         "configs/prompts/event_extraction_fewshot.txt",
         "configs/prompts/event_type_candidate_ranker.txt",
+        "configs/prompts/poker_decision_minimal_zero_shot.txt",
+        "configs/prompts/poker_decision_rules_grounded.txt",
+        "configs/prompts/poker_decision_full_context.txt",
         "configs/experiments/build_dataset.yaml",
         "configs/experiments/repo_hygiene.yaml",
         "configs/experiments/train_single_hgb.yaml",
@@ -81,6 +84,7 @@ def require_files(root: Path) -> str:
         "configs/experiments/llm_event_benchmark.yaml",
         "configs/experiments/llm_event_gold_eval.yaml",
         "configs/experiments/llm_transformer_gold_eval.yaml",
+        "configs/experiments/llm_decision_context.yaml",
         "configs/experiments/verify_delivery.yaml",
         "Dockerfile",
         "docker-compose.yml",
@@ -92,6 +96,8 @@ def require_files(root: Path) -> str:
         "reports/production_gate.json",
         "reports/llm_event_gold_eval.json",
         "reports/llm_event_gold_eval.md",
+        "reports/llm_decision_context.json",
+        "reports/llm_decision_context.md",
         "reports/policy_acceptance.json",
         "reports/production_self_play.json",
         "reports/deployed_strategy_gate.json",
@@ -108,6 +114,7 @@ def require_files(root: Path) -> str:
         "scripts/build_model_risk_register.py",
         "scripts/build_production_approval.py",
         "scripts/build_client_handoff.py",
+        "scripts/build_llm_decision_context.py",
         "scripts/build_scope_contract.py",
         "scripts/train_policy.py",
         "scripts/train_policy_bundle.py",
@@ -129,6 +136,7 @@ def require_files(root: Path) -> str:
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
         "poker_agent/client_handoff.py",
+        "poker_agent/llm_decision_context.py",
         "poker_agent/delivery_readiness.py",
         "poker_agent/features.py",
         "poker_agent/model.py",
@@ -154,6 +162,7 @@ def compile_sources(root: Path) -> str:
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
         "poker_agent/client_handoff.py",
+        "poker_agent/llm_decision_context.py",
         "poker_agent/service.py",
         "poker_agent/slices.py",
         "poker_agent/validation.py",
@@ -163,6 +172,7 @@ def compile_sources(root: Path) -> str:
         "scripts/build_model_risk_register.py",
         "scripts/build_production_approval.py",
         "scripts/build_client_handoff.py",
+        "scripts/build_llm_decision_context.py",
         "scripts/check_repo_hygiene.py",
         "scripts/evaluate_policy.py",
         "scripts/llm_event_benchmark.py",
@@ -272,6 +282,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     delivery = _read_json(reports / "delivery_readiness.json")
     hygiene = _read_json(reports / "repo_hygiene.json")
     gold_payload = _read_json(reports / "llm_event_gold_eval.json")
+    decision_context_payload = _read_json(reports / "llm_decision_context.json")
     scope_payload = _read_json(reports / "scope_contract.json")
     risk_payload = _read_json(reports / "model_risk_register.json")
     approval_payload = _read_json(reports / "production_approval.json")
@@ -325,6 +336,15 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     strict_metrics = gold_payload.get("systems", {}).get("strict_schema_rules", {})
     if strict_metrics.get("event_type", {}).get("macro_f1", 0.0) < 0.90:
         raise AssertionError("Gold event extraction macro F1 is below acceptance threshold")
+    if decision_context_payload.get("default_context_mode") != "full_in_context":
+        raise AssertionError("LLM decision context does not default to full in-context mode")
+    prompt_records = decision_context_payload.get("prompt_records") or []
+    if not prompt_records:
+        raise AssertionError("LLM decision context report has no prompt records")
+    if not any(item.get("contains_rules") for item in prompt_records):
+        raise AssertionError("LLM decision context report does not include rules-grounded records")
+    if not any(item.get("contains_strategy_guidelines") for item in prompt_records):
+        raise AssertionError("LLM decision context report does not include full strategy-guided records")
     return (
         f"delivery={delivery.get('overall_status')}, deployed={deployed.get('strategy_policy_status')}, "
         f"raw_gate={gate.get('status')}, handoff={handoff_payload.get('handoff_status')}, "
@@ -357,6 +377,7 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/training/group_holdout.yaml",
         "configs/evaluation/standard.yaml",
         "configs/experiments/llm_event_gold_eval.yaml",
+        "configs/experiments/llm_decision_context.yaml",
         "configs/experiments/production_gate.yaml",
         "configs/experiments/verify_delivery.yaml",
     ]
@@ -375,16 +396,22 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "configs/model/hist_gradient_boosting.yaml",
         "configs/model/text_event_smol.yaml",
         "configs/prompts/event_type_candidate_ranker.txt",
+        "configs/prompts/poker_decision_minimal_zero_shot.txt",
+        "configs/prompts/poker_decision_rules_grounded.txt",
+        "configs/prompts/poker_decision_full_context.txt",
         "configs/experiments/build_dataset.yaml",
         "configs/experiments/repo_hygiene.yaml",
         "configs/experiments/train_single_hgb.yaml",
         "configs/experiments/repo_audit.yaml",
         "configs/experiments/llm_event_benchmark.yaml",
         "configs/experiments/llm_event_gold_eval.yaml",
+        "configs/experiments/llm_decision_context.yaml",
         "evaluation/event_extraction_gold.jsonl",
         "reports/production_gate.json",
         "reports/llm_event_gold_eval.json",
         "reports/llm_event_gold_eval.md",
+        "reports/llm_decision_context.json",
+        "reports/llm_decision_context.md",
         "reports/policy_acceptance.json",
         "reports/production_self_play.json",
         "reports/deployed_strategy_gate.json",
@@ -401,6 +428,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
         "poker_agent/client_handoff.py",
+        "poker_agent/llm_decision_context.py",
         "poker_agent/api_contract.py",
         "poker_agent/delivery_readiness.py",
         "poker_agent/scope_contract.py",
@@ -409,6 +437,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/build_model_risk_register.py",
         "scripts/build_production_approval.py",
         "scripts/build_client_handoff.py",
+        "scripts/build_llm_decision_context.py",
         "scripts/build_scope_contract.py",
         "scripts/llm_event_gold_eval.py",
         "scripts/run_hydra_experiment.py",

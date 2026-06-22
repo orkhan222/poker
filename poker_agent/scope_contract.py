@@ -37,6 +37,7 @@ SCOPE_PHASES: list[dict[str, Any]] = [
         ],
         "required_evidence": [
             "reports/llm_event_gold_eval.json",
+            "reports/llm_decision_context.json",
             "reports/production_gate.json",
             "reports/policy_acceptance.json",
         ],

@@ -12,6 +12,7 @@ from poker_agent.agents import MLPolicyAgent, RuleBasedAgent
 from poker_agent.api_contract import api_contract
 from poker_agent.client_handoff import build_client_handoff
 from poker_agent.delivery_readiness import summarize_delivery_readiness
+from poker_agent.llm_decision_context import build_decision_context_report
 from poker_agent.model_risk_register import build_model_risk_register
 from poker_agent.production_approval import build_production_approval
 from poker_agent.schemas import PredictionRequest
@@ -654,6 +655,11 @@ def production_approval_json() -> dict[str, Any]:
 @app.get("/client-handoff.json", tags=["System"], summary="Client handoff statement")
 def client_handoff_json() -> dict[str, Any]:
     return build_client_handoff(PROJECT_ROOT)
+
+
+@app.get("/llm-decision-context.json", tags=["System"], summary="LLM decision context contract")
+def llm_decision_context_json() -> dict[str, Any]:
+    return build_decision_context_report()
 
 
 @app.get("/deployed-strategy-gate.json", tags=["System"], summary="Deployed strategy gate")

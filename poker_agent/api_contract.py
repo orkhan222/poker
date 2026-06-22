@@ -94,6 +94,18 @@ def api_contract() -> dict[str, Any]:
             "handoff_status_values": ["READY", "READY_WITH_COMPONENT_RISK", "NOT_READY"],
             "delivery_boundary": "Service delivery and deployed strategy approval can be ready while raw-model standalone approval remains a tracked component risk.",
         },
+        "llm_decision_context": {
+            "endpoint": "/llm-decision-context.json",
+            "description": "Defines the in-context learning contract for out-of-box LLM poker decision experiments.",
+            "context_modes": ["minimal_zero_shot", "rules_grounded", "full_in_context"],
+            "default_context_mode": "full_in_context",
+            "controls": [
+                "legal action filtering",
+                "strict JSON-only output",
+                "probability normalization",
+                "bet-size and timing post-processing",
+            ],
+        },
         "approval_boundary": {
             "software_delivery": "The API, package, and reproducibility checks are evaluated separately.",
             "deployed_strategy_stack": "Production policy approval is based on the deployed strategy gate.",

@@ -29,6 +29,7 @@ Machine-readable status endpoints:
 /strategy-remediation.json
 /production-approval.json
 /client-handoff.json
+/llm-decision-context.json
 ```
 
 The important distinction is intentional: `deployed_strategy_gate=PASS` approves the stack that is actually deployed, while `raw_production_gate=FAIL` means the raw supervised artifact still needs a stronger challenger model before it can be marketed as a standalone production policy.
@@ -187,6 +188,40 @@ LLM fallback processed `2/24` examples (`0.0833`) with `1.0000` fallback
 accuracy. This result must be revalidated on a larger fixture with ambiguous
 and corrupted event names.
 
+## LLM Decision Context
+
+Zero-shot and out-of-box LLM decision experiments are not run with an empty or vague instruction. The repository defines an explicit in-context contract for poker decisions:
+
+```text
+minimal_zero_shot
+rules_grounded
+full_in_context
+```
+
+The default mode is `full_in_context`. It provides the model with:
+
+```text
+task definition
+legal action set for the current state
+No-Limit Texas Hold'em rules
+pot-odds and betting constraints
+decision guidelines
+strict JSON output schema
+probability normalization requirements
+bet-size constraints
+```
+
+The context builder also validates model output after inference. Illegal actions are rejected, probabilities are normalized, and bet sizing/timing are handled by the service-side planning layer.
+
+Evidence:
+
+```text
+GET /llm-decision-context.json
+reports\llm_decision_context.json
+reports\llm_decision_context.md
+configs\prompts\poker_decision_full_context.txt
+```
+
 ## Latest Model Metrics
 
 Current packaged policy:
@@ -245,6 +280,8 @@ reports\production_gate.json
 reports\llm_event_benchmark.json
 reports\llm_event_gold_eval.json
 reports\llm_event_gold_report.md
+reports\llm_decision_context.json
+reports\llm_decision_context.md
 reports\llm_transformer_gold_eval.json
 reports\llm_transformer_gold_report.md
 reports\delivery_verification.json
