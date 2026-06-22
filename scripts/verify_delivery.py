@@ -100,8 +100,14 @@ def require_files(root: Path) -> str:
         "reports/scope_contract.md",
         "reports/model_risk_register.json",
         "reports/model_risk_register.md",
+        "reports/production_approval.json",
+        "reports/production_approval.md",
+        "reports/client_handoff.json",
+        "reports/client_handoff.md",
         "evaluation/event_extraction_gold.jsonl",
         "scripts/build_model_risk_register.py",
+        "scripts/build_production_approval.py",
+        "scripts/build_client_handoff.py",
         "scripts/build_scope_contract.py",
         "scripts/train_policy.py",
         "scripts/train_policy_bundle.py",
@@ -121,6 +127,8 @@ def require_files(root: Path) -> str:
         "poker_agent/api_contract.py",
         "poker_agent/scope_contract.py",
         "poker_agent/model_risk_register.py",
+        "poker_agent/production_approval.py",
+        "poker_agent/client_handoff.py",
         "poker_agent/delivery_readiness.py",
         "poker_agent/features.py",
         "poker_agent/model.py",
@@ -144,6 +152,8 @@ def compile_sources(root: Path) -> str:
         "poker_agent/schemas.py",
         "poker_agent/scope_contract.py",
         "poker_agent/model_risk_register.py",
+        "poker_agent/production_approval.py",
+        "poker_agent/client_handoff.py",
         "poker_agent/service.py",
         "poker_agent/slices.py",
         "poker_agent/validation.py",
@@ -151,6 +161,8 @@ def compile_sources(root: Path) -> str:
         "scripts/audit_repository.py",
         "scripts/build_scope_contract.py",
         "scripts/build_model_risk_register.py",
+        "scripts/build_production_approval.py",
+        "scripts/build_client_handoff.py",
         "scripts/check_repo_hygiene.py",
         "scripts/evaluate_policy.py",
         "scripts/llm_event_benchmark.py",
@@ -262,6 +274,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     gold_payload = _read_json(reports / "llm_event_gold_eval.json")
     scope_payload = _read_json(reports / "scope_contract.json")
     risk_payload = _read_json(reports / "model_risk_register.json")
+    approval_payload = _read_json(reports / "production_approval.json")
+    handoff_payload = _read_json(reports / "client_handoff.json")
 
     if scope_payload.get("overall_status") != "PASS":
         raise AssertionError(f"Scope contract did not pass: {scope_payload.get('overall_status')}")
@@ -277,6 +291,27 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Production-scale self-play did not pass")
     if risk_payload.get("deployed_strategy_stack_status") != "APPROVED":
         raise AssertionError("Model risk register does not preserve deployed strategy approval")
+    if approval_payload.get("overall_status") != "APPROVED_WITH_COMPONENT_RISK":
+        raise AssertionError(f"Unexpected production approval status: {approval_payload.get('overall_status')}")
+    if approval_payload.get("raw_supervised_model", {}).get("standalone_status") != "NOT_STANDALONE_APPROVED":
+        raise AssertionError("Production approval does not preserve raw-model standalone boundary")
+    if approval_payload.get("risk_position", {}).get("deployment_blockers") != 0:
+        raise AssertionError("Production approval incorrectly reports a deployment blocker")
+    handoff_position = handoff_payload.get("technical_position", {})
+    if handoff_payload.get("handoff_status") != "READY_WITH_COMPONENT_RISK":
+        raise AssertionError(f"Unexpected client handoff status: {handoff_payload.get('handoff_status')}")
+    if handoff_position.get("service_delivery") != "READY":
+        raise AssertionError("Client handoff does not mark service delivery as ready")
+    if handoff_position.get("deployed_strategy_stack") != "APPROVED":
+        raise AssertionError("Client handoff does not preserve deployed strategy approval")
+    if handoff_position.get("raw_supervised_model_runtime") != "LOADABLE":
+        raise AssertionError("Client handoff does not confirm the raw supervised model is loadable")
+    if handoff_position.get("raw_supervised_model_standalone") != "NOT_STANDALONE_APPROVED":
+        raise AssertionError("Client handoff does not preserve raw-model standalone boundary")
+    if handoff_position.get("production_blocker"):
+        raise AssertionError("Client handoff incorrectly marks the component risk as a production blocker")
+    if not handoff_position.get("component_risk"):
+        raise AssertionError("Client handoff does not track the raw-model limitation as a component risk")
     if risk_payload.get("raw_supervised_model_status") == "NOT_STANDALONE_APPROVED":
         summary = risk_payload.get("risk_summary", {})
         if summary.get("component_risks", 0) < 1:
@@ -292,7 +327,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Gold event extraction macro F1 is below acceptance threshold")
     return (
         f"delivery={delivery.get('overall_status')}, deployed={deployed.get('strategy_policy_status')}, "
-        f"raw_gate={gate.get('status')}, component_risks={risk_payload.get('risk_summary', {}).get('component_risks')}, "
+        f"raw_gate={gate.get('status')}, handoff={handoff_payload.get('handoff_status')}, "
+        f"component_risks={risk_payload.get('risk_summary', {}).get('component_risks')}, "
         f"gold_examples={gold_payload.get('examples')}"
     )
 
@@ -358,13 +394,21 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/scope_contract.md",
         "reports/model_risk_register.json",
         "reports/model_risk_register.md",
+        "reports/production_approval.json",
+        "reports/production_approval.md",
+        "reports/client_handoff.json",
+        "reports/client_handoff.md",
         "poker_agent/model_risk_register.py",
+        "poker_agent/production_approval.py",
+        "poker_agent/client_handoff.py",
         "poker_agent/api_contract.py",
         "poker_agent/delivery_readiness.py",
         "poker_agent/scope_contract.py",
         "scripts/check_repo_hygiene.py",
         "scripts/audit_repository.py",
         "scripts/build_model_risk_register.py",
+        "scripts/build_production_approval.py",
+        "scripts/build_client_handoff.py",
         "scripts/build_scope_contract.py",
         "scripts/llm_event_gold_eval.py",
         "scripts/run_hydra_experiment.py",

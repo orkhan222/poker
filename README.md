@@ -13,6 +13,7 @@ delivery_verification=PASS
 policy_acceptance=PASS
 production_scale_self_play=PASS
 deployed_strategy_gate=PASS
+client_handoff=READY_WITH_COMPONENT_RISK
 raw_production_gate=FAIL
 ```
 
@@ -26,6 +27,8 @@ Machine-readable status endpoints:
 /strategy-readiness.json
 /deployed-strategy-gate.json
 /strategy-remediation.json
+/production-approval.json
+/client-handoff.json
 ```
 
 The important distinction is intentional: `deployed_strategy_gate=PASS` approves the stack that is actually deployed, while `raw_production_gate=FAIL` means the raw supervised artifact still needs a stronger challenger model before it can be marketed as a standalone production policy.
@@ -191,12 +194,13 @@ Current packaged policy:
 ```text
 policy=hist_gradient_boosting
 split=stratified_hand_group_holdout
-valid_accuracy=0.6798
-valid_balanced_accuracy=0.4415
-valid_macro_f1=0.4135
-valid_weighted_f1=0.6636
-valid_majority_baseline_accuracy=0.7029
-valid_lift_vs_majority=-0.0231
+valid_accuracy=0.6899
+valid_balanced_accuracy=0.4031
+valid_macro_f1=0.3986
+valid_weighted_f1=0.6649
+valid_majority_baseline_accuracy=0.7082
+valid_lift_vs_majority=-0.0183
+valid_ece_10=0.0787
 ```
 
 The standalone supervised artifact is not approved as an independent production policy. The deployed strategy stack is approved separately through the deployed strategy gate, where the raw artifact weakness is tracked as a component risk rather than hidden or converted into a false pass.
@@ -212,6 +216,24 @@ raw_supervised_model_artifact: NOT_STANDALONE_APPROVED
 ```
 
 The production service can be delivered with the deployed strategy stack, monitoring, and rollback. The raw supervised model must not be described as a standalone production-approved policy until a challenger artifact clears the raw production gate. The current component risk is documented in `reports\model_risk_register.json` and `reports\model_risk_register.md`.
+
+The final production approval contract is available at:
+
+```text
+GET /production-approval.json
+reports\production_approval.json
+reports\production_approval.md
+```
+
+The client-facing handoff statement is available at:
+
+```text
+GET /client-handoff.json
+reports\client_handoff.json
+reports\client_handoff.md
+```
+
+This handoff contract is the recommended wording for delivery review: the service and deployed strategy stack are ready, the raw supervised model is loadable and integrated into the service, and the raw-model limitation is tracked as an official component risk rather than a production blocker.
 
 ## Key Reports
 
@@ -231,6 +253,8 @@ reports\deployed_strategy_gate.json
 reports\delivery_readiness.json
 reports\scope_contract.json
 reports\model_risk_register.json
+reports\production_approval.json
+reports\client_handoff.json
 ```
 
 ## Build The Delivery Package

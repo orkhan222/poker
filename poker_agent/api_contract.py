@@ -82,6 +82,18 @@ def api_contract() -> dict[str, Any]:
             "status_values": ["PASS", "FAIL"],
             "risk_boundary": "Raw supervised model weakness is a component risk unless explicitly marked as a deployment blocker.",
         },
+        "production_approval": {
+            "endpoint": "/production-approval.json",
+            "description": "Defines production claims that are allowed and explicitly disallowed for the delivered package.",
+            "overall_status_values": ["APPROVED", "APPROVED_WITH_COMPONENT_RISK", "NOT_APPROVED"],
+            "approval_boundary": "The deployed strategy stack can be approved while the raw supervised model remains not standalone approved.",
+        },
+        "client_handoff": {
+            "endpoint": "/client-handoff.json",
+            "description": "Client-facing delivery statement that separates production blockers from tracked component risks.",
+            "handoff_status_values": ["READY", "READY_WITH_COMPONENT_RISK", "NOT_READY"],
+            "delivery_boundary": "Service delivery and deployed strategy approval can be ready while raw-model standalone approval remains a tracked component risk.",
+        },
         "approval_boundary": {
             "software_delivery": "The API, package, and reproducibility checks are evaluated separately.",
             "deployed_strategy_stack": "Production policy approval is based on the deployed strategy gate.",

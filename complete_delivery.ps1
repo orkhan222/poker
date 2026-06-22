@@ -101,6 +101,10 @@ $ScopeContractReport = Join-Path $ReportsDir "scope_contract.json"
 $ScopeContractMarkdownReport = Join-Path $ReportsDir "scope_contract.md"
 $ModelRiskRegisterReport = Join-Path $ReportsDir "model_risk_register.json"
 $ModelRiskRegisterMarkdownReport = Join-Path $ReportsDir "model_risk_register.md"
+$ProductionApprovalReport = Join-Path $ReportsDir "production_approval.json"
+$ProductionApprovalMarkdownReport = Join-Path $ReportsDir "production_approval.md"
+$ClientHandoffReport = Join-Path $ReportsDir "client_handoff.json"
+$ClientHandoffMarkdownReport = Join-Path $ReportsDir "client_handoff.md"
 
 Write-Host "1/8 Auditing dataset..." -ForegroundColor Green
 & $Python scripts\audit_dataset.py `
@@ -207,7 +211,19 @@ Write-Host "7b/8 Building model risk register..." -ForegroundColor Green
     --out $ModelRiskRegisterReport `
     --markdown-out $ModelRiskRegisterMarkdownReport
 
-Write-Host "7c/8 Building scope contract..." -ForegroundColor Green
+Write-Host "7c/8 Building production approval contract..." -ForegroundColor Green
+& $Python scripts\build_production_approval.py `
+    --project-root $ProjectRoot `
+    --out $ProductionApprovalReport `
+    --markdown-out $ProductionApprovalMarkdownReport
+
+Write-Host "7d/8 Building client handoff statement..." -ForegroundColor Green
+& $Python scripts\build_client_handoff.py `
+    --project-root $ProjectRoot `
+    --out $ClientHandoffReport `
+    --markdown-out $ClientHandoffMarkdownReport
+
+Write-Host "7e/8 Building scope contract..." -ForegroundColor Green
 & $Python scripts\build_scope_contract.py `
     --project-root $ProjectRoot `
     --out $ScopeContractReport `
@@ -253,4 +269,6 @@ Write-Host "Instruction-model eval: $TransformerEvalReport"
 Write-Host "Instruction-model report: $TransformerMarkdownReport"
 Write-Host "Scope contract: $ScopeContractReport"
 Write-Host "Model risk register: $ModelRiskRegisterReport"
+Write-Host "Production approval: $ProductionApprovalReport"
+Write-Host "Client handoff: $ClientHandoffReport"
 Write-Host "ZIP: $ZipPath"

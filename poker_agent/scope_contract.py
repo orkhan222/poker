@@ -55,6 +55,8 @@ SCOPE_PHASES: list[dict[str, Any]] = [
         "required_evidence": [
             "reports/deployed_strategy_gate.json",
             "reports/model_risk_register.json",
+            "reports/production_approval.json",
+            "reports/client_handoff.json",
             "reports/production_self_play.json",
             "reports/delivery_readiness.json",
         ],
@@ -91,6 +93,8 @@ SCOPE_PHASES: list[dict[str, Any]] = [
             "docker-compose.yml",
             "reports/delivery_readiness.json",
             "reports/model_risk_register.json",
+            "reports/production_approval.json",
+            "reports/client_handoff.json",
             "release/poker-decision-agent.zip",
         ],
     },

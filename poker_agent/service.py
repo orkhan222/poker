@@ -10,8 +10,10 @@ from fastapi.responses import HTMLResponse
 
 from poker_agent.agents import MLPolicyAgent, RuleBasedAgent
 from poker_agent.api_contract import api_contract
+from poker_agent.client_handoff import build_client_handoff
 from poker_agent.delivery_readiness import summarize_delivery_readiness
 from poker_agent.model_risk_register import build_model_risk_register
+from poker_agent.production_approval import build_production_approval
 from poker_agent.schemas import PredictionRequest
 from poker_agent.scope_contract import build_scope_contract
 from poker_agent.strategy_readiness import load_combined_strategy_readiness
@@ -642,6 +644,16 @@ def delivery_readiness_json() -> dict[str, Any]:
 @app.get("/model-risk-register.json", tags=["System"], summary="Model risk register")
 def model_risk_register_json() -> dict[str, Any]:
     return build_model_risk_register(PROJECT_ROOT)
+
+
+@app.get("/production-approval.json", tags=["System"], summary="Production approval contract")
+def production_approval_json() -> dict[str, Any]:
+    return build_production_approval(PROJECT_ROOT)
+
+
+@app.get("/client-handoff.json", tags=["System"], summary="Client handoff statement")
+def client_handoff_json() -> dict[str, Any]:
+    return build_client_handoff(PROJECT_ROOT)
 
 
 @app.get("/deployed-strategy-gate.json", tags=["System"], summary="Deployed strategy gate")
