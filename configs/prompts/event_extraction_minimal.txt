@@ -1,2 +1,0 @@
-Extract poker actions from each OCR record.
-Return the action if one is visible; otherwise return unmatched.
