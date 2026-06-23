@@ -1,0 +1,18 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: hist_gradient_boosting
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: project_completion
+description: Build the project completion contract for the documented delivery scope.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_project_completion.py
+  args:
+    project_root: .
+    out: ${logging.reports_dir}/project_completion.json
+    markdown_out: ${logging.reports_dir}/project_completion.md

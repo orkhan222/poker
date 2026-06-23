@@ -88,6 +88,12 @@ def api_contract() -> dict[str, Any]:
             "overall_status_values": ["APPROVED", "APPROVED_WITH_COMPONENT_RISK", "NOT_APPROVED"],
             "approval_boundary": "The deployed strategy stack can be approved while the raw supervised model remains not standalone approved.",
         },
+        "approval_boundary": {
+            "endpoint": "/approval-boundary.json",
+            "description": "Single source of truth for service readiness, deployed-stack approval, raw-model standalone status, production blockers, and component risks.",
+            "release_status_values": ["READY", "READY_WITH_COMPONENT_RISK", "NOT_READY"],
+            "non_override_rule": "Deployed stack approval must not be represented as standalone raw-model approval.",
+        },
         "client_handoff": {
             "endpoint": "/client-handoff.json",
             "description": "Client-facing delivery statement that separates production blockers from tracked component risks.",
@@ -106,7 +112,21 @@ def api_contract() -> dict[str, Any]:
                 "bet-size and timing post-processing",
             ],
         },
-        "approval_boundary": {
+        "project_completion": {
+            "endpoint": "/project-completion.json",
+            "description": "Maps the documented project scope to implemented evidence, metrics, deployment artifacts, and known component risks.",
+            "overall_status_values": ["PASS", "PARTIAL"],
+            "covered_sections": [
+                "feature_space",
+                "action_space",
+                "dataset_model",
+                "phase_1_two_baselines",
+                "phase_2_selection_optimization",
+                "phase_3_evaluation",
+                "phase_4_deployment",
+            ],
+        },
+        "approval_scope": {
             "software_delivery": "The API, package, and reproducibility checks are evaluated separately.",
             "deployed_strategy_stack": "Production policy approval is based on the deployed strategy gate.",
             "raw_strategy_model": "The standalone supervised artifact remains independently gated.",

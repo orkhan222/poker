@@ -28,8 +28,10 @@ Machine-readable status endpoints:
 /deployed-strategy-gate.json
 /strategy-remediation.json
 /production-approval.json
+/approval-boundary.json
 /client-handoff.json
 /llm-decision-context.json
+/project-completion.json
 ```
 
 The important distinction is intentional: `deployed_strategy_gate=PASS` approves the stack that is actually deployed, while `raw_production_gate=FAIL` means the raw supervised artifact still needs a stronger challenger model before it can be marketed as a standalone production policy.
@@ -260,6 +262,24 @@ reports\production_approval.json
 reports\production_approval.md
 ```
 
+## Project Completion Contract
+
+The screenshot scope is mapped to a machine-readable completion contract covering the feature space, action space, CSV data model, Phase 1 baselines, Phase 2 selection, Phase 3 evaluation, and Phase 4 deployment.
+
+```text
+GET /project-completion.json
+reports\project_completion.json
+reports\project_completion.md
+```
+
+The completion contract preserves the same approval boundary as the delivery reports: the deployed runtime stack is approved, while the raw supervised artifact remains a standalone component risk until a stronger challenger passes the raw production gate.
+
+The approval boundary itself is exposed at:
+
+```text
+GET /approval-boundary.json
+```
+
 The client-facing handoff statement is available at:
 
 ```text
@@ -289,6 +309,7 @@ reports\delivery_report.md
 reports\deployed_strategy_gate.json
 reports\delivery_readiness.json
 reports\scope_contract.json
+reports\project_completion.json
 reports\model_risk_register.json
 reports\production_approval.json
 reports\client_handoff.json

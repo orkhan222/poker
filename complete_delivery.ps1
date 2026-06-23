@@ -101,6 +101,8 @@ $TransformerEvalReport = Join-Path $ReportsDir "llm_transformer_gold_eval.json"
 $TransformerMarkdownReport = Join-Path $ReportsDir "llm_transformer_gold_report.md"
 $ScopeContractReport = Join-Path $ReportsDir "scope_contract.json"
 $ScopeContractMarkdownReport = Join-Path $ReportsDir "scope_contract.md"
+$ProjectCompletionReport = Join-Path $ReportsDir "project_completion.json"
+$ProjectCompletionMarkdownReport = Join-Path $ReportsDir "project_completion.md"
 $ModelRiskRegisterReport = Join-Path $ReportsDir "model_risk_register.json"
 $ModelRiskRegisterMarkdownReport = Join-Path $ReportsDir "model_risk_register.md"
 $ProductionApprovalReport = Join-Path $ReportsDir "production_approval.json"
@@ -236,6 +238,12 @@ Write-Host "7e/8 Building scope contract..." -ForegroundColor Green
     --out $ScopeContractReport `
     --markdown-out $ScopeContractMarkdownReport
 
+Write-Host "7f/8 Building project completion contract..." -ForegroundColor Green
+& $Python scripts\build_project_completion.py `
+    --project-root $ProjectRoot `
+    --out $ProjectCompletionReport `
+    --markdown-out $ProjectCompletionMarkdownReport
+
 Write-Host "8/8 Rebuilding delivery ZIP..." -ForegroundColor Green
 
 $GeneratedDirs = Get-ChildItem -Force -Recurse -Directory -Filter "__pycache__" -ErrorAction SilentlyContinue | Where-Object {
@@ -276,6 +284,7 @@ Write-Host "Decision context: $DecisionContextReport"
 Write-Host "Instruction-model eval: $TransformerEvalReport"
 Write-Host "Instruction-model report: $TransformerMarkdownReport"
 Write-Host "Scope contract: $ScopeContractReport"
+Write-Host "Project completion: $ProjectCompletionReport"
 Write-Host "Model risk register: $ModelRiskRegisterReport"
 Write-Host "Production approval: $ProductionApprovalReport"
 Write-Host "Client handoff: $ClientHandoffReport"

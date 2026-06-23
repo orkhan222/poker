@@ -5,33 +5,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from poker_agent.approval_boundary import build_approval_boundary
+
 
 APPROVAL_VERSION = "2026-06-22"
 
 
 def build_production_approval(project_root: Path) -> dict[str, Any]:
-    reports = project_root / "reports"
-    delivery_verification = _read_json(reports / "delivery_verification.json")
-    hygiene = _read_json(reports / "repo_hygiene.json")
-    deployed_gate = _read_json(reports / "deployed_strategy_gate.json")
-    production_gate = _read_json(reports / "production_gate.json")
-    risk_register = _read_json(reports / "model_risk_register.json")
-
-    delivery_ready = delivery_verification.get("status") == "PASS" and hygiene.get("status") == "PASS"
-    deployed_approved = (
-        deployed_gate.get("status") == "PASS"
-        and deployed_gate.get("strategy_policy_status") == "APPROVED"
-    )
-    risk_summary = risk_register.get("risk_summary") or {}
-    deployment_blockers = int(risk_summary.get("deployment_blockers", 0))
-    component_risks = int(risk_summary.get("component_risks", 0))
-    raw_gate_passed = production_gate.get("status") == "PASS"
-    raw_runtime_status = (risk_register.get("raw_artifact_runtime_status") or {}).get("status", "UNKNOWN")
-    raw_standalone_approved = (
-        raw_gate_passed
-        and risk_register.get("raw_supervised_model_status") == "STANDALONE_APPROVED"
-        and raw_runtime_status == "LOADABLE"
-    )
+    boundary = build_approval_boundary(project_root)["boundary"]
+    delivery_ready = boundary["service_delivery"] == "READY"
+    deployed_approved = boundary["deployed_strategy_stack"] == "APPROVED"
+    deployment_blockers = int(boundary["deployment_blockers"])
+    component_risks = int(boundary["component_risks"])
 
     status = _approval_status(delivery_ready, deployed_approved, deployment_blockers, component_risks)
     return {
@@ -44,11 +29,9 @@ def build_production_approval(project_root: Path) -> dict[str, Any]:
             "source": "reports/deployed_strategy_gate.json",
         },
         "raw_supervised_model": {
-            "runtime_status": raw_runtime_status,
-            "standalone_status": (
-                "STANDALONE_APPROVED" if raw_standalone_approved else "NOT_STANDALONE_APPROVED"
-            ),
-            "raw_production_gate": production_gate.get("status", "MISSING"),
+            "runtime_status": boundary["raw_supervised_model_runtime"],
+            "standalone_status": boundary["raw_supervised_model_standalone"],
+            "raw_production_gate": boundary["raw_production_gate"],
             "source": "reports/production_gate.json",
         },
         "risk_position": {
@@ -56,6 +39,12 @@ def build_production_approval(project_root: Path) -> dict[str, Any]:
             "component_risks": component_risks,
             "component_risk_is_production_blocker": deployment_blockers > 0,
             "source": "reports/model_risk_register.json",
+        },
+        "approval_boundary": {
+            "source": "/approval-boundary.json",
+            "release_status": boundary["release_status"],
+            "production_blocker": boundary["production_blocker"],
+            "component_risk": boundary["component_risk"],
         },
         "approval_claims": {
             "allowed": [
@@ -145,9 +134,3 @@ def _release_decision(status: str, component_risks: int) -> str:
     if status == "APPROVED":
         return "Release can proceed without open production-blocking model risks."
     return "Release is not approved until delivery, deployed-stack, and deployment-blocker checks pass."
-
-
-def _read_json(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    return json.loads(path.read_text(encoding="utf-8"))

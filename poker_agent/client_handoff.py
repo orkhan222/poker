@@ -5,47 +5,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from poker_agent.approval_boundary import build_approval_boundary
+
 
 HANDOFF_VERSION = "2026-06-22"
 
 
 def build_client_handoff(project_root: Path) -> dict[str, Any]:
     reports = project_root / "reports"
-    delivery_verification = _read_json(reports / "delivery_verification.json")
-    delivery_readiness = _read_json(reports / "delivery_readiness.json")
-    production_approval = _read_json(reports / "production_approval.json")
-    risk_register = _read_json(reports / "model_risk_register.json")
-    production_gate = _read_json(reports / "production_gate.json")
-
-    service_delivery_ready = (
-        delivery_verification.get("status") == "PASS"
-        and delivery_readiness.get("overall_status") == "READY_FOR_PRODUCTION_POLICY"
-    )
-    deployed_strategy_status = (production_approval.get("deployed_strategy_stack") or {}).get(
-        "status", "UNKNOWN"
-    )
-    raw_model = production_approval.get("raw_supervised_model") or {}
-    raw_runtime_status = raw_model.get(
-        "runtime_status",
-        (risk_register.get("raw_artifact_runtime_status") or {}).get("status", "UNKNOWN"),
-    )
-    raw_standalone_status = raw_model.get("standalone_status", "UNKNOWN")
-    risk_position = production_approval.get("risk_position") or {}
-    deployment_blockers = int(risk_position.get("deployment_blockers", 0))
-    component_risks = int(risk_position.get("component_risks", 0))
-    production_blocker = deployment_blockers > 0 or deployed_strategy_status != "APPROVED"
-    component_risk = raw_standalone_status == "NOT_STANDALONE_APPROVED" or component_risks > 0
+    boundary_payload = build_approval_boundary(project_root)
+    boundary = boundary_payload["boundary"]
 
     return {
         "version": HANDOFF_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "handoff_status": _handoff_status(
-            service_delivery_ready=service_delivery_ready,
-            deployed_strategy_status=deployed_strategy_status,
-            raw_runtime_status=raw_runtime_status,
-            production_blocker=production_blocker,
-            component_risk=component_risk,
-        ),
+        "handoff_status": boundary["release_status"],
         "client_statement": (
             "The service and deployed strategy stack are ready for delivery. The raw supervised model is "
             "loadable and integrated into the service, but it is not approved as a standalone production policy. "
@@ -53,15 +27,15 @@ def build_client_handoff(project_root: Path) -> dict[str, Any]:
             "deployed strategy stack."
         ),
         "technical_position": {
-            "service_delivery": "READY" if service_delivery_ready else "NOT_READY",
-            "deployed_strategy_stack": deployed_strategy_status,
-            "raw_supervised_model_runtime": raw_runtime_status,
-            "raw_supervised_model_standalone": raw_standalone_status,
-            "raw_production_gate": production_gate.get("status", "MISSING"),
-            "production_blocker": production_blocker,
-            "component_risk": component_risk,
-            "deployment_blockers": deployment_blockers,
-            "component_risks": component_risks,
+            "service_delivery": boundary["service_delivery"],
+            "deployed_strategy_stack": boundary["deployed_strategy_stack"],
+            "raw_supervised_model_runtime": boundary["raw_supervised_model_runtime"],
+            "raw_supervised_model_standalone": boundary["raw_supervised_model_standalone"],
+            "raw_production_gate": boundary["raw_production_gate"],
+            "production_blocker": boundary["production_blocker"],
+            "component_risk": boundary["component_risk"],
+            "deployment_blockers": boundary["deployment_blockers"],
+            "component_risks": boundary["component_risks"],
         },
         "evidence": {
             "delivery_verification": "reports/delivery_verification.json",
@@ -69,6 +43,7 @@ def build_client_handoff(project_root: Path) -> dict[str, Any]:
             "production_approval": "reports/production_approval.json",
             "model_risk_register": "reports/model_risk_register.json",
             "production_gate": "reports/production_gate.json",
+            "approval_boundary": "/approval-boundary.json",
         },
         "allowed_external_claims": [
             "Service delivery is ready.",
@@ -147,26 +122,3 @@ def render_client_handoff_markdown(payload: dict[str, Any]) -> str:
         ]
     )
     return "\n".join(lines)
-
-
-def _handoff_status(
-    *,
-    service_delivery_ready: bool,
-    deployed_strategy_status: str,
-    raw_runtime_status: str,
-    production_blocker: bool,
-    component_risk: bool,
-) -> str:
-    if production_blocker or not service_delivery_ready or deployed_strategy_status != "APPROVED":
-        return "NOT_READY"
-    if raw_runtime_status != "LOADABLE":
-        return "NOT_READY"
-    if component_risk:
-        return "READY_WITH_COMPONENT_RISK"
-    return "READY"
-
-
-def _read_json(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    return json.loads(path.read_text(encoding="utf-8"))

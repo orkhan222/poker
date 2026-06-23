@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from poker_agent.agents import MLPolicyAgent
+from poker_agent.approval_boundary import build_approval_boundary
 from poker_agent.model import load_policy
 from poker_agent.schemas import PredictionRequest
 from poker_agent.service import get_agent, health_payload, resolve_model_path
@@ -85,6 +86,7 @@ def require_files(root: Path) -> str:
         "configs/experiments/llm_event_gold_eval.yaml",
         "configs/experiments/llm_transformer_gold_eval.yaml",
         "configs/experiments/llm_decision_context.yaml",
+        "configs/experiments/project_completion.yaml",
         "configs/experiments/verify_delivery.yaml",
         "Dockerfile",
         "docker-compose.yml",
@@ -104,6 +106,8 @@ def require_files(root: Path) -> str:
         "reports/delivery_readiness.json",
         "reports/scope_contract.json",
         "reports/scope_contract.md",
+        "reports/project_completion.json",
+        "reports/project_completion.md",
         "reports/model_risk_register.json",
         "reports/model_risk_register.md",
         "reports/production_approval.json",
@@ -116,6 +120,7 @@ def require_files(root: Path) -> str:
         "scripts/build_client_handoff.py",
         "scripts/build_llm_decision_context.py",
         "scripts/build_scope_contract.py",
+        "scripts/build_project_completion.py",
         "scripts/train_policy.py",
         "scripts/train_policy_bundle.py",
         "scripts/evaluate_policy.py",
@@ -132,11 +137,13 @@ def require_files(root: Path) -> str:
         "poker_agent/service.py",
         "poker_agent/agents.py",
         "poker_agent/api_contract.py",
+        "poker_agent/approval_boundary.py",
         "poker_agent/scope_contract.py",
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
         "poker_agent/client_handoff.py",
         "poker_agent/llm_decision_context.py",
+        "poker_agent/project_completion.py",
         "poker_agent/delivery_readiness.py",
         "poker_agent/features.py",
         "poker_agent/model.py",
@@ -153,6 +160,7 @@ def compile_sources(root: Path) -> str:
     source_files = [
         "poker_agent/agents.py",
         "poker_agent/api_contract.py",
+        "poker_agent/approval_boundary.py",
         "poker_agent/delivery_readiness.py",
         "poker_agent/evaluator.py",
         "poker_agent/features.py",
@@ -163,6 +171,7 @@ def compile_sources(root: Path) -> str:
         "poker_agent/production_approval.py",
         "poker_agent/client_handoff.py",
         "poker_agent/llm_decision_context.py",
+        "poker_agent/project_completion.py",
         "poker_agent/service.py",
         "poker_agent/slices.py",
         "poker_agent/validation.py",
@@ -173,6 +182,7 @@ def compile_sources(root: Path) -> str:
         "scripts/build_production_approval.py",
         "scripts/build_client_handoff.py",
         "scripts/build_llm_decision_context.py",
+        "scripts/build_project_completion.py",
         "scripts/check_repo_hygiene.py",
         "scripts/evaluate_policy.py",
         "scripts/llm_event_benchmark.py",
@@ -284,12 +294,28 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     gold_payload = _read_json(reports / "llm_event_gold_eval.json")
     decision_context_payload = _read_json(reports / "llm_decision_context.json")
     scope_payload = _read_json(reports / "scope_contract.json")
+    completion_payload = _read_json(reports / "project_completion.json")
     risk_payload = _read_json(reports / "model_risk_register.json")
     approval_payload = _read_json(reports / "production_approval.json")
     handoff_payload = _read_json(reports / "client_handoff.json")
+    approval_boundary = build_approval_boundary(root).get("boundary", {})
 
     if scope_payload.get("overall_status") != "PASS":
         raise AssertionError(f"Scope contract did not pass: {scope_payload.get('overall_status')}")
+    if completion_payload.get("overall_status") != "PASS":
+        raise AssertionError(f"Project completion contract did not pass: {completion_payload.get('overall_status')}")
+    completion_phases = completion_payload.get("phase_completion", {})
+    for phase_name in (
+        "phase_1_two_baselines",
+        "phase_2_selection_optimization",
+        "phase_3_evaluation",
+        "phase_4_deployment",
+    ):
+        if (completion_phases.get(phase_name) or {}).get("status") != "PASS":
+            raise AssertionError(f"Project completion phase is not PASS: {phase_name}")
+    completion_boundary = completion_payload.get("known_boundary", {})
+    if completion_boundary.get("component_risk") is not True or completion_boundary.get("production_blocker") is not False:
+        raise AssertionError("Project completion boundary does not preserve component-risk semantics")
     if hygiene.get("status") != "PASS":
         raise AssertionError(f"Repository hygiene did not pass: {hygiene.get('status')}")
     if delivery.get("strategy_policy_status") not in {"APPROVED", None}:
@@ -308,6 +334,18 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Production approval does not preserve raw-model standalone boundary")
     if approval_payload.get("risk_position", {}).get("deployment_blockers") != 0:
         raise AssertionError("Production approval incorrectly reports a deployment blocker")
+    if approval_boundary.get("release_status") != "READY_WITH_COMPONENT_RISK":
+        raise AssertionError(f"Unexpected approval boundary release status: {approval_boundary.get('release_status')}")
+    if approval_boundary.get("deployed_strategy_stack") != "APPROVED":
+        raise AssertionError("Approval boundary does not preserve deployed strategy approval")
+    if approval_boundary.get("raw_supervised_model_runtime") != "LOADABLE":
+        raise AssertionError("Approval boundary does not confirm the raw supervised model is loadable")
+    if approval_boundary.get("raw_supervised_model_standalone") != "NOT_STANDALONE_APPROVED":
+        raise AssertionError("Approval boundary does not preserve raw-model standalone boundary")
+    if approval_boundary.get("production_blocker"):
+        raise AssertionError("Approval boundary incorrectly marks the raw-model component risk as a production blocker")
+    if not approval_boundary.get("component_risk"):
+        raise AssertionError("Approval boundary does not track raw-model standalone non-approval as a component risk")
     handoff_position = handoff_payload.get("technical_position", {})
     if handoff_payload.get("handoff_status") != "READY_WITH_COMPONENT_RISK":
         raise AssertionError(f"Unexpected client handoff status: {handoff_payload.get('handoff_status')}")
@@ -378,6 +416,7 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/evaluation/standard.yaml",
         "configs/experiments/llm_event_gold_eval.yaml",
         "configs/experiments/llm_decision_context.yaml",
+        "configs/experiments/project_completion.yaml",
         "configs/experiments/production_gate.yaml",
         "configs/experiments/verify_delivery.yaml",
     ]
@@ -406,6 +445,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "configs/experiments/llm_event_benchmark.yaml",
         "configs/experiments/llm_event_gold_eval.yaml",
         "configs/experiments/llm_decision_context.yaml",
+        "configs/experiments/project_completion.yaml",
         "evaluation/event_extraction_gold.jsonl",
         "reports/production_gate.json",
         "reports/llm_event_gold_eval.json",
@@ -419,6 +459,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/repo_hygiene.json",
         "reports/scope_contract.json",
         "reports/scope_contract.md",
+        "reports/project_completion.json",
+        "reports/project_completion.md",
         "reports/model_risk_register.json",
         "reports/model_risk_register.md",
         "reports/production_approval.json",
@@ -428,7 +470,9 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
         "poker_agent/client_handoff.py",
+        "poker_agent/approval_boundary.py",
         "poker_agent/llm_decision_context.py",
+        "poker_agent/project_completion.py",
         "poker_agent/api_contract.py",
         "poker_agent/delivery_readiness.py",
         "poker_agent/scope_contract.py",
@@ -438,6 +482,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/build_production_approval.py",
         "scripts/build_client_handoff.py",
         "scripts/build_llm_decision_context.py",
+        "scripts/build_project_completion.py",
         "scripts/build_scope_contract.py",
         "scripts/llm_event_gold_eval.py",
         "scripts/run_hydra_experiment.py",
