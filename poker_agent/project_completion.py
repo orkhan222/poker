@@ -16,8 +16,11 @@ FEATURE_SPACE = [
     {
         "name": "opponent_action_timing",
         "status": "IMPLEMENTED",
-        "evidence": "poker_agent/action_planning.py",
-        "description": "Decision timing is calibrated from street, action pressure, betting history length, and uncertainty.",
+        "evidence": "poker_agent/schemas.py + poker_agent/features.py + poker_agent/action_planning.py",
+        "description": (
+            "The request contract accepts observed opponent timing, historical frame gaps are extracted "
+            "without target-action leakage, and the output delay is calibrated to table tempo."
+        ),
     },
     {
         "name": "opponent_betting_history",

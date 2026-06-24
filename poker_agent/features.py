@@ -283,12 +283,29 @@ def betting_history_to_features(history: Iterable[dict[str, Any]], hero_position
     last_action = "none"
     last_aggressor_group = "none"
     hero_has_acted = 0.0
+    opponent_wait_ms: list[float] = []
+    opponent_frame_gaps: list[float] = []
+    waits_after_hero_ms: list[float] = []
+    previous_position = ""
 
     for raw_event in history:
         action = normalize_action(str(raw_event.get("action", "")))
         position = str(raw_event.get("position") or raw_event.get("player_position") or "")
         if action not in VALID_ACTIONS:
             continue
+        wait_ms = safe_float(
+            raw_event.get("wait_time_ms")
+            or raw_event.get("decision_time_ms")
+            or raw_event.get("action_wait_ms")
+        )
+        frame_gap = safe_float(raw_event.get("frame_delta") or raw_event.get("frame_gap"))
+        if position and position != hero_position:
+            if wait_ms > 0:
+                opponent_wait_ms.append(wait_ms)
+                if previous_position == hero_position:
+                    waits_after_hero_ms.append(wait_ms)
+            if frame_gap > 0:
+                opponent_frame_gaps.append(frame_gap)
         counts[action] += 1
         last_action = action
         if position and position == hero_position:
@@ -296,8 +313,11 @@ def betting_history_to_features(history: Iterable[dict[str, Any]], hero_position
         if action in {"bet", "raise", "all_in"}:
             aggressive_count += 1
             last_aggressor_group = normalize_position_group(position)
+        previous_position = position
 
     total = sum(counts.values())
+    wait_count = len(opponent_wait_ms)
+    frame_gap_count = len(opponent_frame_gaps)
     features = {
         "hist_action_count": float(total),
         "hist_aggressive_count": float(aggressive_count),
@@ -307,6 +327,24 @@ def betting_history_to_features(history: Iterable[dict[str, Any]], hero_position
         "hist_raise_count": float(counts.get("raise", 0) + counts.get("all_in", 0)),
         "hist_aggression_ratio": aggressive_count / total if total else 0.0,
         "hist_hero_has_acted": hero_has_acted,
+        "hist_opponent_timing_count": float(wait_count),
+        "hist_opponent_wait_mean_seconds": (
+            min(sum(opponent_wait_ms) / wait_count / 1000.0, 30.0) if wait_count else 0.0
+        ),
+        "hist_opponent_wait_max_seconds": (
+            min(max(opponent_wait_ms) / 1000.0, 30.0) if wait_count else 0.0
+        ),
+        "hist_last_opponent_wait_seconds": (
+            min(opponent_wait_ms[-1] / 1000.0, 30.0) if wait_count else 0.0
+        ),
+        "hist_wait_after_hero_action_seconds": (
+            min(waits_after_hero_ms[-1] / 1000.0, 30.0) if waits_after_hero_ms else 0.0
+        ),
+        "hist_opponent_frame_gap_count": float(frame_gap_count),
+        "hist_opponent_frame_gap_mean": (
+            min(sum(opponent_frame_gaps) / frame_gap_count, 1000.0) if frame_gap_count else 0.0
+        ),
+        "hist_timing_missing": 0.0 if wait_count or frame_gap_count else 1.0,
         f"hist_last_action={last_action}": 1.0,
         f"hist_last_aggressor_group={last_aggressor_group}": 1.0,
     }
@@ -385,6 +423,20 @@ def request_to_features(request: PredictionRequest) -> dict[str, float]:
         "stack_to_pot": min(stack_to_pot, 100.0),
         "spr": min(spr, 100.0),
         "player_count": float(request.player_count),
+        "opponent_wait_before_turn_seconds": min(
+            max(request.opponent_wait_before_turn_ms, 0.0) / 1000.0,
+            30.0,
+        ),
+        "opponent_wait_after_hero_action_seconds": min(
+            max(request.opponent_wait_after_hero_action_ms, 0.0) / 1000.0,
+            30.0,
+        ),
+        "explicit_timing_context_missing": (
+            1.0
+            if request.opponent_wait_before_turn_ms <= 0
+            and request.opponent_wait_after_hero_action_ms <= 0
+            else 0.0
+        ),
         "is_hero_like_position": 1.0 if position_group == "bottom" else 0.0,
         f"position_group={position_group}": 1.0,
         f"street={request.street}": 1.0,
@@ -552,6 +604,8 @@ def load_training_examples(
         street_fold_count = 0
         players_acted: set[str] = set()
         last_aggressor_position = ""
+        hand_history: list[dict[str, Any]] = []
+        previous_decision_frame: int | None = None
 
         for row in sorted(action_rows, key=lambda item: safe_int(item.get("frame_id"))):
             action = normalize_action(row.get("action", ""))
@@ -599,6 +653,7 @@ def load_training_examples(
                         stack=effective_stack or stack,
                         min_raise=min_raise,
                         player_count=player_counts_by_hand.get(hand_id, 6) or 6,
+                        betting_history=list(hand_history),
                     )
                     features = request_to_features(request)
                     features.update(
@@ -653,4 +708,19 @@ def load_training_examples(
                     street_check_count += 1
                 elif action == "fold":
                     street_fold_count += 1
+                hand_history.append(
+                    {
+                        "player_position": position,
+                        "action": action,
+                        "amount": amount,
+                        "street": street,
+                        "frame_id": frame_id,
+                        "frame_delta": (
+                            max(frame_id - previous_decision_frame, 0)
+                            if previous_decision_frame is not None
+                            else 0
+                        ),
+                    }
+                )
+                previous_decision_frame = frame_id
     return examples

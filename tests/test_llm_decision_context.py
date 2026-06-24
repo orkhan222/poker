@@ -71,3 +71,19 @@ def test_decision_context_report_has_required_modes() -> None:
     )
     assert any(item["contains_rules"] for item in report["prompt_records"])
     assert any(item["contains_strategy_guidelines"] for item in report["prompt_records"])
+
+
+def test_full_context_serializes_observed_opponent_timing() -> None:
+    request = PredictionRequest(
+        position="BTN",
+        street="turn",
+        pot=20.0,
+        stack=80.0,
+        opponent_wait_before_turn_ms=1600.0,
+        opponent_wait_after_hero_action_ms=2300.0,
+    )
+
+    prompt = build_decision_prompt(request, "full_in_context")
+
+    assert '"opponent_wait_before_turn_ms": 1600.0' in prompt.user_context
+    assert '"opponent_wait_after_hero_action_ms": 2300.0' in prompt.user_context

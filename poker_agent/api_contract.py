@@ -4,7 +4,31 @@ from copy import deepcopy
 from typing import Any
 
 
-CONTRACT_VERSION = "2026-06-20"
+CONTRACT_VERSION = "2026-06-24"
+
+
+PREDICTION_REQUEST_FIELDS: dict[str, dict[str, Any]] = {
+    "position": {"type": "string", "description": "Hero table position or normalized seat identifier."},
+    "street": {"type": "string", "description": "Current betting street: preflop, flop, turn, or river."},
+    "hole_cards": {"type": "array[string]", "description": "Hero private cards when observed."},
+    "board_cards": {"type": "array[string]", "description": "Community cards visible at decision time."},
+    "pot": {"type": "float", "description": "Current pot before the requested action."},
+    "to_call": {"type": "float", "description": "Additional chips required to call."},
+    "stack": {"type": "float", "description": "Hero stack available at decision time."},
+    "min_raise": {"type": "float", "description": "Minimum legal raise increment or amount supplied by the table state."},
+    "player_count": {"type": "integer", "description": "Number of players represented in the current state."},
+    "betting_history": {
+        "type": "array[object]",
+        "description": "Only actions observable before the requested decision; events may include wait_time_ms and frame_delta.",
+    },
+    "timing_context": {
+        "type": "object",
+        "description": (
+            "Optional observed opponent timing with opponent_wait_before_turn_ms and "
+            "opponent_wait_after_hero_action_ms."
+        ),
+    },
+}
 
 
 PREDICTION_RESPONSE_FIELDS: dict[str, dict[str, Any]] = {
@@ -43,6 +67,11 @@ DELIVERY_STATUS_FIELDS: dict[str, dict[str, str]] = {
 def api_contract() -> dict[str, Any]:
     return {
         "contract_version": CONTRACT_VERSION,
+        "prediction_request": {
+            "contract_version": CONTRACT_VERSION,
+            "request_fields": deepcopy(PREDICTION_REQUEST_FIELDS),
+            "leakage_rule": "The request and betting history must contain only information observable before the target action.",
+        },
         "prediction_response": {
             "contract_version": CONTRACT_VERSION,
             "response_fields": deepcopy(PREDICTION_RESPONSE_FIELDS),

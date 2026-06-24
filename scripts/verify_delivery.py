@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from poker_agent.agents import MLPolicyAgent
+from poker_agent.api_contract import api_contract
 from poker_agent.approval_boundary import build_approval_boundary
 from poker_agent.model import load_policy
 from poker_agent.schemas import PredictionRequest
@@ -91,6 +92,7 @@ def require_files(root: Path) -> str:
         "Dockerfile",
         "docker-compose.yml",
         "install.ps1",
+        "activate_env.cmd",
         "run_server.ps1",
         "complete_delivery.ps1",
         "verify_delivery.ps1",
@@ -146,9 +148,11 @@ def require_files(root: Path) -> str:
         "poker_agent/project_completion.py",
         "poker_agent/delivery_readiness.py",
         "poker_agent/features.py",
+        "poker_agent/action_planning.py",
         "poker_agent/model.py",
         "poker_agent/slices.py",
         "poker_agent/validation.py",
+        "tests/test_timing_features.py",
     ]
     missing = [path for path in required if not (root / path).exists()]
     if missing:
@@ -236,6 +240,10 @@ def inference_contract(model_path: Path) -> str:
             stack=100.0,
             min_raise=2.0,
             player_count=6,
+            opponent_wait_before_turn_ms=1800.0,
+            betting_history=[
+                {"player_position": "BB", "action": "raise", "wait_time_ms": 2100.0},
+            ],
         )
     ).to_dict()
     missing = agent.predict(
@@ -253,6 +261,8 @@ def inference_contract(model_path: Path) -> str:
     ).to_dict()
     if observed["model_status"] == "missing_card_fallback":
         raise AssertionError("Observed-card request incorrectly used fallback")
+    if observed["timing_method"] != "table_tempo_calibrated":
+        raise AssertionError("Observed table timing did not calibrate the action plan")
     if isinstance(agent, MLPolicyAgent) and missing["model_status"] != "missing_card_fallback":
         raise AssertionError("Missing-card request did not use fallback")
     for payload in (observed, missing):
@@ -275,6 +285,18 @@ def health_contract(model_path: Path) -> str:
     if model_status == "fallback_rule_based_model_load_failed" and "model_load_error" not in payload:
         raise AssertionError(f"Fallback health payload does not expose load error: {payload}")
     return json.dumps(payload, sort_keys=True)
+
+
+def api_input_contract() -> str:
+    contract = api_contract()
+    request_contract = contract.get("prediction_request") or {}
+    fields = request_contract.get("request_fields") or {}
+    for required in ("betting_history", "timing_context"):
+        if required not in fields:
+            raise AssertionError(f"Prediction request contract is missing {required}")
+    if "observable before the target action" not in str(request_contract.get("leakage_rule", "")):
+        raise AssertionError("Prediction request contract does not state the leakage boundary")
+    return f"contract_version={contract.get('contract_version')}, request_fields={len(fields)}"
 
 
 def _read_json(path: Path) -> dict:
@@ -430,6 +452,9 @@ def zip_contract(root: Path, zip_path: Path) -> str:
     required = {
         "models/poker_policy.joblib",
         "README.md",
+        "activate_env.cmd",
+        "install.ps1",
+        "run_server.ps1",
         "configs/experiment.yaml",
         "configs/dataset/poker_csv.yaml",
         "configs/model/hist_gradient_boosting.yaml",
@@ -517,6 +542,7 @@ def main() -> None:
         run_check("model_loads", lambda: model_loads(args.model)),
         run_check("inference_contract", lambda: inference_contract(args.model)),
         run_check("health_contract", lambda: health_contract(args.model)),
+        run_check("api_input_contract", api_input_contract),
         run_check("reports_contract", lambda: reports_contract(root, args.require_gate_pass)),
         run_check("repo_hygiene_contract", lambda: repo_hygiene_contract(root)),
         run_check("hydra_provenance_contract", lambda: hydra_provenance_contract(root)),

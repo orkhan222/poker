@@ -2,6 +2,32 @@
 
 Poker Decision Agent is a FastAPI service and ML research workspace for poker action prediction from OCR and event-log data. The repository includes the API, trained model artifact, Hydra experiment configs, evaluation scripts, audit reports, and a packaged delivery ZIP.
 
+## Windows Setup
+
+Install or repair the project environment:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+Activate it from Command Prompt:
+
+```bat
+activate_env.cmd
+```
+
+Activate it from PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Activation is optional when using the supplied launcher:
+
+```powershell
+.\run_server.ps1 -Port 8001
+```
+
 ## Delivery Status
 
 As of the latest delivery build:

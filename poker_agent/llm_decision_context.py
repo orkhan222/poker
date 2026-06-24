@@ -264,6 +264,10 @@ def _user_context(request: PredictionRequest, legal_actions: tuple[str, ...]) ->
             "min_raise": request.min_raise,
             "player_count": request.player_count,
             "betting_history": request.betting_history,
+            "timing_context": {
+                "opponent_wait_before_turn_ms": request.opponent_wait_before_turn_ms,
+                "opponent_wait_after_hero_action_ms": request.opponent_wait_after_hero_action_ms,
+            },
         },
         "derived_context": {
             "legal_actions": list(legal_actions),
@@ -346,7 +350,15 @@ def _example_requests() -> dict[str, PredictionRequest]:
             stack=100.0,
             min_raise=4.5,
             player_count=6,
-            betting_history=[{"player_position": "UTG", "action": "raise", "amount": 4.5}],
+            opponent_wait_before_turn_ms=1850.0,
+            betting_history=[
+                {
+                    "player_position": "UTG",
+                    "action": "raise",
+                    "amount": 4.5,
+                    "wait_time_ms": 1850.0,
+                }
+            ],
         ),
         "flop_no_bet": PredictionRequest(
             position="BB",
@@ -358,6 +370,15 @@ def _example_requests() -> dict[str, PredictionRequest]:
             stack=84.0,
             min_raise=2.0,
             player_count=4,
-            betting_history=[{"player_position": "SB", "action": "check", "amount": 0.0}],
+            opponent_wait_before_turn_ms=900.0,
+            opponent_wait_after_hero_action_ms=1250.0,
+            betting_history=[
+                {
+                    "player_position": "SB",
+                    "action": "check",
+                    "amount": 0.0,
+                    "wait_time_ms": 900.0,
+                }
+            ],
         ),
     }

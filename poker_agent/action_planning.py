@@ -66,9 +66,16 @@ def estimate_wait_time_ms(
     action_weight = {"fold": 120, "check": 100, "call": 180, "bet": 300, "raise": 420}.get(action, 180)
     history_weight = min(len(request.betting_history), 8) * 55
     uncertainty_weight = int((1.0 - max(0.0, min(confidence, 1.0))) * 520)
-    wait_time = 250 + street_weight + action_weight + history_weight + uncertainty_weight
+    complexity_wait = 250 + street_weight + action_weight + history_weight + uncertainty_weight
+    table_tempo = _observed_table_tempo_ms(request)
+    if table_tempo > 0:
+        wait_time = int(complexity_wait * 0.65 + table_tempo * 0.35)
+        timing_method = "table_tempo_calibrated"
+    else:
+        wait_time = complexity_wait
+        timing_method = "complexity_calibrated"
     wait_time = max(wait_time, int(processing_time_ms) + 75)
-    return min(wait_time, 3200), "complexity_calibrated"
+    return min(wait_time, 3200), timing_method
 
 
 def _pot_fraction(request: PredictionRequest, confidence: float) -> float:
@@ -82,3 +89,33 @@ def _hand_pressure(request: PredictionRequest) -> float:
         return max(0.0, min(1.0, float(features.get("strength_proxy", 0.0))))
     except Exception:
         return 0.0
+
+
+def _observed_table_tempo_ms(request: PredictionRequest) -> int:
+    observed: list[float] = []
+    for value in (
+        request.opponent_wait_before_turn_ms,
+        request.opponent_wait_after_hero_action_ms,
+    ):
+        if value > 0:
+            observed.append(float(value))
+
+    for event in request.betting_history:
+        position = str(event.get("position") or event.get("player_position") or "")
+        if position == request.position:
+            continue
+        raw_wait = (
+            event.get("wait_time_ms")
+            or event.get("decision_time_ms")
+            or event.get("action_wait_ms")
+        )
+        try:
+            wait = float(raw_wait or 0.0)
+        except (TypeError, ValueError):
+            wait = 0.0
+        if wait > 0:
+            observed.append(wait)
+
+    if not observed:
+        return 0
+    return int(min(max(sum(observed) / len(observed), 250.0), 5000.0))

@@ -265,7 +265,8 @@ foreach ($File in $GeneratedFiles) {
 }
 $ZipPath = Join-Path $ProjectRoot "release\poker-decision-agent.zip"
 $Items = Get-ChildItem -Force | Where-Object {
-    $_.Name -notin @(".git", ".qodo", ".venv", "env", "data", "dataset", "sample_out", "smoke_dataset", "__pycache__", "release", "research_runs")
+    $_.Name -notin @(".git", ".qodo", ".venv", "env", "data", "dataset", "sample_out", "smoke_dataset", "__pycache__", "release", "research_runs") -and
+    $_.Name -notlike ".venv.corrupt-*"
 }
 Compress-Archive -Path $Items.FullName -DestinationPath $ZipPath -Force
 

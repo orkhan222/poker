@@ -19,9 +19,14 @@ class PredictionRequest:
     min_raise: float = 0.0
     player_count: int = 6
     betting_history: list[dict[str, Any]] = field(default_factory=list)
+    opponent_wait_before_turn_ms: float = 0.0
+    opponent_wait_after_hero_action_ms: float = 0.0
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "PredictionRequest":
+        timing_context = raw.get("timing_context")
+        if not isinstance(timing_context, dict):
+            timing_context = {}
         return cls(
             position=str(raw.get("position") or raw.get("player_position") or "UNK"),
             street=str(raw.get("street") or "preflop").lower(),
@@ -33,6 +38,22 @@ class PredictionRequest:
             min_raise=float(raw.get("min_raise") or 0.0),
             player_count=int(raw.get("player_count") or 6),
             betting_history=list(raw.get("betting_history") or raw.get("action_history") or []),
+            opponent_wait_before_turn_ms=max(
+                0.0,
+                float(
+                    raw.get("opponent_wait_before_turn_ms")
+                    or timing_context.get("opponent_wait_before_turn_ms")
+                    or 0.0
+                ),
+            ),
+            opponent_wait_after_hero_action_ms=max(
+                0.0,
+                float(
+                    raw.get("opponent_wait_after_hero_action_ms")
+                    or timing_context.get("opponent_wait_after_hero_action_ms")
+                    or 0.0
+                ),
+            ),
         )
 
 
