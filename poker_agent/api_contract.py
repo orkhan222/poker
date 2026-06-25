@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import Any
 
 
-CONTRACT_VERSION = "2026-06-24"
+CONTRACT_VERSION = "2026-06-25"
 
 
 PREDICTION_REQUEST_FIELDS: dict[str, dict[str, Any]] = {
@@ -164,6 +164,24 @@ def api_contract() -> dict[str, Any]:
                 "manually reviewed human holdout."
             ),
             "selected_research_architecture": "candidate_ranker",
+        },
+        "autonomous_agent": {
+            "capabilities_endpoint": "/agent/capabilities.json",
+            "decision_endpoint": "/agent/decide",
+            "session_endpoint": "/agent/sessions/{hand_id}",
+            "settlement_endpoint": "/agent/sessions/{hand_id}/settle",
+            "agent_type": "controlled_stateful_policy_agent",
+            "lifecycle_controls": [
+                "ordered hand-state observations",
+                "legal-action enforcement",
+                "idempotent event handling",
+                "terminal hand settlement",
+                "bounded simulation episodes",
+            ],
+            "execution_boundary": (
+                "Simulation and API orchestration are implemented. Direct real-money client "
+                "automation requires a separately approved environment adapter."
+            ),
         },
         "project_completion": {
             "endpoint": "/project-completion.json",

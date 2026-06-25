@@ -154,6 +154,7 @@ def build_project_completion(project_root: Path) -> dict[str, Any]:
                 "status": phase_statuses.get("phase_4_deployment", "MISSING"),
                 "evidence": [
                     "poker_agent/service.py",
+                    "poker_agent/autonomous_agent.py",
                     "Dockerfile",
                     "docker-compose.yml",
                     "release/poker-decision-agent.zip",
@@ -161,6 +162,8 @@ def build_project_completion(project_root: Path) -> dict[str, Any]:
                 ],
                 "api_contract": {
                     "predict": "/predict",
+                    "autonomous_decision": "/agent/decide",
+                    "autonomous_capabilities": "/agent/capabilities.json",
                     "health": "/health.json",
                     "scope": "/scope-contract.json",
                     "completion": "/project-completion.json",

@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import uuid
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,7 +22,7 @@ from poker_agent.api_contract import api_contract
 from poker_agent.approval_boundary import build_approval_boundary
 from poker_agent.model import load_policy
 from poker_agent.schemas import PredictionRequest
-from poker_agent.service import get_agent, health_payload, resolve_model_path
+from poker_agent.service import get_agent, get_autonomous_agent, health_payload, resolve_model_path
 
 
 @dataclass
@@ -167,6 +168,7 @@ def require_files(root: Path) -> str:
         "scripts/verify_delivery.py",
         "poker_agent/service.py",
         "poker_agent/agents.py",
+        "poker_agent/autonomous_agent.py",
         "poker_agent/api_contract.py",
         "poker_agent/approval_boundary.py",
         "poker_agent/scope_contract.py",
@@ -185,6 +187,7 @@ def require_files(root: Path) -> str:
         "poker_agent/slices.py",
         "poker_agent/validation.py",
         "tests/test_timing_features.py",
+        "tests/test_autonomous_agent.py",
         "tests/test_llm_decision_benchmark.py",
         "tests/test_llm_decision_gate.py",
         "tests/test_llm_architecture_comparison.py",
@@ -198,6 +201,7 @@ def require_files(root: Path) -> str:
 def compile_sources(root: Path) -> str:
     source_files = [
         "poker_agent/agents.py",
+        "poker_agent/autonomous_agent.py",
         "poker_agent/api_contract.py",
         "poker_agent/approval_boundary.py",
         "poker_agent/delivery_readiness.py",
@@ -312,6 +316,44 @@ def inference_contract(model_path: Path) -> str:
         if abs(total - 1.0) > 1e-6:
             raise AssertionError(f"Probabilities do not sum to 1: {total}")
     return f"agent={type(agent).__name__}, observed={observed['action']} missing={missing['action']}"
+
+
+def autonomous_agent_contract() -> str:
+    controller = get_autonomous_agent()
+    hand_id = f"delivery-verification-{uuid.uuid4().hex}"
+    payload = {
+        "hand_id": hand_id,
+        "sequence_number": 0,
+        "event_id": "state-0",
+        "state": {
+            "position": "BTN",
+            "street": "preflop",
+            "hole_cards": ["Ah", "Kd"],
+            "board_cards": [],
+            "pot": 2.5,
+            "to_call": 1.0,
+            "stack": 100.0,
+            "min_raise": 2.0,
+            "player_count": 6,
+        },
+    }
+    decision, replayed = controller.decide(payload)
+    replay, second_replay = controller.decide(payload)
+    if replayed or not second_replay:
+        raise AssertionError("Autonomous event idempotency contract failed")
+    if decision.decision_id != replay.decision_id:
+        raise AssertionError("Autonomous replay changed the decision")
+    if decision.action not in decision.legal_actions:
+        raise AssertionError("Autonomous controller returned an illegal action")
+    if abs(sum(decision.probabilities.values()) - 1.0) > 1e-6:
+        raise AssertionError("Autonomous legal probabilities do not sum to 1")
+    session = controller.settle(hand_id, {"chip_delta": 0.0})
+    if session["status"] != "settled" or session["decision_count"] != 1:
+        raise AssertionError(f"Autonomous settlement contract failed: {session}")
+    capabilities = controller.capabilities()
+    if capabilities.get("status") != "IMPLEMENTED":
+        raise AssertionError(f"Unexpected autonomous capability status: {capabilities}")
+    return f"agent={capabilities['agent_type']}, action={decision.action}, lifecycle=settled"
 
 
 def health_contract(model_path: Path) -> str:
@@ -615,6 +657,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/production_approval.md",
         "reports/client_handoff.json",
         "reports/client_handoff.md",
+        "poker_agent/autonomous_agent.py",
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
         "poker_agent/client_handoff.py",
@@ -642,6 +685,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/llm_event_gold_eval.py",
         "scripts/run_hydra_experiment.py",
         "scripts/verify_delivery.py",
+        "tests/test_autonomous_agent.py",
         "verify_delivery.ps1",
     }
     if not zip_path.exists():
@@ -671,6 +715,7 @@ def main() -> None:
         run_check("compile_sources", lambda: compile_sources(root)),
         run_check("model_loads", lambda: model_loads(args.model)),
         run_check("inference_contract", lambda: inference_contract(args.model)),
+        run_check("autonomous_agent_contract", autonomous_agent_contract),
         run_check("health_contract", lambda: health_contract(args.model)),
         run_check("api_input_contract", api_input_contract),
         run_check("reports_contract", lambda: reports_contract(root, args.require_gate_pass)),

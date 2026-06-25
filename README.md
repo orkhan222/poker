@@ -107,6 +107,44 @@ http://127.0.0.1:8001/health.json
 
 The health endpoint returns model status, policy name, split strategy, and the validation macro F1 stored in the model metadata.
 
+### Controlled Autonomous Agent
+
+The service includes a stateful policy controller for simulations and approved environment
+adapters. It maintains ordered hand sessions, rejects stale observations, handles duplicate
+events idempotently, enforces legal actions, and records terminal hand results.
+
+```text
+GET  /agent/capabilities.json
+POST /agent/decide
+GET  /agent/sessions/{hand_id}
+POST /agent/sessions/{hand_id}/settle
+```
+
+Example observation:
+
+```json
+{
+  "hand_id": "table-1-hand-42",
+  "sequence_number": 0,
+  "event_id": "frame-100",
+  "state": {
+    "position": "BTN",
+    "street": "preflop",
+    "hole_cards": ["AS", "KD"],
+    "board_cards": [],
+    "pot": 6.0,
+    "to_call": 2.0,
+    "stack": 98.0,
+    "min_raise": 4.0,
+    "player_count": 6
+  }
+}
+```
+
+The controller does not perform screen scraping, mouse control, or direct real-money client
+automation. External execution requires a table-specific environment adapter, simulation
+validation, monitoring, and separate operational approval.
+
 ## Reproducible Experiments
 
 Experiments are managed through Hydra. Each experiment has its own YAML file under `configs\experiments` and writes resolved configs, logs, and run metadata under `reports\hydra`.

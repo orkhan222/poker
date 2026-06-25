@@ -5,12 +5,13 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from poker_agent.agents import MLPolicyAgent, RuleBasedAgent
 from poker_agent.api_contract import api_contract
 from poker_agent.approval_boundary import build_approval_boundary
+from poker_agent.autonomous_agent import AgentLifecycleError, AutonomousPokerAgent
 from poker_agent.client_handoff import build_client_handoff
 from poker_agent.delivery_readiness import summarize_delivery_readiness
 from poker_agent.llm_decision_context import build_decision_context_report
@@ -38,6 +39,7 @@ app = FastAPI(
     ],
 )
 _agent = None
+_autonomous_agent = None
 _agent_load_error: str | None = None
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL_PATH = PROJECT_ROOT / "models" / "poker_policy.joblib"
@@ -604,6 +606,13 @@ def get_agent():
     return _agent
 
 
+def get_autonomous_agent() -> AutonomousPokerAgent:
+    global _autonomous_agent
+    if _autonomous_agent is None:
+        _autonomous_agent = AutonomousPokerAgent(get_agent())
+    return _autonomous_agent
+
+
 def resolve_model_path() -> Path:
     configured = os.getenv("POKER_POLICY_PATH")
     if configured:
@@ -727,6 +736,55 @@ def llm_architecture_comparison_json() -> dict[str, Any]:
     if not LLM_ARCHITECTURE_COMPARISON_PATH.exists():
         return {"status": "MISSING", "report": str(LLM_ARCHITECTURE_COMPARISON_PATH)}
     return json.loads(LLM_ARCHITECTURE_COMPARISON_PATH.read_text(encoding="utf-8"))
+
+
+@app.get("/agent/capabilities.json", tags=["System"], summary="Autonomous agent capabilities")
+def autonomous_agent_capabilities_json() -> dict[str, Any]:
+    return get_autonomous_agent().capabilities()
+
+
+@app.post(
+    "/agent/decide",
+    tags=["Prediction"],
+    summary="Advance an autonomous hand session",
+    description=(
+        "Accepts an ordered structured observation, enforces legal actions, and returns an "
+        "idempotent policy decision for simulation or an approved environment adapter."
+    ),
+)
+def autonomous_agent_decide(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        decision, replayed = get_autonomous_agent().decide(payload)
+        return decision.to_dict(idempotent_replay=replayed)
+    except AgentLifecycleError as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)}) from exc
+
+
+@app.get(
+    "/agent/sessions/{hand_id}",
+    tags=["System"],
+    summary="Autonomous hand session state",
+)
+def autonomous_agent_session(hand_id: str) -> dict[str, Any]:
+    try:
+        return get_autonomous_agent().session(hand_id)
+    except AgentLifecycleError as exc:
+        raise HTTPException(status_code=404, detail={"code": exc.code, "message": str(exc)}) from exc
+
+
+@app.post(
+    "/agent/sessions/{hand_id}/settle",
+    tags=["Prediction"],
+    summary="Settle an autonomous hand session",
+)
+def autonomous_agent_settle(hand_id: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    try:
+        result = payload.get("result") if isinstance(payload, dict) else None
+        if result is not None and not isinstance(result, dict):
+            raise AgentLifecycleError("invalid_result", "result must be an object")
+        return get_autonomous_agent().settle(hand_id, result)
+    except AgentLifecycleError as exc:
+        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)}) from exc
 
 
 @app.get("/project-completion.json", tags=["System"], summary="Project completion contract")
