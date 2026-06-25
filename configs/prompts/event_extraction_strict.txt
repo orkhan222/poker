@@ -1,0 +1,8 @@
+Normalize the supplied poker OCR or dealer record under a strict evidence policy.
+
+Return exactly one JSON object containing:
+event_type, player_position, action, amount, cards, confidence.
+
+Allowed event types: player_action, card_update, stack_update, unmatched.
+Allowed actions: fold, check, call, bet, raise, null.
+Do not infer hidden information. Use unmatched when the record is ambiguous.

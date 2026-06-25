@@ -13,6 +13,7 @@ from poker_agent.schemas import PredictionRequest, PredictionResponse
 CONTEXT_VERSION = "2026-06-22"
 ContextMode = Literal["minimal_zero_shot", "rules_grounded", "full_in_context"]
 CANONICAL_ACTIONS = ("fold", "check", "call", "bet", "raise")
+REASON_CODES = ("pot_odds", "position", "hand_strength", "pressure", "uncertain")
 
 
 CONTEXT_MODE_SUMMARY: dict[str, str] = {
@@ -87,6 +88,8 @@ def parse_decision_output(raw_text: str, request: PredictionRequest) -> Predicti
     payload = _extract_json_object(raw_text)
     legal_actions = set(legal_actions_for_request(request))
     warnings: list[str] = []
+    if not payload:
+        warnings.append("LLM output did not contain a valid JSON object")
 
     action = str(payload.get("action", "")).lower().strip()
     if action == "all_in":
@@ -95,9 +98,19 @@ def parse_decision_output(raw_text: str, request: PredictionRequest) -> Predicti
         warnings.append(f"Illegal or missing action from LLM output: {action or 'missing'}")
         action = "fold" if request.to_call > 0 else "check"
 
-    probabilities = _normalize_probabilities(payload.get("probabilities"), legal_actions, action)
+    raw_probabilities = payload.get("probabilities")
+    if not _probability_contract_valid(raw_probabilities):
+        warnings.append("LLM probability output was missing, incomplete, or not normalized")
+    probabilities = _normalize_probabilities(raw_probabilities, legal_actions, action)
+    if not _bounded_number(payload.get("confidence")):
+        warnings.append("LLM confidence was missing or outside [0, 1]")
     confidence = _bounded_float(payload.get("confidence"), max(probabilities.values(), default=0.0))
+    if not _nonnegative_number(payload.get("bet_size")):
+        warnings.append("LLM bet_size was missing or negative")
     requested_bet_size = _nonnegative_float(payload.get("bet_size"), 0.0)
+    reason_code = str(payload.get("reason_code") or "").strip().lower()
+    if reason_code not in REASON_CODES:
+        warnings.append("LLM reason_code was missing or unsupported")
     plan = build_action_plan(request, action, confidence)
     bet_size = requested_bet_size if action in {"call", "bet", "raise"} and requested_bet_size > 0 else plan.bet_size
 
@@ -318,6 +331,21 @@ def _normalize_probabilities(raw: Any, legal_actions: set[str], selected_action:
     return {action: value / total for action, value in values.items()}
 
 
+def _probability_contract_valid(raw: Any) -> bool:
+    if not isinstance(raw, dict) or any(action not in raw for action in CANONICAL_ACTIONS):
+        return False
+    values: list[float] = []
+    for action in CANONICAL_ACTIONS:
+        try:
+            value = float(raw[action])
+        except (TypeError, ValueError):
+            return False
+        if not 0.0 <= value <= 1.0:
+            return False
+        values.append(value)
+    return abs(sum(values) - 1.0) <= 1e-3
+
+
 def _bounded_float(value: Any, default: float) -> float:
     try:
         number = float(value)
@@ -326,12 +354,27 @@ def _bounded_float(value: Any, default: float) -> float:
     return min(max(number, 0.0), 1.0)
 
 
+def _bounded_number(value: Any) -> bool:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    return 0.0 <= number <= 1.0
+
+
 def _nonnegative_float(value: Any, default: float) -> float:
     try:
         number = float(value)
     except (TypeError, ValueError):
         number = default
     return max(number, 0.0)
+
+
+def _nonnegative_number(value: Any) -> bool:
+    try:
+        return float(value) >= 0.0
+    except (TypeError, ValueError):
+        return False
 
 
 def _safe_ratio(numerator: float, denominator: float) -> float:

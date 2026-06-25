@@ -87,6 +87,13 @@ def require_files(root: Path) -> str:
         "configs/experiments/llm_event_gold_eval.yaml",
         "configs/experiments/llm_transformer_gold_eval.yaml",
         "configs/experiments/llm_decision_context.yaml",
+        "configs/experiments/llm_decision_context_smoke.yaml",
+        "configs/experiments/llm_decision_context_qwen25.yaml",
+        "configs/experiments/build_decision_context_holdout.yaml",
+        "configs/experiments/llm_decision_gate.yaml",
+        "configs/experiments/llm_decision_candidate_ranker_qwen25.yaml",
+        "configs/experiments/llm_decision_candidate_gate.yaml",
+        "configs/experiments/llm_architecture_comparison.yaml",
         "configs/experiments/project_completion.yaml",
         "configs/experiments/verify_delivery.yaml",
         "Dockerfile",
@@ -102,6 +109,22 @@ def require_files(root: Path) -> str:
         "reports/llm_event_gold_eval.md",
         "reports/llm_decision_context.json",
         "reports/llm_decision_context.md",
+        "reports/llm_decision_context_smoke.json",
+        "reports/llm_decision_context_smoke_predictions.jsonl",
+        "reports/llm_decision_context_smoke.md",
+        "reports/decision_context_holdout.json",
+        "reports/llm_decision_context_qwen25.json",
+        "reports/llm_decision_context_qwen25_predictions.jsonl",
+        "reports/llm_decision_context_qwen25.md",
+        "reports/llm_decision_gate.json",
+        "reports/llm_decision_gate.md",
+        "reports/llm_decision_candidate_ranker_qwen25.json",
+        "reports/llm_decision_candidate_ranker_qwen25_predictions.jsonl",
+        "reports/llm_decision_candidate_ranker_qwen25.md",
+        "reports/llm_decision_candidate_gate.json",
+        "reports/llm_decision_candidate_gate.md",
+        "reports/llm_architecture_comparison.json",
+        "reports/llm_architecture_comparison.md",
         "reports/policy_acceptance.json",
         "reports/production_self_play.json",
         "reports/deployed_strategy_gate.json",
@@ -117,10 +140,16 @@ def require_files(root: Path) -> str:
         "reports/client_handoff.json",
         "reports/client_handoff.md",
         "evaluation/event_extraction_gold.jsonl",
+        "evaluation/decision_context_smoke.jsonl",
+        "evaluation/decision_context_human_holdout.jsonl",
         "scripts/build_model_risk_register.py",
         "scripts/build_production_approval.py",
         "scripts/build_client_handoff.py",
         "scripts/build_llm_decision_context.py",
+        "scripts/llm_decision_context_eval.py",
+        "scripts/build_decision_context_holdout.py",
+        "scripts/build_llm_decision_gate.py",
+        "scripts/build_llm_architecture_comparison.py",
         "scripts/build_scope_contract.py",
         "scripts/build_project_completion.py",
         "scripts/train_policy.py",
@@ -145,6 +174,9 @@ def require_files(root: Path) -> str:
         "poker_agent/production_approval.py",
         "poker_agent/client_handoff.py",
         "poker_agent/llm_decision_context.py",
+        "poker_agent/llm_decision_benchmark.py",
+        "poker_agent/llm_decision_gate.py",
+        "poker_agent/llm_architecture_comparison.py",
         "poker_agent/project_completion.py",
         "poker_agent/delivery_readiness.py",
         "poker_agent/features.py",
@@ -153,6 +185,9 @@ def require_files(root: Path) -> str:
         "poker_agent/slices.py",
         "poker_agent/validation.py",
         "tests/test_timing_features.py",
+        "tests/test_llm_decision_benchmark.py",
+        "tests/test_llm_decision_gate.py",
+        "tests/test_llm_architecture_comparison.py",
     ]
     missing = [path for path in required if not (root / path).exists()]
     if missing:
@@ -175,6 +210,9 @@ def compile_sources(root: Path) -> str:
         "poker_agent/production_approval.py",
         "poker_agent/client_handoff.py",
         "poker_agent/llm_decision_context.py",
+        "poker_agent/llm_decision_benchmark.py",
+        "poker_agent/llm_decision_gate.py",
+        "poker_agent/llm_architecture_comparison.py",
         "poker_agent/project_completion.py",
         "poker_agent/service.py",
         "poker_agent/slices.py",
@@ -190,6 +228,10 @@ def compile_sources(root: Path) -> str:
         "scripts/check_repo_hygiene.py",
         "scripts/evaluate_policy.py",
         "scripts/llm_event_benchmark.py",
+        "scripts/llm_decision_context_eval.py",
+        "scripts/build_decision_context_holdout.py",
+        "scripts/build_llm_decision_gate.py",
+        "scripts/build_llm_architecture_comparison.py",
         "scripts/llm_event_gold_eval.py",
         "scripts/llm_event_extraction.py",
         "scripts/llm_transformer_gold_eval.py",
@@ -315,6 +357,13 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     hygiene = _read_json(reports / "repo_hygiene.json")
     gold_payload = _read_json(reports / "llm_event_gold_eval.json")
     decision_context_payload = _read_json(reports / "llm_decision_context.json")
+    context_smoke_payload = _read_json(reports / "llm_decision_context_smoke.json")
+    qwen_decision_payload = _read_json(reports / "llm_decision_context_qwen25.json")
+    llm_decision_gate = _read_json(reports / "llm_decision_gate.json")
+    candidate_ranker = _read_json(reports / "llm_decision_candidate_ranker_qwen25.json")
+    candidate_gate = _read_json(reports / "llm_decision_candidate_gate.json")
+    architecture_comparison = _read_json(reports / "llm_architecture_comparison.json")
+    decision_holdout = _read_json(reports / "decision_context_holdout.json")
     scope_payload = _read_json(reports / "scope_contract.json")
     completion_payload = _read_json(reports / "project_completion.json")
     risk_payload = _read_json(reports / "model_risk_register.json")
@@ -405,6 +454,48 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("LLM decision context report does not include rules-grounded records")
     if not any(item.get("contains_strategy_guidelines") for item in prompt_records):
         raise AssertionError("LLM decision context report does not include full strategy-guided records")
+    if context_smoke_payload.get("quality_claim_allowed") is not False:
+        raise AssertionError("Context smoke benchmark must not claim LLM policy quality")
+    if context_smoke_payload.get("best_mode") is not None:
+        raise AssertionError("Context smoke benchmark must not select a winning prompt")
+    if set(context_smoke_payload.get("context_modes") or []) != {
+        "minimal_zero_shot",
+        "rules_grounded",
+        "full_in_context",
+    }:
+        raise AssertionError("Context smoke benchmark does not cover all context modes")
+    if not str(qwen_decision_payload.get("provider", "")).startswith("transformers:Qwen/"):
+        raise AssertionError("Measured Qwen decision report is missing a real transformer provider")
+    if qwen_decision_payload.get("dataset_kind") != "reconstructed_human_holdout":
+        raise AssertionError("Measured Qwen decision report does not use the reconstructed human holdout")
+    if qwen_decision_payload.get("comparison_allowed") is not True:
+        raise AssertionError("Measured Qwen decision report is not enabled for provisional comparison")
+    if qwen_decision_payload.get("quality_claim_allowed") is not False:
+        raise AssertionError("Reconstructed human labels must not be treated as reviewed quality evidence")
+    if decision_holdout.get("status") != "PASS" or decision_holdout.get("examples") != 20:
+        raise AssertionError("Decision-context human holdout is incomplete")
+    if llm_decision_gate.get("status") != "BASELINE_NOT_APPROVED":
+        raise AssertionError(f"Unexpected LLM decision gate status: {llm_decision_gate.get('status')}")
+    if (llm_decision_gate.get("production_boundary") or {}).get("deployed_strategy_stack_affected") is not False:
+        raise AssertionError("LLM research gate incorrectly affects deployed strategy approval")
+    if not str(candidate_ranker.get("provider", "")).startswith("transformers_candidate_ranker:Qwen/"):
+        raise AssertionError("Measured candidate-ranker report is missing the Qwen provider")
+    candidate_mode = candidate_ranker.get("provisional_best_mode")
+    candidate_metrics = (candidate_ranker.get("systems") or {}).get(candidate_mode) or {}
+    if candidate_metrics.get("schema_valid_rate") != 1.0:
+        raise AssertionError("Candidate ranker does not preserve schema validity")
+    if candidate_metrics.get("legal_action_rate") != 1.0:
+        raise AssertionError("Candidate ranker does not preserve legal-action validity")
+    if candidate_metrics.get("fallback_rate") != 0.0:
+        raise AssertionError("Candidate ranker unexpectedly uses generation fallback")
+    if candidate_gate.get("status") != "BASELINE_NOT_APPROVED":
+        raise AssertionError(f"Unexpected candidate-ranker gate status: {candidate_gate.get('status')}")
+    if architecture_comparison.get("recommended_architecture") != "candidate_ranker":
+        raise AssertionError("Measured architecture comparison did not select candidate ranking")
+    if architecture_comparison.get("production_approved") is not False:
+        raise AssertionError("Architecture comparison incorrectly grants production approval")
+    if (architecture_comparison.get("approval_boundary") or {}).get("deployed_strategy_stack_affected") is not False:
+        raise AssertionError("LLM architecture comparison incorrectly affects deployed strategy approval")
     return (
         f"delivery={delivery.get('overall_status')}, deployed={deployed.get('strategy_policy_status')}, "
         f"raw_gate={gate.get('status')}, handoff={handoff_payload.get('handoff_status')}, "
@@ -438,6 +529,13 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/evaluation/standard.yaml",
         "configs/experiments/llm_event_gold_eval.yaml",
         "configs/experiments/llm_decision_context.yaml",
+        "configs/experiments/llm_decision_context_smoke.yaml",
+        "configs/experiments/llm_decision_context_qwen25.yaml",
+        "configs/experiments/build_decision_context_holdout.yaml",
+        "configs/experiments/llm_decision_gate.yaml",
+        "configs/experiments/llm_decision_candidate_ranker_qwen25.yaml",
+        "configs/experiments/llm_decision_candidate_gate.yaml",
+        "configs/experiments/llm_architecture_comparison.yaml",
         "configs/experiments/project_completion.yaml",
         "configs/experiments/production_gate.yaml",
         "configs/experiments/verify_delivery.yaml",
@@ -470,6 +568,15 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "configs/experiments/llm_event_benchmark.yaml",
         "configs/experiments/llm_event_gold_eval.yaml",
         "configs/experiments/llm_decision_context.yaml",
+        "configs/experiments/llm_decision_context_smoke.yaml",
+        "configs/experiments/llm_decision_context_qwen25.yaml",
+        "configs/experiments/build_decision_context_holdout.yaml",
+        "configs/experiments/llm_decision_gate.yaml",
+        "configs/experiments/llm_decision_candidate_ranker_qwen25.yaml",
+        "configs/experiments/llm_decision_candidate_gate.yaml",
+        "configs/experiments/llm_architecture_comparison.yaml",
+        "evaluation/decision_context_smoke.jsonl",
+        "evaluation/decision_context_human_holdout.jsonl",
         "configs/experiments/project_completion.yaml",
         "evaluation/event_extraction_gold.jsonl",
         "reports/production_gate.json",
@@ -477,6 +584,22 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/llm_event_gold_eval.md",
         "reports/llm_decision_context.json",
         "reports/llm_decision_context.md",
+        "reports/llm_decision_context_smoke.json",
+        "reports/llm_decision_context_smoke_predictions.jsonl",
+        "reports/llm_decision_context_smoke.md",
+        "reports/decision_context_holdout.json",
+        "reports/llm_decision_context_qwen25.json",
+        "reports/llm_decision_context_qwen25_predictions.jsonl",
+        "reports/llm_decision_context_qwen25.md",
+        "reports/llm_decision_gate.json",
+        "reports/llm_decision_gate.md",
+        "reports/llm_decision_candidate_ranker_qwen25.json",
+        "reports/llm_decision_candidate_ranker_qwen25_predictions.jsonl",
+        "reports/llm_decision_candidate_ranker_qwen25.md",
+        "reports/llm_decision_candidate_gate.json",
+        "reports/llm_decision_candidate_gate.md",
+        "reports/llm_architecture_comparison.json",
+        "reports/llm_architecture_comparison.md",
         "reports/policy_acceptance.json",
         "reports/production_self_play.json",
         "reports/deployed_strategy_gate.json",
@@ -497,6 +620,9 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/client_handoff.py",
         "poker_agent/approval_boundary.py",
         "poker_agent/llm_decision_context.py",
+        "poker_agent/llm_decision_benchmark.py",
+        "poker_agent/llm_decision_gate.py",
+        "poker_agent/llm_architecture_comparison.py",
         "poker_agent/project_completion.py",
         "poker_agent/api_contract.py",
         "poker_agent/delivery_readiness.py",
@@ -507,6 +633,10 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/build_production_approval.py",
         "scripts/build_client_handoff.py",
         "scripts/build_llm_decision_context.py",
+        "scripts/llm_decision_context_eval.py",
+        "scripts/build_decision_context_holdout.py",
+        "scripts/build_llm_decision_gate.py",
+        "scripts/build_llm_architecture_comparison.py",
         "scripts/build_project_completion.py",
         "scripts/build_scope_contract.py",
         "scripts/llm_event_gold_eval.py",

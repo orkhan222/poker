@@ -1,0 +1,31 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: text_event_local_rules
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: llm_decision_context_smoke
+description: Validate the decision context ablation pipeline without making an LLM quality claim.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/llm_decision_context_eval.py
+  args:
+    data: evaluation/decision_context_smoke.jsonl
+    provider: rule_baseline
+    model_id: unused
+    device: cpu
+    torch_dtype: auto
+    quantization: none
+    max_gpu_memory_mb: 0
+    max_cpu_memory_gb: 12
+    max_new_tokens: 192
+    max_examples: 0
+    seed: ${runtime.seed}
+    dataset_kind: smoke
+    context_modes: minimal_zero_shot,rules_grounded,full_in_context
+    out: ${logging.reports_dir}/llm_decision_context_smoke.json
+    predictions_out: ${logging.reports_dir}/llm_decision_context_smoke_predictions.jsonl
+    report_out: ${logging.reports_dir}/llm_decision_context_smoke.md

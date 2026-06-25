@@ -10,6 +10,10 @@ Install or repair the project environment:
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
+The bundled supervised artifact is serialized for Python 3.11 and
+scikit-learn 1.2.2. These versions are pinned deliberately; loading the
+artifact with newer scikit-learn releases is not supported.
+
 Activate it from Command Prompt:
 
 ```bat
@@ -219,6 +223,45 @@ and corrupted event names.
 ## LLM Decision Context
 
 Zero-shot and out-of-box LLM decision experiments are not run with an empty or vague instruction. The repository defines an explicit in-context contract for poker decisions:
+
+The context-ablation runner compares `minimal_zero_shot`, `rules_grounded`, and
+`full_in_context` on the same states. It records validated accuracy, macro F1,
+JSON/schema validity, legal-action rate, fallback rate, latency, token counts,
+and peak GPU memory. Smoke runs are explicitly marked as infrastructure-only
+and cannot select a winning prompt or support a model-quality claim.
+
+Run the deterministic contract check:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_hydra_experiment.py experiments=llm_decision_context_smoke python_executable=.venv/Scripts/python.exe
+```
+
+Run the Qwen2.5 context ablation:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_hydra_experiment.py experiments=llm_decision_context_qwen25 python_executable=.venv/Scripts/python.exe
+```
+
+For a defensible architecture comparison, override `data` with a manually
+reviewed human holdout and set `dataset_kind=reviewed_human_holdout`. Synthetic smoke
+fixtures are never reported as policy-quality evidence.
+
+The repository now includes a measured Qwen2.5-1.5B-Instruct run using 4-bit
+NF4 inference on the project GPU. The evaluation uses a deterministic,
+class-balanced holdout reconstructed from human action logs. Because those
+labels have not yet been manually reviewed, the context selection is
+provisional and the independent LLM gate remains `BASELINE_NOT_APPROVED`.
+This status does not modify the approval of the deployed non-LLM strategy
+stack.
+
+The constrained candidate-ranking architecture has also been implemented and
+measured on the same holdout. Compared with free generation, it guarantees
+legal actions and schema-valid probabilities, removes generation fallback, and
+reduces average latency substantially. Its measured Macro F1 is still below the
+acceptance threshold, so it is selected as the next research architecture but
+is not enabled as a production decision path. The next model experiment is a
+LoRA/QLoRA action-ranking adapter trained on manually reviewed state-action
+pairs.
 
 ```text
 minimal_zero_shot

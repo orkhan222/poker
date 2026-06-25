@@ -141,6 +141,30 @@ def api_contract() -> dict[str, Any]:
                 "bet-size and timing post-processing",
             ],
         },
+        "llm_decision_context_ablation": {
+            "smoke_endpoint": "/llm-decision-context-smoke.json",
+            "qwen_endpoint": "/llm-decision-qwen25.json",
+            "gate_endpoint": "/llm-decision-gate.json",
+            "candidate_ranker_endpoint": "/llm-candidate-ranker.json",
+            "architecture_comparison_endpoint": "/llm-architecture-comparison.json",
+            "context_modes": ["minimal_zero_shot", "rules_grounded", "full_in_context"],
+            "metrics": [
+                "accuracy",
+                "macro_f1",
+                "json_valid_rate",
+                "schema_valid_rate",
+                "legal_action_rate",
+                "fallback_rate",
+                "latency",
+                "token_count",
+                "peak_memory",
+            ],
+            "claim_boundary": (
+                "A winning context mode may be selected only for a real model evaluated on a "
+                "manually reviewed human holdout."
+            ),
+            "selected_research_architecture": "candidate_ranker",
+        },
         "project_completion": {
             "endpoint": "/project-completion.json",
             "description": "Maps the documented project scope to implemented evidence, metrics, deployment artifacts, and known component risks.",

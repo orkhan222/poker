@@ -46,6 +46,11 @@ FALLBACK_MODEL_PATH = PROJECT_ROOT / "models" / "poker_policy.json"
 PRODUCTION_GATE_REPORT_PATH = PROJECT_ROOT / "reports" / "production_gate.json"
 DEPLOYED_STRATEGY_GATE_REPORT_PATH = PROJECT_ROOT / "reports" / "deployed_strategy_gate.json"
 STRATEGY_REMEDIATION_REPORT_PATH = PROJECT_ROOT / "reports" / "strategy_remediation.json"
+LLM_DECISION_CONTEXT_SMOKE_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_context_smoke.json"
+LLM_DECISION_QWEN_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_context_qwen25.json"
+LLM_DECISION_GATE_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_gate.json"
+LLM_CANDIDATE_RANKER_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_candidate_ranker_qwen25.json"
+LLM_ARCHITECTURE_COMPARISON_PATH = PROJECT_ROOT / "reports" / "llm_architecture_comparison.json"
 
 
 APP_HTML = """
@@ -667,6 +672,61 @@ def client_handoff_json() -> dict[str, Any]:
 @app.get("/llm-decision-context.json", tags=["System"], summary="LLM decision context contract")
 def llm_decision_context_json() -> dict[str, Any]:
     return build_decision_context_report()
+
+
+@app.get(
+    "/llm-decision-context-smoke.json",
+    tags=["System"],
+    summary="LLM decision context ablation smoke report",
+)
+def llm_decision_context_smoke_json() -> dict[str, Any]:
+    if not LLM_DECISION_CONTEXT_SMOKE_REPORT_PATH.exists():
+        return {
+            "status": "MISSING",
+            "quality_claim_allowed": False,
+            "report": str(LLM_DECISION_CONTEXT_SMOKE_REPORT_PATH),
+        }
+    return json.loads(LLM_DECISION_CONTEXT_SMOKE_REPORT_PATH.read_text(encoding="utf-8"))
+
+
+@app.get(
+    "/llm-decision-qwen25.json",
+    tags=["System"],
+    summary="Measured Qwen decision-context benchmark",
+)
+def llm_decision_qwen25_json() -> dict[str, Any]:
+    if not LLM_DECISION_QWEN_REPORT_PATH.exists():
+        return {"status": "MISSING", "report": str(LLM_DECISION_QWEN_REPORT_PATH)}
+    return json.loads(LLM_DECISION_QWEN_REPORT_PATH.read_text(encoding="utf-8"))
+
+
+@app.get("/llm-decision-gate.json", tags=["System"], summary="LLM decision model gate")
+def llm_decision_gate_json() -> dict[str, Any]:
+    if not LLM_DECISION_GATE_REPORT_PATH.exists():
+        return {"status": "MISSING", "report": str(LLM_DECISION_GATE_REPORT_PATH)}
+    return json.loads(LLM_DECISION_GATE_REPORT_PATH.read_text(encoding="utf-8"))
+
+
+@app.get(
+    "/llm-candidate-ranker.json",
+    tags=["System"],
+    summary="Measured Qwen candidate-ranking benchmark",
+)
+def llm_candidate_ranker_json() -> dict[str, Any]:
+    if not LLM_CANDIDATE_RANKER_REPORT_PATH.exists():
+        return {"status": "MISSING", "report": str(LLM_CANDIDATE_RANKER_REPORT_PATH)}
+    return json.loads(LLM_CANDIDATE_RANKER_REPORT_PATH.read_text(encoding="utf-8"))
+
+
+@app.get(
+    "/llm-architecture-comparison.json",
+    tags=["System"],
+    summary="Measured LLM architecture comparison",
+)
+def llm_architecture_comparison_json() -> dict[str, Any]:
+    if not LLM_ARCHITECTURE_COMPARISON_PATH.exists():
+        return {"status": "MISSING", "report": str(LLM_ARCHITECTURE_COMPARISON_PATH)}
+    return json.loads(LLM_ARCHITECTURE_COMPARISON_PATH.read_text(encoding="utf-8"))
 
 
 @app.get("/project-completion.json", tags=["System"], summary="Project completion contract")

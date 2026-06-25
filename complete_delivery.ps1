@@ -5,7 +5,8 @@ param(
     [switch]$SkipTrain,
     [switch]$TrainBundle,
     [switch]$AllowGateFailure,
-    [switch]$RunTransformerEval
+    [switch]$RunTransformerEval,
+    [switch]$RunDecisionContextEval
 )
 
 $ErrorActionPreference = "Stop"
@@ -97,6 +98,19 @@ $GoldPredictionsReport = Join-Path $ReportsDir "llm_event_gold_predictions.jsonl
 $GoldMarkdownReport = Join-Path $ReportsDir "llm_event_gold_report.md"
 $DecisionContextReport = Join-Path $ReportsDir "llm_decision_context.json"
 $DecisionContextMarkdownReport = Join-Path $ReportsDir "llm_decision_context.md"
+$DecisionContextSmokeReport = Join-Path $ReportsDir "llm_decision_context_smoke.json"
+$DecisionContextSmokePredictions = Join-Path $ReportsDir "llm_decision_context_smoke_predictions.jsonl"
+$DecisionContextSmokeMarkdown = Join-Path $ReportsDir "llm_decision_context_smoke.md"
+$DecisionHoldoutReport = Join-Path $ReportsDir "decision_context_holdout.json"
+$DecisionHoldoutData = Join-Path $ProjectRoot "evaluation\decision_context_human_holdout.jsonl"
+$DecisionQwenReport = Join-Path $ReportsDir "llm_decision_context_qwen25.json"
+$DecisionGateReport = Join-Path $ReportsDir "llm_decision_gate.json"
+$DecisionGateMarkdown = Join-Path $ReportsDir "llm_decision_gate.md"
+$CandidateRankerReport = Join-Path $ReportsDir "llm_decision_candidate_ranker_qwen25.json"
+$CandidateGateReport = Join-Path $ReportsDir "llm_decision_candidate_gate.json"
+$CandidateGateMarkdown = Join-Path $ReportsDir "llm_decision_candidate_gate.md"
+$ArchitectureComparisonReport = Join-Path $ReportsDir "llm_architecture_comparison.json"
+$ArchitectureComparisonMarkdown = Join-Path $ReportsDir "llm_architecture_comparison.md"
 $TransformerEvalReport = Join-Path $ReportsDir "llm_transformer_gold_eval.json"
 $TransformerMarkdownReport = Join-Path $ReportsDir "llm_transformer_gold_report.md"
 $ScopeContractReport = Join-Path $ReportsDir "scope_contract.json"
@@ -186,8 +200,89 @@ Write-Host "5a/8 Building LLM decision context contract..." -ForegroundColor Gre
     --out $DecisionContextReport `
     --report-out $DecisionContextMarkdownReport
 
+Write-Host "5b/8 Running decision-context contract ablation..." -ForegroundColor Green
+& $Python scripts\llm_decision_context_eval.py `
+    --data (Join-Path $ProjectRoot "evaluation\decision_context_smoke.jsonl") `
+    --provider rule_baseline `
+    --model-id unused `
+    --device cpu `
+    --torch-dtype auto `
+    --max-new-tokens 192 `
+    --max-examples 0 `
+    --seed 42 `
+    --dataset-kind smoke `
+    --context-modes "minimal_zero_shot,rules_grounded,full_in_context" `
+    --out $DecisionContextSmokeReport `
+    --predictions-out $DecisionContextSmokePredictions `
+    --report-out $DecisionContextSmokeMarkdown
+
+Write-Host "5c/8 Building grouped human decision holdout..." -ForegroundColor Green
+& $Python scripts\build_decision_context_holdout.py `
+    --data-dir $Dataset `
+    --out $DecisionHoldoutData `
+    --report-out $DecisionHoldoutReport `
+    --hands 800 `
+    --examples-per-action 4 `
+    --seed 42
+
+if ($RunDecisionContextEval) {
+    Write-Host "5d/8 Running Qwen decision-context evaluation..." -ForegroundColor Green
+    & $Python scripts\run_hydra_experiment.py `
+        experiments=llm_decision_context_qwen25 `
+        "python_executable=$Python"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Qwen decision-context evaluation failed."
+    }
+    Write-Host "5d-2/8 Running Qwen candidate-ranking evaluation..." -ForegroundColor Green
+    & $Python scripts\run_hydra_experiment.py `
+        experiments=llm_decision_candidate_ranker_qwen25 `
+        "python_executable=$Python"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Qwen candidate-ranking evaluation failed."
+    }
+}
+
+if (Test-Path $DecisionQwenReport) {
+    Write-Host "5e/8 Building LLM decision-model gate..." -ForegroundColor Green
+    & $Python scripts\build_llm_decision_gate.py `
+        --benchmark $DecisionQwenReport `
+        --holdout-report $DecisionHoldoutReport `
+        --out $DecisionGateReport `
+        --report-out $DecisionGateMarkdown `
+        --min-examples 20 `
+        --min-macro-f1 0.40 `
+        --min-schema-valid-rate 0.95 `
+        --min-legal-action-rate 0.99 `
+        --max-average-latency-ms 5000
+}
+
+if (Test-Path $CandidateRankerReport) {
+    Write-Host "5e-2/8 Building candidate-ranker gate..." -ForegroundColor Green
+    & $Python scripts\build_llm_decision_gate.py `
+        --benchmark $CandidateRankerReport `
+        --holdout-report $DecisionHoldoutReport `
+        --out $CandidateGateReport `
+        --report-out $CandidateGateMarkdown `
+        --min-examples 20 `
+        --min-macro-f1 0.40 `
+        --min-schema-valid-rate 0.95 `
+        --min-legal-action-rate 0.99 `
+        --max-average-latency-ms 5000
+}
+
+if ((Test-Path $DecisionQwenReport) -and (Test-Path $CandidateRankerReport) -and (Test-Path $DecisionGateReport) -and (Test-Path $CandidateGateReport)) {
+    Write-Host "5e-3/8 Building LLM architecture comparison..." -ForegroundColor Green
+    & $Python scripts\build_llm_architecture_comparison.py `
+        --generation $DecisionQwenReport `
+        --candidate-ranker $CandidateRankerReport `
+        --generation-gate $DecisionGateReport `
+        --candidate-gate $CandidateGateReport `
+        --out $ArchitectureComparisonReport `
+        --report-out $ArchitectureComparisonMarkdown
+}
+
 if ($RunTransformerEval) {
-    Write-Host "5b/8 Running local instruction-model evaluation..." -ForegroundColor Green
+    Write-Host "5f/8 Running local instruction-model evaluation..." -ForegroundColor Green
     & $Python scripts\run_hydra_experiment.py `
         experiments=llm_transformer_gold_eval `
         "python_executable=$Python"
@@ -282,6 +377,11 @@ Write-Host "Event methodology: $EventMethodologyReport"
 Write-Host "Gold event eval: $GoldEvalReport"
 Write-Host "Gold event report: $GoldMarkdownReport"
 Write-Host "Decision context: $DecisionContextReport"
+Write-Host "Decision context smoke: $DecisionContextSmokeReport"
+Write-Host "Decision Qwen benchmark: $DecisionQwenReport"
+Write-Host "Decision model gate: $DecisionGateReport"
+Write-Host "Candidate ranker: $CandidateRankerReport"
+Write-Host "Architecture comparison: $ArchitectureComparisonReport"
 Write-Host "Instruction-model eval: $TransformerEvalReport"
 Write-Host "Instruction-model report: $TransformerMarkdownReport"
 Write-Host "Scope contract: $ScopeContractReport"

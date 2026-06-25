@@ -1,0 +1,9 @@
+Select the most likely event type for the supplied poker record.
+
+Candidates:
+- player_action
+- card_update
+- stack_update
+- unmatched
+
+Evaluate only evidence present in the record. Return the selected candidate label only.

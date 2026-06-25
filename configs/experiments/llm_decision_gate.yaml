@@ -1,0 +1,24 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: text_event_smol
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: llm_decision_gate
+description: Apply an independent acceptance gate to the measured Qwen decision-context benchmark.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_llm_decision_gate.py
+  args:
+    benchmark: ${logging.reports_dir}/llm_decision_context_qwen25.json
+    holdout_report: ${logging.reports_dir}/decision_context_holdout.json
+    out: ${logging.reports_dir}/llm_decision_gate.json
+    report_out: ${logging.reports_dir}/llm_decision_gate.md
+    min_examples: 20
+    min_macro_f1: 0.40
+    min_schema_valid_rate: 0.95
+    min_legal_action_rate: 0.99
+    max_average_latency_ms: 5000

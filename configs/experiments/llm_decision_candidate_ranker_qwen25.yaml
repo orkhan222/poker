@@ -1,0 +1,33 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: text_event_smol
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: llm_decision_candidate_ranker_qwen25
+description: Rank only legal poker actions with Qwen2.5-1.5B likelihood scores.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/llm_decision_context_eval.py
+  args:
+    data: evaluation/decision_context_human_holdout.jsonl
+    provider: candidate_ranker
+    model_id: Qwen/Qwen2.5-1.5B-Instruct
+    device: auto
+    torch_dtype: float16
+    quantization: 4bit_nf4
+    max_gpu_memory_mb: 2400
+    max_cpu_memory_gb: 12
+    candidate_score_reduction: mean
+    probability_temperature: 1.0
+    max_new_tokens: 1
+    max_examples: 0
+    seed: ${runtime.seed}
+    dataset_kind: reconstructed_human_holdout
+    context_modes: minimal_zero_shot,rules_grounded,full_in_context
+    out: ${logging.reports_dir}/llm_decision_candidate_ranker_qwen25.json
+    predictions_out: ${logging.reports_dir}/llm_decision_candidate_ranker_qwen25_predictions.jsonl
+    report_out: ${logging.reports_dir}/llm_decision_candidate_ranker_qwen25.md

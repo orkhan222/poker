@@ -1,0 +1,21 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: text_event_local_rules
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: build_decision_context_holdout
+description: Build a deterministic grouped human-action holdout for LLM decision context evaluation.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_decision_context_holdout.py
+  args:
+    data_dir: data
+    out: evaluation/decision_context_human_holdout.jsonl
+    report_out: ${logging.reports_dir}/decision_context_holdout.json
+    hands: 800
+    examples_per_action: 4
+    seed: ${runtime.seed}

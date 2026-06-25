@@ -1,0 +1,10 @@
+Choose one legal No-Limit Texas Hold'em action for the supplied structured game state.
+
+Rules:
+- When facing a wager, choose fold, call, or raise.
+- Without a wager, choose check or bet.
+- Respect to_call, stack, and minimum raise.
+- Pot odds equal to_call divided by pot plus to_call.
+- Do not infer hidden opponent cards.
+
+Return JSON only with action, all five normalized probabilities, confidence, bet_size, and reason_code.

@@ -73,6 +73,11 @@ def build_project_completion(project_root: Path) -> dict[str, Any]:
     deployed_gate = _read_json(reports / "deployed_strategy_gate.json")
     production_gate = _read_json(reports / "production_gate.json")
     decision_context = _read_json(reports / "llm_decision_context.json")
+    llm_decision_benchmark = _read_json(reports / "llm_decision_context_qwen25.json")
+    llm_decision_gate = _read_json(reports / "llm_decision_gate.json")
+    llm_candidate_ranker = _read_json(reports / "llm_decision_candidate_ranker_qwen25.json")
+    llm_candidate_gate = _read_json(reports / "llm_decision_candidate_gate.json")
+    llm_architecture_comparison = _read_json(reports / "llm_architecture_comparison.json")
     client_handoff = _read_json(reports / "client_handoff.json")
     boundary = build_approval_boundary(project_root)["boundary"]
 
@@ -100,11 +105,22 @@ def build_project_completion(project_root: Path) -> dict[str, Any]:
                 "evidence": [
                     "reports/llm_event_gold_eval.json",
                     "reports/llm_decision_context.json",
+                    "reports/llm_decision_context_smoke.json",
+                    "reports/llm_decision_context_qwen25.json",
+                    "reports/llm_decision_gate.json",
+                    "reports/llm_decision_candidate_ranker_qwen25.json",
+                    "reports/llm_decision_candidate_gate.json",
+                    "reports/llm_architecture_comparison.json",
                     "reports/production_gate.json",
                     "reports/policy_acceptance.json",
                 ],
                 "implemented_outputs": [
                     "LLM decision context contract",
+                    "context-ablation benchmark runner with explicit quality-claim boundary",
+                    "measured Qwen2.5-1.5B 4-bit GPU baseline",
+                    "independent LLM decision-model acceptance gate",
+                    "constrained legal-action candidate ranker",
+                    "measured generation-versus-ranking architecture comparison",
                     "structured event extraction benchmark",
                     "supervised policy artifact",
                     "action probability output",
@@ -164,6 +180,27 @@ def build_project_completion(project_root: Path) -> dict[str, Any]:
             "component_risk": boundary["component_risk"],
             "evidence": "reports/model_risk_register.json",
             "approval_boundary": "/approval-boundary.json",
+        },
+        "llm_decision_research": {
+            "status": llm_decision_gate.get("status", "MISSING"),
+            "provider": llm_decision_benchmark.get("provider"),
+            "selected_context_mode": llm_decision_gate.get("selected_context_mode"),
+            "selection_is_provisional": llm_decision_gate.get("selection_is_provisional"),
+            "metrics": llm_decision_gate.get("metrics", {}),
+            "failed_checks": llm_decision_gate.get("failed_checks", []),
+            "deployed_strategy_stack_affected": (
+                llm_decision_gate.get("production_boundary") or {}
+            ).get("deployed_strategy_stack_affected"),
+            "candidate_ranker": {
+                "provider": llm_candidate_ranker.get("provider"),
+                "gate_status": llm_candidate_gate.get("status"),
+                "metrics": llm_candidate_gate.get("metrics", {}),
+            },
+            "architecture_selection": {
+                "status": llm_architecture_comparison.get("status"),
+                "recommended_architecture": llm_architecture_comparison.get("recommended_architecture"),
+                "production_approved": llm_architecture_comparison.get("production_approved"),
+            },
         },
     }
 
@@ -231,6 +268,15 @@ def render_project_completion_markdown(payload: dict[str, Any]) -> str:
             f"- Raw supervised model status: `{payload['known_boundary']['raw_supervised_model_status']}`",
             f"- Production blocker: `{payload['known_boundary']['production_blocker']}`",
             f"- Component risk: `{payload['known_boundary']['component_risk']}`",
+            "",
+            "## LLM Decision Research",
+            "",
+            f"- Status: `{payload['llm_decision_research']['status']}`",
+            f"- Provider: `{payload['llm_decision_research']['provider']}`",
+            f"- Provisional context selection: `{payload['llm_decision_research']['selected_context_mode']}`",
+            f"- Deployed stack affected: `{payload['llm_decision_research']['deployed_strategy_stack_affected']}`",
+            f"- Recommended research architecture: `{payload['llm_decision_research']['architecture_selection']['recommended_architecture']}`",
+            f"- LLM production approved: `{payload['llm_decision_research']['architecture_selection']['production_approved']}`",
             "",
         ]
     )

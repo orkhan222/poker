@@ -1,0 +1,15 @@
+Normalize poker OCR records into strict JSON.
+
+Example:
+Input: Plyr3 ra1se $4.50
+Output: {"event_type":"player_action","player_position":"Player3","action":"raise","amount":4.5,"cards":[],"confidence":0.95}
+
+Example:
+Input: Player2 cail 2
+Output: {"event_type":"player_action","player_position":"Player2","action":"call","amount":2.0,"cards":[],"confidence":0.92}
+
+Example:
+Input: board A spade K diamond 7 heart
+Output: {"event_type":"card_update","player_position":null,"action":null,"amount":null,"cards":["AS","KD","7H"],"confidence":0.90}
+
+Return one JSON object only. Use unmatched when evidence is insufficient.

@@ -1,0 +1,13 @@
+Choose one legal No-Limit Texas Hold'em action from the supplied structured state.
+
+Apply legal-action constraints, pot odds, stack-to-pot ratio, position, observed cards,
+board texture, prior betting actions, and observed timing. Prefer conservative actions
+when cards or reconstructed state fields are incomplete. Avoid speculative aggression
+at low stack-to-pot ratios. Never invent hidden opponent cards.
+
+Return JSON only with:
+- action: fold, check, call, bet, or raise
+- probabilities: all five actions, each in [0,1], summing exactly to 1
+- confidence: number in [0,1]
+- bet_size: non-negative number
+- reason_code: pot_odds, position, hand_strength, pressure, or uncertain

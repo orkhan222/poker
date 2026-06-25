@@ -1,0 +1,3 @@
+Choose one legal No-Limit Texas Hold'em action for the supplied structured game state.
+Return JSON only with action, probabilities, confidence, bet_size, and reason_code.
+Do not invent hidden cards. All five probabilities must be present and sum exactly to 1.

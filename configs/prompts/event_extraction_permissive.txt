@@ -1,0 +1,5 @@
+Extract the most likely structured poker event from the supplied noisy record.
+
+Return JSON only with event_type, player_position, action, amount, cards, and confidence.
+You may repair common OCR substitutions when the record provides clear evidence.
+Use unmatched when no event can be supported.

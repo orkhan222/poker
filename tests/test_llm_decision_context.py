@@ -62,6 +62,24 @@ def test_parse_decision_output_enforces_legal_actions() -> None:
     assert response.warnings
 
 
+def test_parse_decision_output_reports_schema_repairs() -> None:
+    request = PredictionRequest(position="BTN", street="preflop", to_call=1.0, pot=3.0, stack=50.0)
+    raw = json.dumps(
+        {
+            "action": "call",
+            "probabilities": {"call": 2.0},
+            "confidence": 2.0,
+            "bet_size": -1.0,
+        }
+    )
+
+    response = parse_decision_output(raw, request)
+
+    assert response.action == "call"
+    assert abs(sum(response.probabilities.values()) - 1.0) < 1e-9
+    assert len(response.warnings) >= 4
+
+
 def test_decision_context_report_has_required_modes() -> None:
     report = build_decision_context_report()
 

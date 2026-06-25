@@ -37,14 +37,14 @@ if (!$PythonCandidates) {
 
 $PythonRuntime = $null
 foreach ($Candidate in $PythonCandidates) {
-    & $Candidate.executable @($Candidate.prefix) -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" *> $null
+    & $Candidate.executable @($Candidate.prefix) -c "import sys; raise SystemExit(0 if (3, 11) <= sys.version_info < (3, 12) else 1)" *> $null
     if ($LASTEXITCODE -eq 0) {
         $PythonRuntime = $Candidate
         break
     }
 }
 if (!$PythonRuntime) {
-    Write-Error "Python 3.11 or newer was not found."
+    Write-Error "Python 3.11 is required by the bundled model runtime."
 }
 
 $VenvIsComplete = (Test-Path $VenvPython) -and (Test-Path $VenvConfig)

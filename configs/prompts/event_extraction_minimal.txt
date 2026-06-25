@@ -1,0 +1,3 @@
+Convert the supplied poker log record into one JSON object.
+Use event_type: player_action, card_update, stack_update, or unmatched.
+Return JSON only.
