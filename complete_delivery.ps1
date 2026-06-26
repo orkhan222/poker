@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Dataset = "C:\Users\user\Desktop\AllFile\dataset",
     [string]$ModelOut = "",
     [string]$ReportsDir = "",
@@ -147,6 +147,14 @@ $ProductionApprovalReport = Join-Path $ReportsDir "production_approval.json"
 $ProductionApprovalMarkdownReport = Join-Path $ReportsDir "production_approval.md"
 $ClientHandoffReport = Join-Path $ReportsDir "client_handoff.json"
 $ClientHandoffMarkdownReport = Join-Path $ReportsDir "client_handoff.md"
+$TrainingClusterReport = Join-Path $ReportsDir "training_cluster_requirements.json"
+$TrainingClusterMarkdownReport = Join-Path $ReportsDir "training_cluster_requirements.md"
+$TodayTrainingReport = Join-Path $ReportsDir "today_acceptance_training.json"
+$TodayTrainingMarkdownReport = Join-Path $ReportsDir "today_acceptance_training.md"
+$TodayTrainingGateReport = Join-Path $ReportsDir "today_acceptance_production_gate.json"
+$ClientGpuTrainingResponseReport = Join-Path $ReportsDir "client_gpu_training_response.json"
+$ClientGpuTrainingResponseMarkdown = Join-Path $ReportsDir "client_gpu_training_response.md"
+$TodayTrainingModelOut = Join-Path $ProjectRoot "models\poker_policy_bundle.joblib"
 
 Write-Host "1/8 Auditing dataset..." -ForegroundColor Green
 & $Python scripts\audit_dataset.py `
@@ -351,13 +359,35 @@ Write-Host "7d/8 Building client handoff statement..." -ForegroundColor Green
     --out $ClientHandoffReport `
     --markdown-out $ClientHandoffMarkdownReport
 
-Write-Host "7e/8 Building scope contract..." -ForegroundColor Green
+Write-Host "7e/8 Building training cluster requirements..." -ForegroundColor Green
+& $Python scripts\build_training_cluster_requirements.py `
+    --project-root $ProjectRoot `
+    --out $TrainingClusterReport `
+    --markdown-out $TrainingClusterMarkdownReport
+
+Write-Host "7f/8 Building today acceptance training report..." -ForegroundColor Green
+& $Python scripts\run_today_acceptance_training.py `
+    --project-root $ProjectRoot `
+    --dataset $Dataset `
+    --model-out $TodayTrainingModelOut `
+    --report-out $TodayTrainingReport `
+    --markdown-out $TodayTrainingMarkdownReport `
+    --gate-out $TodayTrainingGateReport `
+    --max-examples 1000 `
+    --skip-training
+
+Write-Host "7f-2/8 Building client GPU training response..." -ForegroundColor Green
+& $Python scripts\build_client_gpu_training_response.py `
+    --project-root $ProjectRoot `
+    --out $ClientGpuTrainingResponseReport `
+    --markdown-out $ClientGpuTrainingResponseMarkdown
+Write-Host "7g/8 Building scope contract..." -ForegroundColor Green
 & $Python scripts\build_scope_contract.py `
     --project-root $ProjectRoot `
     --out $ScopeContractReport `
     --markdown-out $ScopeContractMarkdownReport
 
-Write-Host "7f/8 Building project completion contract..." -ForegroundColor Green
+Write-Host "7h/8 Building project completion contract..." -ForegroundColor Green
 & $Python scripts\build_project_completion.py `
     --project-root $ProjectRoot `
     --out $ProjectCompletionReport `
@@ -413,4 +443,7 @@ Write-Host "Project completion: $ProjectCompletionReport"
 Write-Host "Model risk register: $ModelRiskRegisterReport"
 Write-Host "Production approval: $ProductionApprovalReport"
 Write-Host "Client handoff: $ClientHandoffReport"
+Write-Host "Training cluster requirements: $TrainingClusterReport"
+Write-Host "Today acceptance training: $TodayTrainingReport"
 Write-Host "ZIP: $ZipPath"
+

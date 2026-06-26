@@ -1,0 +1,27 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: hist_gradient_boosting
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: training_cluster_requirements
+description: Build the compute-cluster requirements and immediate A100/H100 delivery contract.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_training_cluster_requirements.py
+  args:
+    project_root: .
+    run_profile: immediate_delivery
+    out: ${logging.reports_dir}/training_cluster_requirements.json
+    markdown_out: ${logging.reports_dir}/training_cluster_requirements.md
+    gpu_type: null
+    gpu_count: null
+    vram_gb_per_gpu: null
+    cpu_cores: null
+    system_ram_gb: null
+    storage_gb: null
+    interconnect: null
+    dedicated_or_shared: null

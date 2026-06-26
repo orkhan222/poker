@@ -19,7 +19,7 @@ if str(ROOT) not in sys.path:
 
 from poker_agent.agents import MLPolicyAgent
 from poker_agent.api_contract import api_contract
-from poker_agent.approval_boundary import build_approval_boundary
+from poker_agent.approval_boundary import assert_approval_boundary, build_approval_boundary
 from poker_agent.model import load_policy
 from poker_agent.schemas import PredictionRequest
 from poker_agent.service import get_agent, get_autonomous_agent, health_payload, resolve_model_path
@@ -96,6 +96,9 @@ def require_files(root: Path) -> str:
         "configs/experiments/llm_decision_candidate_gate.yaml",
         "configs/experiments/llm_architecture_comparison.yaml",
         "configs/experiments/project_completion.yaml",
+        "configs/experiments/training_cluster_requirements.yaml",
+        "configs/experiments/today_acceptance_training.yaml",
+        "configs/experiments/client_gpu_training_response.yaml",
         "configs/experiments/verify_delivery.yaml",
         "Dockerfile",
         "docker-compose.yml",
@@ -105,6 +108,7 @@ def require_files(root: Path) -> str:
         "complete_delivery.ps1",
         "verify_delivery.ps1",
         "models/poker_policy.joblib",
+        "models/poker_policy_bundle.joblib",
         "reports/production_gate.json",
         "reports/llm_event_gold_eval.json",
         "reports/llm_event_gold_eval.md",
@@ -140,12 +144,22 @@ def require_files(root: Path) -> str:
         "reports/production_approval.md",
         "reports/client_handoff.json",
         "reports/client_handoff.md",
+        "reports/training_cluster_requirements.json",
+        "reports/training_cluster_requirements.md",
+        "reports/today_acceptance_training.json",
+        "reports/today_acceptance_training.md",
+        "reports/today_acceptance_production_gate.json",
+        "reports/client_gpu_training_response.json",
+        "reports/client_gpu_training_response.md",
         "evaluation/event_extraction_gold.jsonl",
         "evaluation/decision_context_smoke.jsonl",
         "evaluation/decision_context_human_holdout.jsonl",
         "scripts/build_model_risk_register.py",
         "scripts/build_production_approval.py",
         "scripts/build_client_handoff.py",
+        "scripts/build_training_cluster_requirements.py",
+        "scripts/run_today_acceptance_training.py",
+        "scripts/build_client_gpu_training_response.py",
         "scripts/build_llm_decision_context.py",
         "scripts/llm_decision_context_eval.py",
         "scripts/build_decision_context_holdout.py",
@@ -175,6 +189,9 @@ def require_files(root: Path) -> str:
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
         "poker_agent/client_handoff.py",
+        "poker_agent/training_cluster.py",
+        "poker_agent/today_training.py",
+        "poker_agent/client_gpu_training_response.py",
         "poker_agent/llm_decision_context.py",
         "poker_agent/llm_decision_benchmark.py",
         "poker_agent/llm_decision_gate.py",
@@ -188,6 +205,9 @@ def require_files(root: Path) -> str:
         "poker_agent/validation.py",
         "tests/test_timing_features.py",
         "tests/test_autonomous_agent.py",
+        "tests/test_training_cluster.py",
+        "tests/test_today_acceptance_training.py",
+        "tests/test_client_gpu_training_response.py",
         "tests/test_llm_decision_benchmark.py",
         "tests/test_llm_decision_gate.py",
         "tests/test_llm_architecture_comparison.py",
@@ -213,6 +233,9 @@ def compile_sources(root: Path) -> str:
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
         "poker_agent/client_handoff.py",
+        "poker_agent/training_cluster.py",
+        "poker_agent/today_training.py",
+        "poker_agent/client_gpu_training_response.py",
         "poker_agent/llm_decision_context.py",
         "poker_agent/llm_decision_benchmark.py",
         "poker_agent/llm_decision_gate.py",
@@ -227,6 +250,9 @@ def compile_sources(root: Path) -> str:
         "scripts/build_model_risk_register.py",
         "scripts/build_production_approval.py",
         "scripts/build_client_handoff.py",
+        "scripts/build_training_cluster_requirements.py",
+        "scripts/run_today_acceptance_training.py",
+        "scripts/build_client_gpu_training_response.py",
         "scripts/build_llm_decision_context.py",
         "scripts/build_project_completion.py",
         "scripts/check_repo_hygiene.py",
@@ -309,8 +335,13 @@ def inference_contract(model_path: Path) -> str:
         raise AssertionError("Observed-card request incorrectly used fallback")
     if observed["timing_method"] != "table_tempo_calibrated":
         raise AssertionError("Observed table timing did not calibrate the action plan")
-    if isinstance(agent, MLPolicyAgent) and missing["model_status"] != "missing_card_fallback":
-        raise AssertionError("Missing-card request did not use fallback")
+    if isinstance(agent, MLPolicyAgent):
+        runtime_policy = getattr(getattr(agent, "model", None), "metadata", {}).get("policy")
+        if runtime_policy == "routed_policy_bundle":
+            if missing["model_status"] != "routed_policy_bundle":
+                raise AssertionError("Missing-card request did not use routed bundle runtime")
+        elif missing["model_status"] != "missing_card_fallback":
+            raise AssertionError("Missing-card request did not use fallback")
     for payload in (observed, missing):
         total = sum(float(value) for value in payload["probabilities"].values())
         if abs(total - 1.0) > 1e-6:
@@ -358,7 +389,11 @@ def autonomous_agent_contract() -> str:
 
 def health_contract(model_path: Path) -> str:
     resolved = resolve_model_path()
-    if resolved.resolve() != model_path.resolve():
+    accepted_paths = {model_path.resolve()}
+    bundle_path = model_path.parent / "poker_policy_bundle.joblib"
+    if bundle_path.exists():
+        accepted_paths.add(bundle_path.resolve())
+    if resolved.resolve() not in accepted_paths:
         raise AssertionError(f"Health resolved unexpected model path: {resolved}")
     payload = health_payload()
     model_status = payload.get("model_status")
@@ -369,7 +404,6 @@ def health_contract(model_path: Path) -> str:
     if model_status == "fallback_rule_based_model_load_failed" and "model_load_error" not in payload:
         raise AssertionError(f"Fallback health payload does not expose load error: {payload}")
     return json.dumps(payload, sort_keys=True)
-
 
 def api_input_contract() -> str:
     contract = api_contract()
@@ -411,7 +445,11 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     risk_payload = _read_json(reports / "model_risk_register.json")
     approval_payload = _read_json(reports / "production_approval.json")
     handoff_payload = _read_json(reports / "client_handoff.json")
-    approval_boundary = build_approval_boundary(root).get("boundary", {})
+    cluster_payload = _read_json(reports / "training_cluster_requirements.json")
+    today_training = _read_json(reports / "today_acceptance_training.json")
+    client_gpu_response = _read_json(reports / "client_gpu_training_response.json")
+    approval_boundary_payload = build_approval_boundary(root)
+    approval_boundary = approval_boundary_payload.get("boundary", {})
 
     if scope_payload.get("overall_status") != "PASS":
         raise AssertionError(f"Scope contract did not pass: {scope_payload.get('overall_status')}")
@@ -459,6 +497,9 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Approval boundary incorrectly marks the raw-model component risk as a production blocker")
     if not approval_boundary.get("component_risk"):
         raise AssertionError("Approval boundary does not track raw-model standalone non-approval as a component risk")
+    if approval_boundary_payload.get("invariants", {}).get("status") != "PASS":
+        raise AssertionError(f"Approval boundary invariants failed: {approval_boundary_payload.get('invariants')}")
+    assert_approval_boundary(approval_boundary)
     handoff_position = handoff_payload.get("technical_position", {})
     if handoff_payload.get("handoff_status") != "READY_WITH_COMPONENT_RISK":
         raise AssertionError(f"Unexpected client handoff status: {handoff_payload.get('handoff_status')}")
@@ -474,6 +515,48 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Client handoff incorrectly marks the component risk as a production blocker")
     if not handoff_position.get("component_risk"):
         raise AssertionError("Client handoff does not track the raw-model limitation as a component risk")
+    cluster_estimate = cluster_payload.get("estimate") or {}
+    if cluster_payload.get("run_profile") != "immediate_delivery":
+        raise AssertionError(f"Unexpected default cluster run profile: {cluster_payload.get('run_profile')}")
+    if cluster_estimate.get("status") != "PENDING_CLUSTER_CONFIRMATION":
+        raise AssertionError(f"Unexpected default cluster estimate status: {cluster_estimate.get('status')}")
+    requested_fields = set(cluster_payload.get("requested_fields") or [])
+    for required in ("gpu_type", "gpu_count", "vram_gb_per_gpu", "dedicated_or_shared"):
+        if required not in requested_fields:
+            raise AssertionError(f"Training cluster report is missing requested field: {required}")
+    immediate = cluster_payload.get("immediate_delivery_cluster") or {}
+    if immediate.get("expected_completion") != "same_day":
+        raise AssertionError("Training cluster report does not preserve same-day A100/H100 delivery validation")
+    hours = immediate.get("expected_delivery_validation_hours") or {}
+    if hours.get("A100") != 3 or hours.get("H100") != 2:
+        raise AssertionError("Training cluster report does not preserve A100/H100 immediate delivery hours")
+    full_reference = cluster_payload.get("full_training_reference") or {}
+    if full_reference.get("not_required_for_current_delivery") is not True:
+        raise AssertionError("Full multi-agent training must remain separate from current delivery approval")
+    if today_training.get("profile") != "today_acceptance_training":
+        raise AssertionError(f"Unexpected today-training profile: {today_training.get('profile')}")
+    if today_training.get("selected_architecture") != "routed_policy_bundle":
+        raise AssertionError("Today training must use the routed policy bundle architecture")
+    if today_training.get("training_status") != "PASS":
+        raise AssertionError("Today acceptance training did not pass")
+    if today_training.get("delivery_status") != "READY_FOR_CURRENT_DELIVERY":
+        raise AssertionError("Today acceptance training does not mark current delivery ready")
+    boundary = today_training.get("approval_boundary") or {}
+    if boundary.get("full_multi_agent_training") != "DEFERRED_TO_PRODUCTION_HARDENING":
+        raise AssertionError("Today training report must keep full multi-agent training as hardening work")
+    metrics = today_training.get("valid_metrics") or {}
+    if float(metrics.get("macro_f1", 0.0)) <= 0.0:
+        raise AssertionError("Today acceptance training report is missing validation metrics")
+    client_training = client_gpu_response.get("current_delivery_training") or {}
+    if client_training.get("training_status") != "PASS":
+        raise AssertionError("Client GPU response does not preserve passing acceptance training status")
+    if "dedicated A100 or H100" not in client_gpu_response.get("recommended_reply", ""):
+        raise AssertionError("Client GPU response does not answer the A100/H100 availability question")
+    gpu_boundary = client_gpu_response.get("gpu_boundary") or {}
+    if gpu_boundary.get("full_multi_agent_training") != "separate production-hardening phase":
+        raise AssertionError("Client GPU response must keep full multi-agent training as a separate hardening phase")
+    if "Do not represent" not in gpu_boundary.get("do_not_claim", ""):
+        raise AssertionError("Client GPU response must preserve the no-false-production-claim boundary")
     if risk_payload.get("raw_supervised_model_status") == "NOT_STANDALONE_APPROVED":
         summary = risk_payload.get("risk_summary", {})
         if summary.get("component_risks", 0) < 1:
@@ -579,6 +662,9 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/experiments/llm_decision_candidate_gate.yaml",
         "configs/experiments/llm_architecture_comparison.yaml",
         "configs/experiments/project_completion.yaml",
+        "configs/experiments/training_cluster_requirements.yaml",
+        "configs/experiments/today_acceptance_training.yaml",
+        "configs/experiments/client_gpu_training_response.yaml",
         "configs/experiments/production_gate.yaml",
         "configs/experiments/verify_delivery.yaml",
     ]
@@ -591,6 +677,7 @@ def hydra_provenance_contract(root: Path) -> str:
 def zip_contract(root: Path, zip_path: Path) -> str:
     required = {
         "models/poker_policy.joblib",
+        "models/poker_policy_bundle.joblib",
         "README.md",
         "activate_env.cmd",
         "install.ps1",
@@ -657,10 +744,20 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/production_approval.md",
         "reports/client_handoff.json",
         "reports/client_handoff.md",
+        "reports/training_cluster_requirements.json",
+        "reports/training_cluster_requirements.md",
+        "reports/today_acceptance_training.json",
+        "reports/today_acceptance_training.md",
+        "reports/today_acceptance_production_gate.json",
+        "reports/client_gpu_training_response.json",
+        "reports/client_gpu_training_response.md",
         "poker_agent/autonomous_agent.py",
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
         "poker_agent/client_handoff.py",
+        "poker_agent/training_cluster.py",
+        "poker_agent/today_training.py",
+        "poker_agent/client_gpu_training_response.py",
         "poker_agent/approval_boundary.py",
         "poker_agent/llm_decision_context.py",
         "poker_agent/llm_decision_benchmark.py",
@@ -675,6 +772,9 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/build_model_risk_register.py",
         "scripts/build_production_approval.py",
         "scripts/build_client_handoff.py",
+        "scripts/build_training_cluster_requirements.py",
+        "scripts/run_today_acceptance_training.py",
+        "scripts/build_client_gpu_training_response.py",
         "scripts/build_llm_decision_context.py",
         "scripts/llm_decision_context_eval.py",
         "scripts/build_decision_context_holdout.py",
@@ -686,6 +786,9 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/run_hydra_experiment.py",
         "scripts/verify_delivery.py",
         "tests/test_autonomous_agent.py",
+        "tests/test_training_cluster.py",
+        "tests/test_today_acceptance_training.py",
+        "tests/test_client_gpu_training_response.py",
         "verify_delivery.ps1",
     }
     if not zip_path.exists():
@@ -737,3 +840,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

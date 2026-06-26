@@ -1,4 +1,4 @@
-﻿# Poker Decision Agent
+# Poker Decision Agent
 
 Poker Decision Agent is a FastAPI service and ML research workspace for poker action prediction from OCR and event-log data. The repository includes the API, trained model artifact, Hydra experiment configs, evaluation scripts, audit reports, and a packaged delivery ZIP.
 
@@ -61,10 +61,40 @@ Machine-readable status endpoints:
 /approval-boundary.json
 /client-handoff.json
 /llm-decision-context.json
+/training-cluster-requirements.json
+/client-gpu-training-response.json
 /project-completion.json
 ```
 
 The important distinction is intentional: `deployed_strategy_gate=PASS` approves the stack that is actually deployed, while `raw_production_gate=FAIL` means the raw supervised artifact still needs a stronger challenger model before it can be marketed as a standalone production policy.
+
+The training-cluster contract asks the client to confirm GPU type/count, VRAM, CPU/RAM, storage, interconnect, and whether the environment is dedicated or shared. For current delivery, a dedicated single A100 or H100 is treated as enough to run the same-day acceptance profile: smoke training, simulation sanity checks, validation, and report refresh. Full production-scale multi-agent training remains a separate hardening profile and is not required to mark the current delivery package complete.
+
+The client GPU response is generated as both `reports\client_gpu_training_response.json` and `reports\client_gpu_training_response.md`, and is exposed at `GET /client-gpu-training-response.json`. It is the approved wording for the A100/H100 question: one dedicated A100 or H100 is sufficient for current acceptance training and validation, while full production-scale multi-agent training remains a separate hardening step.
+
+## Today Acceptance Training
+
+The training selected for the current delivery is `routed_policy_bundle`. It trains an observed-card policy and a public-context fallback policy, which is the correct architecture for the current dataset because hole-card visibility is inconsistent.
+
+Run it with:
+
+```powershell
+C:\Users\user\AppData\Local\poker-qwen-venv\Scripts\python.exe scripts\run_today_acceptance_training.py --project-root . --dataset data --model-out models\poker_policy_bundle.joblib --report-out reports\today_acceptance_training.json --markdown-out reports\today_acceptance_training.md --gate-out reports\today_acceptance_production_gate.json --max-examples 1000 --gpu-type H100 --gpu-count 1 --vram-gb-per-gpu 80 --cpu-cores 32 --system-ram-gb 256 --storage-gb 1000 --interconnect NVLink --dedicated-or-shared dedicated
+```
+
+Latest acceptance result:
+
+```text
+training_status=PASS
+delivery_status=READY_FOR_CURRENT_DELIVERY
+selected_architecture=routed_policy_bundle
+accuracy=0.5965
+macro_f1=0.4286
+balanced_accuracy=0.4557
+production_gate=FAIL
+```
+
+The `production_gate=FAIL` result is intentionally preserved. It means the acceptance training completed and the current delivery can close, but full production-scale multi-agent training and a stronger challenger policy remain separate hardening work.
 
 ## Repository Layout
 
@@ -454,3 +484,4 @@ Expected result:
 - The target distribution is imbalanced and fold-dominant.
 - The raw supervised artifact does not beat the majority-class baseline on strict holdout accuracy and remains a component risk.
 - The gold event extraction set is intentionally small and should be expanded with reviewed production logs.
+

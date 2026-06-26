@@ -1,0 +1,31 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: routed_bundle_smoke
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: today_acceptance_training
+description: Same-day routed policy bundle training and validation run for the current delivery package.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/run_today_acceptance_training.py
+  args:
+    project_root: .
+    dataset: ${dataset.root}
+    model_out: models/poker_policy_bundle.joblib
+    report_out: ${logging.reports_dir}/today_acceptance_training.json
+    markdown_out: ${logging.reports_dir}/today_acceptance_training.md
+    gate_out: ${logging.reports_dir}/today_acceptance_production_gate.json
+    max_examples: ${training.max_examples}
+    gpu_type: null
+    gpu_count: null
+    vram_gb_per_gpu: null
+    cpu_cores: null
+    system_ram_gb: null
+    storage_gb: null
+    interconnect: null
+    dedicated_or_shared: null
+    skip_training: false

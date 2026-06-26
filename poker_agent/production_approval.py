@@ -12,7 +12,8 @@ APPROVAL_VERSION = "2026-06-22"
 
 
 def build_production_approval(project_root: Path) -> dict[str, Any]:
-    boundary = build_approval_boundary(project_root)["boundary"]
+    boundary_payload = build_approval_boundary(project_root)
+    boundary = boundary_payload["boundary"]
     delivery_ready = boundary["service_delivery"] == "READY"
     deployed_approved = boundary["deployed_strategy_stack"] == "APPROVED"
     deployment_blockers = int(boundary["deployment_blockers"])
@@ -45,6 +46,7 @@ def build_production_approval(project_root: Path) -> dict[str, Any]:
             "release_status": boundary["release_status"],
             "production_blocker": boundary["production_blocker"],
             "component_risk": boundary["component_risk"],
+            "invariants": boundary_payload.get("invariants", {}),
         },
         "approval_claims": {
             "allowed": [
@@ -89,6 +91,7 @@ def render_production_approval_markdown(payload: dict[str, Any]) -> str:
         f"- Raw artifact runtime: `{payload['raw_supervised_model']['runtime_status']}`",
         f"- Deployment blockers: `{payload['risk_position']['deployment_blockers']}`",
         f"- Component risks: `{payload['risk_position']['component_risks']}`",
+        f"- Boundary invariants: `{payload['approval_boundary']['invariants'].get('status', 'UNKNOWN')}`",
         "",
         "## Allowed Claims",
         "",

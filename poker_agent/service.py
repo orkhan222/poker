@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 
 from poker_agent.agents import MLPolicyAgent, RuleBasedAgent
@@ -13,6 +13,7 @@ from poker_agent.api_contract import api_contract
 from poker_agent.approval_boundary import build_approval_boundary
 from poker_agent.autonomous_agent import AgentLifecycleError, AutonomousPokerAgent
 from poker_agent.client_handoff import build_client_handoff
+from poker_agent.client_gpu_training_response import build_client_gpu_training_response
 from poker_agent.delivery_readiness import summarize_delivery_readiness
 from poker_agent.llm_decision_context import build_decision_context_report
 from poker_agent.model_risk_register import build_model_risk_register
@@ -21,6 +22,7 @@ from poker_agent.project_completion import build_project_completion
 from poker_agent.schemas import PredictionRequest
 from poker_agent.scope_contract import build_scope_contract
 from poker_agent.strategy_readiness import load_combined_strategy_readiness
+from poker_agent.training_cluster import DEFAULT_RUN_PROFILE, build_training_cluster_requirements
 
 
 app = FastAPI(
@@ -53,6 +55,8 @@ LLM_DECISION_QWEN_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_context
 LLM_DECISION_GATE_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_gate.json"
 LLM_CANDIDATE_RANKER_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_candidate_ranker_qwen25.json"
 LLM_ARCHITECTURE_COMPARISON_PATH = PROJECT_ROOT / "reports" / "llm_architecture_comparison.json"
+TODAY_ACCEPTANCE_TRAINING_REPORT_PATH = PROJECT_ROOT / "reports" / "today_acceptance_training.json"
+CLIENT_GPU_TRAINING_RESPONSE_PATH = PROJECT_ROOT / "reports" / "client_gpu_training_response.json"
 
 
 APP_HTML = """
@@ -678,6 +682,52 @@ def client_handoff_json() -> dict[str, Any]:
     return build_client_handoff(PROJECT_ROOT)
 
 
+@app.get("/training-cluster-requirements.json", tags=["System"], summary="Training cluster requirements")
+def training_cluster_requirements_json(
+    run_profile: str = Query(
+        default=DEFAULT_RUN_PROFILE,
+        description="Training run profile: immediate_delivery or full_multi_agent_training.",
+    ),
+    gpu_type: str | None = Query(default=None, description="GPU model, for example A100 or H100."),
+    gpu_count: int | None = Query(default=None, ge=1, description="Number of GPUs available for training."),
+    vram_gb_per_gpu: float | None = Query(default=None, gt=0, description="VRAM per GPU in GB."),
+    cpu_cores: int | None = Query(default=None, ge=1, description="Available CPU cores."),
+    system_ram_gb: float | None = Query(default=None, gt=0, description="Available system RAM in GB."),
+    storage_gb: float | None = Query(default=None, gt=0, description="Available local or attached storage in GB."),
+    interconnect: str | None = Query(default=None, description="GPU interconnect, for example PCIe or NVLink."),
+    dedicated_or_shared: str | None = Query(default=None, description="Whether the cluster is dedicated or shared."),
+) -> dict[str, Any]:
+    cluster = {
+        "gpu_type": gpu_type,
+        "gpu_count": gpu_count,
+        "vram_gb_per_gpu": vram_gb_per_gpu,
+        "cpu_cores": cpu_cores,
+        "system_ram_gb": system_ram_gb,
+        "storage_gb": storage_gb,
+        "interconnect": interconnect,
+        "dedicated_or_shared": dedicated_or_shared,
+    }
+    if not any(value is not None for value in cluster.values()):
+        cluster = None
+    return build_training_cluster_requirements(PROJECT_ROOT, cluster=cluster, run_profile=run_profile)
+
+
+@app.get("/today-acceptance-training.json", tags=["System"], summary="Today acceptance training report")
+def today_acceptance_training_json() -> dict[str, Any]:
+    if not TODAY_ACCEPTANCE_TRAINING_REPORT_PATH.exists():
+        return {
+            "status": "MISSING",
+            "report": str(TODAY_ACCEPTANCE_TRAINING_REPORT_PATH),
+        }
+    return json.loads(TODAY_ACCEPTANCE_TRAINING_REPORT_PATH.read_text(encoding="utf-8"))
+
+
+@app.get("/client-gpu-training-response.json", tags=["System"], summary="Client GPU training response")
+def client_gpu_training_response_json() -> dict[str, Any]:
+    if CLIENT_GPU_TRAINING_RESPONSE_PATH.exists():
+        return json.loads(CLIENT_GPU_TRAINING_RESPONSE_PATH.read_text(encoding="utf-8"))
+    return build_client_gpu_training_response(PROJECT_ROOT)
+
 @app.get("/llm-decision-context.json", tags=["System"], summary="LLM decision context contract")
 def llm_decision_context_json() -> dict[str, Any]:
     return build_decision_context_report()
@@ -837,3 +887,5 @@ def predict_page() -> str:
 def predict(payload: dict[str, Any]) -> dict[str, Any]:
     request = PredictionRequest.from_dict(payload)
     return get_agent().predict(request).to_dict()
+
+
