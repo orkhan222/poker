@@ -2,6 +2,7 @@ param(
     [string]$Dataset = "C:\Users\user\Desktop\AllFile\dataset",
     [string]$ModelOut = "",
     [string]$ReportsDir = "",
+    [string]$PythonExecutable = "",
     [switch]$SkipTrain,
     [switch]$TrainBundle,
     [switch]$AllowGateFailure,
@@ -24,9 +25,35 @@ if (!$ReportsDir) {
     $ReportsDir = Join-Path $ProjectRoot "reports"
 }
 
-$PythonCandidates = @(
+function Test-PythonRuntime {
+    param([string]$Candidate)
+    if (!$Candidate -or !(Test-Path $Candidate)) {
+        return $false
+    }
+    try {
+        $PreviousErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        & $Candidate -c "import sys, joblib, pandas, sklearn; print(sys.executable)" *> $null
+        $ExitCode = $LASTEXITCODE
+        $ErrorActionPreference = $PreviousErrorActionPreference
+        return ($ExitCode -eq 0)
+    } catch {
+        $ErrorActionPreference = $PreviousErrorActionPreference
+        return $false
+    }
+}
+
+$PythonCandidates = @()
+if ($PythonExecutable) {
+    $PythonCandidates += $PythonExecutable
+}
+if ($env:POKER_AGENT_PYTHON) {
+    $PythonCandidates += $env:POKER_AGENT_PYTHON
+}
+$PythonCandidates += @(
     (Join-Path $ProjectRoot ".venv\Scripts\python.exe"),
-    (Join-Path $ProjectRoot "env\Scripts\python.exe")
+    (Join-Path $ProjectRoot "env\Scripts\python.exe"),
+    "C:\Users\user\AppData\Local\poker-qwen-venv\Scripts\python.exe"
 )
 $PythonCommand = Get-Command python -ErrorAction SilentlyContinue
 if ($PythonCommand) {
@@ -35,16 +62,13 @@ if ($PythonCommand) {
 
 $Python = $null
 foreach ($Candidate in $PythonCandidates) {
-    if ($Candidate -and (Test-Path $Candidate)) {
-        & $Candidate -c "import sys; print(sys.executable)" *> $null
-        if ($LASTEXITCODE -eq 0) {
-            $Python = $Candidate
-            break
-        }
+    if (Test-PythonRuntime -Candidate $Candidate) {
+        $Python = $Candidate
+        break
     }
 }
 if (!$Python) {
-    Write-Error "Working Python was not found. Run .\install.ps1 first."
+    Write-Error "Working Python with required ML dependencies was not found. Run .\install.ps1 first or pass -PythonExecutable."
 }
 if (!(Test-Path $Dataset)) {
     Write-Error "Dataset folder not found: $Dataset"
@@ -290,7 +314,7 @@ if ($RunTransformerEval) {
         Write-Error "Local instruction-model evaluation failed."
     }
 } elseif (!(Test-Path $TransformerEvalReport) -or !(Test-Path $TransformerMarkdownReport)) {
-    Write-Error "Instruction-model reports are missing. Re-run with -RunTransformerEval."
+    Write-Warning "Instruction-model reports are missing. Skipping optional transformer eval; re-run with -RunTransformerEval when GPU/runtime is available."
 }
 
 Write-Host "6/8 Auditing repository..." -ForegroundColor Green

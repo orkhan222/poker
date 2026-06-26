@@ -1,0 +1,18 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: hist_gradient_boosting
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: scope_contract
+description: Build the scope-to-evidence contract for the documented delivery phases.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_scope_contract.py
+  args:
+    project_root: .
+    out: ${logging.reports_dir}/scope_contract.json
+    markdown_out: ${logging.reports_dir}/scope_contract.md

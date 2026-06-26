@@ -1,0 +1,18 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: hist_gradient_boosting
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: strategy_remediation
+description: Build the remediation plan for remaining strategy-model risks.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_strategy_remediation.py
+  args:
+    project_root: .
+    out: ${logging.reports_dir}/strategy_remediation.json
+    markdown_out: ${logging.reports_dir}/strategy_remediation.md

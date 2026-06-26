@@ -21,6 +21,8 @@ command:
     quantization: none
     max_gpu_memory_mb: 0
     max_cpu_memory_gb: 12
+    candidate_score_reduction: mean
+    probability_temperature: 1.0
     max_new_tokens: 192
     max_examples: 0
     seed: ${runtime.seed}
