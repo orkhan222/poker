@@ -1,0 +1,26 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: hist_gradient_boosting
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: raw_model_challenger
+description: Train and gate supervised standalone challenger artifacts without allowing false standalone approval.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/train_raw_model_challenger.py
+  args:
+    project_root: .
+    dataset: ${dataset.root}
+    report_out: ${logging.reports_dir}/raw_model_challenger.json
+    markdown_out: ${logging.reports_dir}/raw_model_challenger.md
+    model_dir: models/raw_challengers
+    audit_report: ${logging.reports_dir}/dataset_audit.json
+    max_examples: ${training.max_examples}
+    valid_ratio: ${training.valid_ratio}
+    seed: ${training.seed}
+    promote_model_out: null
+    evaluate_existing_only: false

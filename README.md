@@ -58,6 +58,7 @@ Machine-readable status endpoints:
 /deployed-strategy-gate.json
 /strategy-remediation.json
 /production-approval.json
+/raw-model-status.json
 /approval-boundary.json
 /client-handoff.json
 /llm-decision-context.json
@@ -71,6 +72,12 @@ The important distinction is intentional: `deployed_strategy_gate=PASS` approves
 The training-cluster contract asks the client to confirm GPU type/count, VRAM, CPU/RAM, storage, interconnect, and whether the environment is dedicated or shared. For current delivery, a dedicated single A100 or H100 is treated as enough to run the same-day acceptance profile: smoke training, simulation sanity checks, validation, and report refresh. Full production-scale multi-agent training remains a separate hardening profile and is not required to mark the current delivery package complete.
 
 The client GPU response is generated as both `reports\client_gpu_training_response.json` and `reports\client_gpu_training_response.md`, and is exposed at `GET /client-gpu-training-response.json`. It is the approved wording for the A100/H100 question: one dedicated A100 or H100 is sufficient for current acceptance training and validation, while full production-scale multi-agent training remains a separate hardening step.
+
+## Multi-Agent Training Boundary
+
+Full production-scale multi-agent training has not been completed yet. The current acceptance training is sufficient for delivery validation, but it is not a full long-running self-play training cycle. This boundary is now enforced by code, not only by documentation.
+
+The formal status contract is generated at `reports\multi_agent_training_status.json`, rendered at `reports\multi_agent_training_status.md`, and exposed through `GET /multi-agent-training-status.json`. The verifier blocks any false claim that the current acceptance run completed full production-scale multi-agent training.
 
 ## Today Acceptance Training
 
@@ -397,7 +404,34 @@ The final production approval contract is available at:
 GET /production-approval.json
 reports\production_approval.json
 reports\production_approval.md
+reports\raw_model_status.json
+reports\raw_model_status.md
 ```
+
+
+## Raw Model Status Contract
+
+The raw supervised model is explicitly tracked as a loadable service component, not as a standalone production-approved poker policy. The contract is generated at `reports\raw_model_status.json`, rendered at `reports\raw_model_status.md`, and exposed through `GET /raw-model-status.json`.
+
+The invariant is strict: if `production_gate.status=FAIL`, the raw model cannot be marked as `STANDALONE_APPROVED`. It may remain loadable inside the approved deployed strategy stack, but the standalone limitation must stay visible as a component risk.
+
+## Raw Model Challenger Gate
+
+The raw supervised limitation is now backed by an executable challenger workflow rather than only a written risk note. The workflow trains several standalone supervised candidates, evaluates them on the same grouped holdout contract, applies the raw production thresholds, and blocks promotion unless every gate passes.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\train_raw_model_challenger.py --dataset C:\Users\user\Desktop\AllFile\dataset --max-examples 50000
+```
+
+Generated artifacts:
+
+```text
+reports\raw_model_challenger.json
+reports\raw_model_challenger.md
+models\raw_challengers\*.joblib
+```
+
+The challenger contract preserves the same release boundary: failed raw candidates cannot be represented as standalone production-approved policies, and the existing service delivery remains unaffected.
 
 ## Project Completion Contract
 

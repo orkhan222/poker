@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string]$Dataset = "C:\Users\user\Desktop\AllFile\dataset",
     [string]$ModelOut = "",
     [string]$ReportsDir = "",
@@ -145,6 +145,8 @@ $ModelRiskRegisterReport = Join-Path $ReportsDir "model_risk_register.json"
 $ModelRiskRegisterMarkdownReport = Join-Path $ReportsDir "model_risk_register.md"
 $ProductionApprovalReport = Join-Path $ReportsDir "production_approval.json"
 $ProductionApprovalMarkdownReport = Join-Path $ReportsDir "production_approval.md"
+$RawModelStatusReport = Join-Path $ReportsDir "raw_model_status.json"
+$RawModelStatusMarkdownReport = Join-Path $ReportsDir "raw_model_status.md"
 $ClientHandoffReport = Join-Path $ReportsDir "client_handoff.json"
 $ClientHandoffMarkdownReport = Join-Path $ReportsDir "client_handoff.md"
 $TrainingClusterReport = Join-Path $ReportsDir "training_cluster_requirements.json"
@@ -154,6 +156,8 @@ $TodayTrainingMarkdownReport = Join-Path $ReportsDir "today_acceptance_training.
 $TodayTrainingGateReport = Join-Path $ReportsDir "today_acceptance_production_gate.json"
 $ClientGpuTrainingResponseReport = Join-Path $ReportsDir "client_gpu_training_response.json"
 $ClientGpuTrainingResponseMarkdown = Join-Path $ReportsDir "client_gpu_training_response.md"
+$MultiAgentTrainingStatusReport = Join-Path $ReportsDir "multi_agent_training_status.json"
+$MultiAgentTrainingStatusMarkdown = Join-Path $ReportsDir "multi_agent_training_status.md"
 $TodayTrainingModelOut = Join-Path $ProjectRoot "models\poker_policy_bundle.joblib"
 
 Write-Host "1/8 Auditing dataset..." -ForegroundColor Green
@@ -353,6 +357,11 @@ Write-Host "7c/8 Building production approval contract..." -ForegroundColor Gree
     --out $ProductionApprovalReport `
     --markdown-out $ProductionApprovalMarkdownReport
 
+Write-Host "7c-2/8 Building raw model status contract..." -ForegroundColor Green
+& $Python scripts\build_raw_model_status.py `
+    --project-root $ProjectRoot `
+    --out $RawModelStatusReport `
+    --markdown-out $RawModelStatusMarkdownReport
 Write-Host "7d/8 Building client handoff statement..." -ForegroundColor Green
 & $Python scripts\build_client_handoff.py `
     --project-root $ProjectRoot `
@@ -381,6 +390,12 @@ Write-Host "7f-2/8 Building client GPU training response..." -ForegroundColor Gr
     --project-root $ProjectRoot `
     --out $ClientGpuTrainingResponseReport `
     --markdown-out $ClientGpuTrainingResponseMarkdown
+
+Write-Host "7f-3/8 Building multi-agent training status boundary..." -ForegroundColor Green
+& $Python scripts\build_multi_agent_training_status.py `
+    --project-root $ProjectRoot `
+    --out $MultiAgentTrainingStatusReport `
+    --markdown-out $MultiAgentTrainingStatusMarkdown
 Write-Host "7g/8 Building scope contract..." -ForegroundColor Green
 & $Python scripts\build_scope_contract.py `
     --project-root $ProjectRoot `
@@ -442,8 +457,10 @@ Write-Host "Scope contract: $ScopeContractReport"
 Write-Host "Project completion: $ProjectCompletionReport"
 Write-Host "Model risk register: $ModelRiskRegisterReport"
 Write-Host "Production approval: $ProductionApprovalReport"
+Write-Host "Raw model status: $RawModelStatusReport"
 Write-Host "Client handoff: $ClientHandoffReport"
 Write-Host "Training cluster requirements: $TrainingClusterReport"
 Write-Host "Today acceptance training: $TodayTrainingReport"
+Write-Host "Multi-agent training status: $MultiAgentTrainingStatusReport"
 Write-Host "ZIP: $ZipPath"
 

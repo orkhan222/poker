@@ -99,6 +99,9 @@ def require_files(root: Path) -> str:
         "configs/experiments/training_cluster_requirements.yaml",
         "configs/experiments/today_acceptance_training.yaml",
         "configs/experiments/client_gpu_training_response.yaml",
+        "configs/experiments/multi_agent_training_status.yaml",
+        "configs/experiments/raw_model_status.yaml",
+        "configs/experiments/raw_model_challenger.yaml",
         "configs/experiments/verify_delivery.yaml",
         "Dockerfile",
         "docker-compose.yml",
@@ -142,6 +145,10 @@ def require_files(root: Path) -> str:
         "reports/model_risk_register.md",
         "reports/production_approval.json",
         "reports/production_approval.md",
+        "reports/raw_model_status.json",
+        "reports/raw_model_status.md",
+        "reports/raw_model_challenger.json",
+        "reports/raw_model_challenger.md",
         "reports/client_handoff.json",
         "reports/client_handoff.md",
         "reports/training_cluster_requirements.json",
@@ -151,15 +158,20 @@ def require_files(root: Path) -> str:
         "reports/today_acceptance_production_gate.json",
         "reports/client_gpu_training_response.json",
         "reports/client_gpu_training_response.md",
+        "reports/multi_agent_training_status.json",
+        "reports/multi_agent_training_status.md",
         "evaluation/event_extraction_gold.jsonl",
         "evaluation/decision_context_smoke.jsonl",
         "evaluation/decision_context_human_holdout.jsonl",
         "scripts/build_model_risk_register.py",
         "scripts/build_production_approval.py",
+        "scripts/build_raw_model_status.py",
+        "scripts/train_raw_model_challenger.py",
         "scripts/build_client_handoff.py",
         "scripts/build_training_cluster_requirements.py",
         "scripts/run_today_acceptance_training.py",
         "scripts/build_client_gpu_training_response.py",
+        "scripts/build_multi_agent_training_status.py",
         "scripts/build_llm_decision_context.py",
         "scripts/llm_decision_context_eval.py",
         "scripts/build_decision_context_holdout.py",
@@ -188,10 +200,13 @@ def require_files(root: Path) -> str:
         "poker_agent/scope_contract.py",
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
+        "poker_agent/raw_model_status.py",
+        "poker_agent/raw_model_challenger.py",
         "poker_agent/client_handoff.py",
         "poker_agent/training_cluster.py",
         "poker_agent/today_training.py",
         "poker_agent/client_gpu_training_response.py",
+        "poker_agent/multi_agent_training_status.py",
         "poker_agent/llm_decision_context.py",
         "poker_agent/llm_decision_benchmark.py",
         "poker_agent/llm_decision_gate.py",
@@ -208,9 +223,12 @@ def require_files(root: Path) -> str:
         "tests/test_training_cluster.py",
         "tests/test_today_acceptance_training.py",
         "tests/test_client_gpu_training_response.py",
+        "tests/test_multi_agent_training_status.py",
         "tests/test_llm_decision_benchmark.py",
         "tests/test_llm_decision_gate.py",
         "tests/test_llm_architecture_comparison.py",
+        "tests/test_raw_model_status.py",
+        "tests/test_raw_model_challenger.py",
     ]
     missing = [path for path in required if not (root / path).exists()]
     if missing:
@@ -232,10 +250,13 @@ def compile_sources(root: Path) -> str:
         "poker_agent/scope_contract.py",
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
+        "poker_agent/raw_model_status.py",
+        "poker_agent/raw_model_challenger.py",
         "poker_agent/client_handoff.py",
         "poker_agent/training_cluster.py",
         "poker_agent/today_training.py",
         "poker_agent/client_gpu_training_response.py",
+        "poker_agent/multi_agent_training_status.py",
         "poker_agent/llm_decision_context.py",
         "poker_agent/llm_decision_benchmark.py",
         "poker_agent/llm_decision_gate.py",
@@ -249,10 +270,13 @@ def compile_sources(root: Path) -> str:
         "scripts/build_scope_contract.py",
         "scripts/build_model_risk_register.py",
         "scripts/build_production_approval.py",
+        "scripts/build_raw_model_status.py",
+        "scripts/train_raw_model_challenger.py",
         "scripts/build_client_handoff.py",
         "scripts/build_training_cluster_requirements.py",
         "scripts/run_today_acceptance_training.py",
         "scripts/build_client_gpu_training_response.py",
+        "scripts/build_multi_agent_training_status.py",
         "scripts/build_llm_decision_context.py",
         "scripts/build_project_completion.py",
         "scripts/check_repo_hygiene.py",
@@ -444,10 +468,13 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     completion_payload = _read_json(reports / "project_completion.json")
     risk_payload = _read_json(reports / "model_risk_register.json")
     approval_payload = _read_json(reports / "production_approval.json")
+    raw_model_status = _read_json(reports / "raw_model_status.json")
+    raw_model_challenger = _read_json(reports / "raw_model_challenger.json")
     handoff_payload = _read_json(reports / "client_handoff.json")
     cluster_payload = _read_json(reports / "training_cluster_requirements.json")
     today_training = _read_json(reports / "today_acceptance_training.json")
     client_gpu_response = _read_json(reports / "client_gpu_training_response.json")
+    multi_agent_training_status = _read_json(reports / "multi_agent_training_status.json")
     approval_boundary_payload = build_approval_boundary(root)
     approval_boundary = approval_boundary_payload.get("boundary", {})
 
@@ -481,6 +508,31 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Model risk register does not preserve deployed strategy approval")
     if approval_payload.get("overall_status") != "APPROVED_WITH_COMPONENT_RISK":
         raise AssertionError(f"Unexpected production approval status: {approval_payload.get('overall_status')}")
+    raw_contract = raw_model_status.get("raw_supervised_model") or {}
+    raw_boundary = raw_model_status.get("release_boundary") or {}
+    if raw_contract.get("runtime_status") != "LOADABLE":
+        raise AssertionError("Raw model status contract does not confirm runtime loadability")
+    if raw_contract.get("quality_gate_status") != "FAIL":
+        raise AssertionError("Raw model status contract must preserve the failing raw quality gate")
+    if raw_contract.get("standalone_status") != "NOT_STANDALONE_APPROVED":
+        raise AssertionError("Raw model status contract does not preserve standalone non-approval")
+    if raw_contract.get("approved_as_standalone_policy") is not False:
+        raise AssertionError("Raw model status contract incorrectly approves the raw model as standalone")
+    if raw_boundary.get("component_risk") is not True or raw_boundary.get("production_blocker") is not False:
+        raise AssertionError("Raw model status contract must track a component risk without creating a production blocker")
+    if (raw_model_status.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Raw model status invariants failed: {raw_model_status.get('invariants')}")
+    challenger_boundary = raw_model_challenger.get("approval_boundary") or {}
+    challenger_best = raw_model_challenger.get("best_candidate") or {}
+    challenger_gate = challenger_best.get("gate") or {}
+    if (raw_model_challenger.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Raw model challenger invariants failed: {raw_model_challenger.get('invariants')}")
+    if challenger_boundary.get("existing_service_delivery_affected") is not False:
+        raise AssertionError("Raw model challenger must not break existing service delivery")
+    if challenger_gate.get("status") != "PASS" and raw_model_challenger.get("approved_as_standalone_policy") is not False:
+        raise AssertionError("Raw model challenger incorrectly approves a failing standalone candidate")
+    if challenger_gate.get("status") != "PASS" and raw_model_challenger.get("standalone_status") != "NOT_STANDALONE_APPROVED":
+        raise AssertionError("Raw model challenger does not preserve standalone non-approval")
     if approval_payload.get("raw_supervised_model", {}).get("standalone_status") != "NOT_STANDALONE_APPROVED":
         raise AssertionError("Production approval does not preserve raw-model standalone boundary")
     if approval_payload.get("risk_position", {}).get("deployment_blockers") != 0:
@@ -557,6 +609,24 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Client GPU response must keep full multi-agent training as a separate hardening phase")
     if "Do not represent" not in gpu_boundary.get("do_not_claim", ""):
         raise AssertionError("Client GPU response must preserve the no-false-production-claim boundary")
+    multi_agent_boundary = multi_agent_training_status.get("training_boundary") or {}
+    multi_agent_approval = multi_agent_training_status.get("approval_boundary") or {}
+    if multi_agent_training_status.get("overall_status") != "PASS":
+        raise AssertionError(f"Multi-agent training status did not pass: {multi_agent_training_status.get('overall_status')}")
+    if multi_agent_boundary.get("delivery_validation_status") != "PASS":
+        raise AssertionError("Multi-agent training status must preserve passing delivery validation")
+    if multi_agent_boundary.get("acceptance_training_sufficient_for_delivery") is not True:
+        raise AssertionError("Acceptance training must remain sufficient for delivery validation")
+    if multi_agent_boundary.get("full_production_scale_multi_agent_training_status") != "NOT_COMPLETED":
+        raise AssertionError("Full production-scale multi-agent training must not be marked completed")
+    if multi_agent_boundary.get("full_long_running_self_play_completed") is not False:
+        raise AssertionError("Long-running self-play cannot be completed by the acceptance run")
+    if multi_agent_boundary.get("production_blocker") is not False:
+        raise AssertionError("Deferred full multi-agent training must not block the current delivery package")
+    if multi_agent_approval.get("full_training_claim_allowed") is not False:
+        raise AssertionError("Full multi-agent training claims must remain blocked")
+    if (multi_agent_training_status.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Multi-agent training status invariants failed: {multi_agent_training_status.get('invariants')}")
     if risk_payload.get("raw_supervised_model_status") == "NOT_STANDALONE_APPROVED":
         summary = risk_payload.get("risk_summary", {})
         if summary.get("component_risks", 0) < 1:
@@ -665,6 +735,7 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/experiments/training_cluster_requirements.yaml",
         "configs/experiments/today_acceptance_training.yaml",
         "configs/experiments/client_gpu_training_response.yaml",
+        "configs/experiments/multi_agent_training_status.yaml",
         "configs/experiments/production_gate.yaml",
         "configs/experiments/verify_delivery.yaml",
     ]
@@ -742,6 +813,10 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/model_risk_register.md",
         "reports/production_approval.json",
         "reports/production_approval.md",
+        "reports/raw_model_status.json",
+        "reports/raw_model_status.md",
+        "reports/raw_model_challenger.json",
+        "reports/raw_model_challenger.md",
         "reports/client_handoff.json",
         "reports/client_handoff.md",
         "reports/training_cluster_requirements.json",
@@ -751,13 +826,18 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/today_acceptance_production_gate.json",
         "reports/client_gpu_training_response.json",
         "reports/client_gpu_training_response.md",
+        "reports/multi_agent_training_status.json",
+        "reports/multi_agent_training_status.md",
         "poker_agent/autonomous_agent.py",
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
+        "poker_agent/raw_model_status.py",
+        "poker_agent/raw_model_challenger.py",
         "poker_agent/client_handoff.py",
         "poker_agent/training_cluster.py",
         "poker_agent/today_training.py",
         "poker_agent/client_gpu_training_response.py",
+        "poker_agent/multi_agent_training_status.py",
         "poker_agent/approval_boundary.py",
         "poker_agent/llm_decision_context.py",
         "poker_agent/llm_decision_benchmark.py",
@@ -771,10 +851,13 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/audit_repository.py",
         "scripts/build_model_risk_register.py",
         "scripts/build_production_approval.py",
+        "scripts/build_raw_model_status.py",
+        "scripts/train_raw_model_challenger.py",
         "scripts/build_client_handoff.py",
         "scripts/build_training_cluster_requirements.py",
         "scripts/run_today_acceptance_training.py",
         "scripts/build_client_gpu_training_response.py",
+        "scripts/build_multi_agent_training_status.py",
         "scripts/build_llm_decision_context.py",
         "scripts/llm_decision_context_eval.py",
         "scripts/build_decision_context_holdout.py",
@@ -789,6 +872,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "tests/test_training_cluster.py",
         "tests/test_today_acceptance_training.py",
         "tests/test_client_gpu_training_response.py",
+        "tests/test_multi_agent_training_status.py",
         "verify_delivery.ps1",
     }
     if not zip_path.exists():

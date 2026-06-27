@@ -1,0 +1,18 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: hist_gradient_boosting
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: raw_model_status
+description: Build the raw supervised model status contract and approval boundary.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_raw_model_status.py
+  args:
+    project_root: .
+    out: ${logging.reports_dir}/raw_model_status.json
+    markdown_out: ${logging.reports_dir}/raw_model_status.md

@@ -17,8 +17,10 @@ from poker_agent.client_gpu_training_response import build_client_gpu_training_r
 from poker_agent.delivery_readiness import summarize_delivery_readiness
 from poker_agent.llm_decision_context import build_decision_context_report
 from poker_agent.model_risk_register import build_model_risk_register
+from poker_agent.multi_agent_training_status import build_multi_agent_training_status
 from poker_agent.production_approval import build_production_approval
 from poker_agent.project_completion import build_project_completion
+from poker_agent.raw_model_status import build_raw_model_status
 from poker_agent.schemas import PredictionRequest
 from poker_agent.scope_contract import build_scope_contract
 from poker_agent.strategy_readiness import load_combined_strategy_readiness
@@ -57,6 +59,9 @@ LLM_CANDIDATE_RANKER_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_cand
 LLM_ARCHITECTURE_COMPARISON_PATH = PROJECT_ROOT / "reports" / "llm_architecture_comparison.json"
 TODAY_ACCEPTANCE_TRAINING_REPORT_PATH = PROJECT_ROOT / "reports" / "today_acceptance_training.json"
 CLIENT_GPU_TRAINING_RESPONSE_PATH = PROJECT_ROOT / "reports" / "client_gpu_training_response.json"
+MULTI_AGENT_TRAINING_STATUS_PATH = PROJECT_ROOT / "reports" / "multi_agent_training_status.json"
+RAW_MODEL_STATUS_PATH = PROJECT_ROOT / "reports" / "raw_model_status.json"
+RAW_MODEL_CHALLENGER_PATH = PROJECT_ROOT / "reports" / "raw_model_challenger.json"
 
 
 APP_HTML = """
@@ -667,6 +672,26 @@ def model_risk_register_json() -> dict[str, Any]:
     return build_model_risk_register(PROJECT_ROOT)
 
 
+
+@app.get("/raw-model-status.json", tags=["System"], summary="Raw supervised model status")
+def raw_model_status_json() -> dict[str, Any]:
+    if RAW_MODEL_STATUS_PATH.exists():
+        return json.loads(RAW_MODEL_STATUS_PATH.read_text(encoding="utf-8"))
+    return build_raw_model_status(PROJECT_ROOT)
+
+
+@app.get("/raw-model-challenger.json", tags=["System"], summary="Raw supervised model challenger gate")
+def raw_model_challenger_json() -> dict[str, Any]:
+    if RAW_MODEL_CHALLENGER_PATH.exists():
+        return json.loads(RAW_MODEL_CHALLENGER_PATH.read_text(encoding="utf-8"))
+    return {
+        "status": "MISSING",
+        "standalone_status": "NOT_STANDALONE_APPROVED",
+        "approved_as_standalone_policy": False,
+        "report": str(RAW_MODEL_CHALLENGER_PATH),
+    }
+
+
 @app.get("/production-approval.json", tags=["System"], summary="Production approval contract")
 def production_approval_json() -> dict[str, Any]:
     return build_production_approval(PROJECT_ROOT)
@@ -727,6 +752,18 @@ def client_gpu_training_response_json() -> dict[str, Any]:
     if CLIENT_GPU_TRAINING_RESPONSE_PATH.exists():
         return json.loads(CLIENT_GPU_TRAINING_RESPONSE_PATH.read_text(encoding="utf-8"))
     return build_client_gpu_training_response(PROJECT_ROOT)
+
+
+@app.get(
+    "/multi-agent-training-status.json",
+    tags=["System"],
+    summary="Multi-agent training completion boundary",
+)
+def multi_agent_training_status_json() -> dict[str, Any]:
+    if MULTI_AGENT_TRAINING_STATUS_PATH.exists():
+        return json.loads(MULTI_AGENT_TRAINING_STATUS_PATH.read_text(encoding="utf-8"))
+    return build_multi_agent_training_status(PROJECT_ROOT)
+
 
 @app.get("/llm-decision-context.json", tags=["System"], summary="LLM decision context contract")
 def llm_decision_context_json() -> dict[str, Any]:
