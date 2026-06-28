@@ -51,12 +51,13 @@ def build_production_approval(project_root: Path) -> dict[str, Any]:
         "approval_claims": {
             "allowed": [
                 "The service delivery package is ready for production-policy rollout.",
-                "The deployed strategy stack is approved as a composed runtime policy.",
+                "The deployed strategy stack is approved as a composed runtime policy with monitoring.",
                 "The raw supervised model is loadable and usable only inside the approved deployed stack.",
                 "The remaining raw-model weakness is tracked as a component risk, not a production blocker.",
             ],
             "not_allowed": [
                 "The raw supervised artifact is not approved as a standalone production poker policy.",
+                "The current stack must not be described as a final maximally optimized poker engine.",
                 "The raw production gate must not be converted into a false pass.",
                 "Deployed-stack approval must not be presented as standalone raw-model approval.",
             ],

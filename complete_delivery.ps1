@@ -135,18 +135,38 @@ $CandidateGateReport = Join-Path $ReportsDir "llm_decision_candidate_gate.json"
 $CandidateGateMarkdown = Join-Path $ReportsDir "llm_decision_candidate_gate.md"
 $ArchitectureComparisonReport = Join-Path $ReportsDir "llm_architecture_comparison.json"
 $ArchitectureComparisonMarkdown = Join-Path $ReportsDir "llm_architecture_comparison.md"
+$LlmRoleBoundaryReport = Join-Path $ReportsDir "llm_role_boundary.json"
+$LlmRoleBoundaryMarkdownReport = Join-Path $ReportsDir "llm_role_boundary.md"
+$QloraNextStageReport = Join-Path $ReportsDir "qlora_next_stage.json"
+$QloraNextStageMarkdownReport = Join-Path $ReportsDir "qlora_next_stage.md"
 $TransformerEvalReport = Join-Path $ReportsDir "llm_transformer_gold_eval.json"
 $TransformerMarkdownReport = Join-Path $ReportsDir "llm_transformer_gold_report.md"
 $ScopeContractReport = Join-Path $ReportsDir "scope_contract.json"
 $ScopeContractMarkdownReport = Join-Path $ReportsDir "scope_contract.md"
 $ProjectCompletionReport = Join-Path $ReportsDir "project_completion.json"
 $ProjectCompletionMarkdownReport = Join-Path $ReportsDir "project_completion.md"
+$FinalDeliveryAcceptanceReport = Join-Path $ReportsDir "final_delivery_acceptance.json"
+$FinalDeliveryAcceptanceMarkdownReport = Join-Path $ReportsDir "final_delivery_acceptance.md"
+$ProductionRuntimeMonitoringReport = Join-Path $ReportsDir "production_runtime_monitoring.json"
+# $ProductionRuntimeMonitoringMarkdownReport = Join-Path $ReportsDir "production_runtime_monitoring.md"
 $ModelRiskRegisterReport = Join-Path $ReportsDir "model_risk_register.json"
 $ModelRiskRegisterMarkdownReport = Join-Path $ReportsDir "model_risk_register.md"
 $ProductionApprovalReport = Join-Path $ReportsDir "production_approval.json"
 $ProductionApprovalMarkdownReport = Join-Path $ReportsDir "production_approval.md"
+$StrategyStackMaturityReport = Join-Path $ReportsDir "strategy_stack_maturity.json"
+$StrategyStackMaturityMarkdownReport = Join-Path $ReportsDir "strategy_stack_maturity.md"
+$BehavioralRevalidationReport = Join-Path $ReportsDir "behavioral_revalidation.json"
+$BehavioralRevalidationMarkdownReport = Join-Path $ReportsDir "behavioral_revalidation.md"
+$BehavioralRevalidationProofReport = Join-Path $ReportsDir "behavioral_revalidation_proof.json"
+$BehavioralRevalidationProofMarkdownReport = Join-Path $ReportsDir "behavioral_revalidation_proof.md"
+$HoleCardDataQualityReport = Join-Path $ReportsDir "hole_card_data_quality.json"
+$HoleCardDataQualityMarkdownReport = Join-Path $ReportsDir "hole_card_data_quality.md"
+$BetTimingCalibrationReport = Join-Path $ReportsDir "bet_timing_calibration.json"
+$BetTimingCalibrationMarkdownReport = Join-Path $ReportsDir "bet_timing_calibration.md"
 $RawModelStatusReport = Join-Path $ReportsDir "raw_model_status.json"
 $RawModelStatusMarkdownReport = Join-Path $ReportsDir "raw_model_status.md"
+$ChallengerStrategyQualityReport = Join-Path $ReportsDir "challenger_strategy_quality.json"
+$ChallengerStrategyQualityMarkdownReport = Join-Path $ReportsDir "challenger_strategy_quality.md"
 $ClientHandoffReport = Join-Path $ReportsDir "client_handoff.json"
 $ClientHandoffMarkdownReport = Join-Path $ReportsDir "client_handoff.md"
 $TrainingClusterReport = Join-Path $ReportsDir "training_cluster_requirements.json"
@@ -317,6 +337,18 @@ if ((Test-Path $DecisionQwenReport) -and (Test-Path $CandidateRankerReport) -and
         --report-out $ArchitectureComparisonMarkdown
 }
 
+Write-Host "5e-4/8 Building LLM role boundary contract..." -ForegroundColor Green
+& $Python scripts\build_llm_role_boundary.py `
+    --project-root $ProjectRoot `
+    --out $LlmRoleBoundaryReport `
+    --markdown-out $LlmRoleBoundaryMarkdownReport
+
+Write-Host "5e-5/8 Building QLoRA next-stage boundary contract..." -ForegroundColor Green
+& $Python scripts\build_qlora_next_stage.py `
+    --project-root $ProjectRoot `
+    --out $QloraNextStageReport `
+    --markdown-out $QloraNextStageMarkdownReport
+
 if ($RunTransformerEval) {
     Write-Host "5f/8 Running local instruction-model evaluation..." -ForegroundColor Green
     & $Python scripts\run_hydra_experiment.py `
@@ -357,11 +389,38 @@ Write-Host "7c/8 Building production approval contract..." -ForegroundColor Gree
     --out $ProductionApprovalReport `
     --markdown-out $ProductionApprovalMarkdownReport
 
+
+
+Write-Host "7c-0/8 Building behavioral revalidation contract..." -ForegroundColor Green
+& $Python scripts\build_behavioral_revalidation.py `
+    --project-root $ProjectRoot `
+    --out $BehavioralRevalidationReport `
+    --markdown-out $BehavioralRevalidationMarkdownReport
+
+
+Write-Host "7c-0b/8 Building behavioral revalidation proof..." -ForegroundColor Green
+& $Python scripts\build_behavioral_revalidation_proof.py `
+    --project-root $ProjectRoot `
+    --out $BehavioralRevalidationProofReport `
+    --markdown-out $BehavioralRevalidationProofMarkdownReport
+
+Write-Host "7c-1/8 Building strategy stack maturity contract..." -ForegroundColor Green
+& $Python scripts\build_strategy_stack_maturity.py `
+    --project-root $ProjectRoot `
+    --out $StrategyStackMaturityReport `
+    --markdown-out $StrategyStackMaturityMarkdownReport
+
 Write-Host "7c-2/8 Building raw model status contract..." -ForegroundColor Green
 & $Python scripts\build_raw_model_status.py `
     --project-root $ProjectRoot `
     --out $RawModelStatusReport `
     --markdown-out $RawModelStatusMarkdownReport
+Write-Host "7c-2b/8 Building challenger strategy-quality boundary..." -ForegroundColor Green
+& $Python scripts\build_challenger_strategy_quality.py `
+    --project-root $ProjectRoot `
+    --out $ChallengerStrategyQualityReport `
+    --markdown-out $ChallengerStrategyQualityMarkdownReport
+
 Write-Host "7d/8 Building client handoff statement..." -ForegroundColor Green
 & $Python scripts\build_client_handoff.py `
     --project-root $ProjectRoot `
@@ -385,6 +444,18 @@ Write-Host "7f/8 Building today acceptance training report..." -ForegroundColor 
     --max-examples 1000 `
     --skip-training
 
+Write-Host "7f-0/8 Building bet-sizing and timing calibration contract..." -ForegroundColor Green
+& $Python scripts\build_bet_timing_calibration.py `
+    --project-root $ProjectRoot `
+    --out $BetTimingCalibrationReport `
+    --markdown-out $BetTimingCalibrationMarkdownReport
+
+Write-Host "7f-1/8 Building hole-card data-quality contract..." -ForegroundColor Green
+& $Python scripts\build_hole_card_data_quality.py `
+    --project-root $ProjectRoot `
+    --out $HoleCardDataQualityReport `
+    --markdown-out $HoleCardDataQualityMarkdownReport
+
 Write-Host "7f-2/8 Building client GPU training response..." -ForegroundColor Green
 & $Python scripts\build_client_gpu_training_response.py `
     --project-root $ProjectRoot `
@@ -407,6 +478,12 @@ Write-Host "7h/8 Building project completion contract..." -ForegroundColor Green
     --project-root $ProjectRoot `
     --out $ProjectCompletionReport `
     --markdown-out $ProjectCompletionMarkdownReport
+
+Write-Host "7h-1/8 Building final delivery acceptance contract..." -ForegroundColor Green
+& $Python scripts\build_final_delivery_acceptance.py `
+    --project-root $ProjectRoot `
+    --out $FinalDeliveryAcceptanceReport `
+    --markdown-out $FinalDeliveryAcceptanceMarkdownReport
 
 Write-Host "8/8 Rebuilding delivery ZIP..." -ForegroundColor Green
 
@@ -451,13 +528,23 @@ Write-Host "Decision Qwen benchmark: $DecisionQwenReport"
 Write-Host "Decision model gate: $DecisionGateReport"
 Write-Host "Candidate ranker: $CandidateRankerReport"
 Write-Host "Architecture comparison: $ArchitectureComparisonReport"
+Write-Host "LLM role boundary: $LlmRoleBoundaryReport"
 Write-Host "Instruction-model eval: $TransformerEvalReport"
 Write-Host "Instruction-model report: $TransformerMarkdownReport"
 Write-Host "Scope contract: $ScopeContractReport"
 Write-Host "Project completion: $ProjectCompletionReport"
+Write-Host "Final delivery acceptance: $FinalDeliveryAcceptanceReport"
+Write-Host "Production runtime monitoring: $ProductionRuntimeMonitoringReport"
+Write-Host "QLoRA next-stage boundary: $QloraNextStageReport"
 Write-Host "Model risk register: $ModelRiskRegisterReport"
 Write-Host "Production approval: $ProductionApprovalReport"
+Write-Host "Behavioral revalidation: $BehavioralRevalidationReport"
+Write-Host "Behavioral revalidation proof: $BehavioralRevalidationProofReport"
+Write-Host "Bet/timing calibration: $BetTimingCalibrationReport"
+Write-Host "Hole-card data quality: $HoleCardDataQualityReport"
+Write-Host "Strategy stack maturity: $StrategyStackMaturityReport"
 Write-Host "Raw model status: $RawModelStatusReport"
+Write-Host "Challenger strategy quality: $ChallengerStrategyQualityReport"
 Write-Host "Client handoff: $ClientHandoffReport"
 Write-Host "Training cluster requirements: $TrainingClusterReport"
 Write-Host "Today acceptance training: $TodayTrainingReport"

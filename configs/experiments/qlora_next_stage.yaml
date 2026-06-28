@@ -1,0 +1,18 @@
+﻿defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: text_event_smol
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: qlora_next_stage
+description: Build the QLoRA/larger-LLM next-stage improvement boundary for controlled extraction and candidate ranking.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_qlora_next_stage.py
+  args:
+    project_root: .
+    out: ${logging.reports_dir}/qlora_next_stage.json
+    markdown_out: ${logging.reports_dir}/qlora_next_stage.md

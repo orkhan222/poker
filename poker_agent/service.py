@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 import json
 from pathlib import Path
 from typing import Any
@@ -10,20 +11,30 @@ from fastapi.responses import HTMLResponse
 
 from poker_agent.agents import MLPolicyAgent, RuleBasedAgent
 from poker_agent.api_contract import api_contract
+from poker_agent.behavioral_revalidation import build_behavioral_revalidation
+from poker_agent.behavioral_revalidation_proof import build_behavioral_revalidation_proof
+from poker_agent.bet_timing_calibration import build_bet_timing_calibration
+from poker_agent.hole_card_data_quality import build_hole_card_data_quality
 from poker_agent.approval_boundary import build_approval_boundary
 from poker_agent.autonomous_agent import AgentLifecycleError, AutonomousPokerAgent
 from poker_agent.client_handoff import build_client_handoff
 from poker_agent.client_gpu_training_response import build_client_gpu_training_response
+from poker_agent.challenger_strategy_quality import build_challenger_strategy_quality
 from poker_agent.delivery_readiness import summarize_delivery_readiness
+from poker_agent.final_delivery_acceptance import build_final_delivery_acceptance
 from poker_agent.llm_decision_context import build_decision_context_report
+from poker_agent.llm_role_boundary import build_llm_role_boundary
 from poker_agent.model_risk_register import build_model_risk_register
 from poker_agent.multi_agent_training_status import build_multi_agent_training_status
 from poker_agent.production_approval import build_production_approval
 from poker_agent.project_completion import build_project_completion
+from poker_agent.production_runtime_monitoring import build_production_runtime_monitoring, runtime_monitoring_state
+from poker_agent.qlora_next_stage import build_qlora_next_stage
 from poker_agent.raw_model_status import build_raw_model_status
 from poker_agent.schemas import PredictionRequest
 from poker_agent.scope_contract import build_scope_contract
 from poker_agent.strategy_readiness import load_combined_strategy_readiness
+from poker_agent.strategy_stack_maturity import build_strategy_stack_maturity
 from poker_agent.training_cluster import DEFAULT_RUN_PROFILE, build_training_cluster_requirements
 
 
@@ -57,11 +68,21 @@ LLM_DECISION_QWEN_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_context
 LLM_DECISION_GATE_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_gate.json"
 LLM_CANDIDATE_RANKER_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_candidate_ranker_qwen25.json"
 LLM_ARCHITECTURE_COMPARISON_PATH = PROJECT_ROOT / "reports" / "llm_architecture_comparison.json"
+LLM_ROLE_BOUNDARY_PATH = PROJECT_ROOT / "reports" / "llm_role_boundary.json"
+QLORA_NEXT_STAGE_PATH = PROJECT_ROOT / "reports" / "qlora_next_stage.json"
 TODAY_ACCEPTANCE_TRAINING_REPORT_PATH = PROJECT_ROOT / "reports" / "today_acceptance_training.json"
 CLIENT_GPU_TRAINING_RESPONSE_PATH = PROJECT_ROOT / "reports" / "client_gpu_training_response.json"
 MULTI_AGENT_TRAINING_STATUS_PATH = PROJECT_ROOT / "reports" / "multi_agent_training_status.json"
 RAW_MODEL_STATUS_PATH = PROJECT_ROOT / "reports" / "raw_model_status.json"
 RAW_MODEL_CHALLENGER_PATH = PROJECT_ROOT / "reports" / "raw_model_challenger.json"
+CHALLENGER_STRATEGY_QUALITY_PATH = PROJECT_ROOT / "reports" / "challenger_strategy_quality.json"
+STRATEGY_STACK_MATURITY_PATH = PROJECT_ROOT / "reports" / "strategy_stack_maturity.json"
+BEHAVIORAL_REVALIDATION_PATH = PROJECT_ROOT / "reports" / "behavioral_revalidation.json"
+BEHAVIORAL_REVALIDATION_PROOF_PATH = PROJECT_ROOT / "reports" / "behavioral_revalidation_proof.json"
+HOLE_CARD_DATA_QUALITY_PATH = PROJECT_ROOT / "reports" / "hole_card_data_quality.json"
+BET_TIMING_CALIBRATION_PATH = PROJECT_ROOT / "reports" / "bet_timing_calibration.json"
+FINAL_DELIVERY_ACCEPTANCE_PATH = PROJECT_ROOT / "reports" / "final_delivery_acceptance.json"
+PRODUCTION_RUNTIME_MONITORING_PATH = PROJECT_ROOT / "reports" / "production_runtime_monitoring.json"
 
 
 APP_HTML = """
@@ -652,6 +673,23 @@ def health_json() -> dict[str, str]:
     return health_payload()
 
 
+@app.get("/final-delivery-acceptance.json", tags=["System"], summary="Final delivery acceptance boundary")
+def final_delivery_acceptance_json() -> dict[str, Any]:
+    if FINAL_DELIVERY_ACCEPTANCE_PATH.exists():
+        return json.loads(FINAL_DELIVERY_ACCEPTANCE_PATH.read_text(encoding="utf-8"))
+    return build_final_delivery_acceptance(PROJECT_ROOT)
+
+
+@app.get("/production-runtime-monitoring.json", tags=["System"], summary="Production monitoring, rollback, and drift tracking")
+def production_runtime_monitoring_json() -> dict[str, Any]:
+    runtime_snapshot = runtime_monitoring_state.snapshot()
+    if PRODUCTION_RUNTIME_MONITORING_PATH.exists():
+        payload = json.loads(PRODUCTION_RUNTIME_MONITORING_PATH.read_text(encoding="utf-8"))
+        payload["runtime_snapshot"] = runtime_snapshot
+        return payload
+    return build_production_runtime_monitoring(PROJECT_ROOT, runtime_snapshot=runtime_snapshot)
+
+
 @app.get("/contract.json", tags=["System"], summary="API response contract")
 def contract_json() -> dict[str, Any]:
     return api_contract()
@@ -690,6 +728,17 @@ def raw_model_challenger_json() -> dict[str, Any]:
         "approved_as_standalone_policy": False,
         "report": str(RAW_MODEL_CHALLENGER_PATH),
     }
+
+
+@app.get(
+    "/challenger-strategy-quality.json",
+    tags=["System"],
+    summary="Challenger requirement before final strategy-quality claims",
+)
+def challenger_strategy_quality_json() -> dict[str, Any]:
+    if CHALLENGER_STRATEGY_QUALITY_PATH.exists():
+        return json.loads(CHALLENGER_STRATEGY_QUALITY_PATH.read_text(encoding="utf-8"))
+    return build_challenger_strategy_quality(PROJECT_ROOT)
 
 
 @app.get("/production-approval.json", tags=["System"], summary="Production approval contract")
@@ -825,6 +874,20 @@ def llm_architecture_comparison_json() -> dict[str, Any]:
     return json.loads(LLM_ARCHITECTURE_COMPARISON_PATH.read_text(encoding="utf-8"))
 
 
+@app.get("/llm-role-boundary.json", tags=["System"], summary="LLM role boundary")
+def llm_role_boundary_json() -> dict[str, Any]:
+    if LLM_ROLE_BOUNDARY_PATH.exists():
+        return json.loads(LLM_ROLE_BOUNDARY_PATH.read_text(encoding="utf-8"))
+    return build_llm_role_boundary(PROJECT_ROOT)
+
+
+@app.get("/qlora-next-stage.json", tags=["System"], summary="QLoRA next-stage improvement boundary")
+def qlora_next_stage_json() -> dict[str, Any]:
+    if QLORA_NEXT_STAGE_PATH.exists():
+        return json.loads(QLORA_NEXT_STAGE_PATH.read_text(encoding="utf-8"))
+    return build_qlora_next_stage(PROJECT_ROOT)
+
+
 @app.get("/agent/capabilities.json", tags=["System"], summary="Autonomous agent capabilities")
 def autonomous_agent_capabilities_json() -> dict[str, Any]:
     return get_autonomous_agent().capabilities()
@@ -900,6 +963,44 @@ def strategy_remediation_json() -> dict[str, Any]:
     return json.loads(STRATEGY_REMEDIATION_REPORT_PATH.read_text(encoding="utf-8"))
 
 
+
+
+@app.get("/behavioral-revalidation.json", tags=["System"], summary="Behavioral revalidation boundary")
+def behavioral_revalidation_json() -> dict[str, Any]:
+    if BEHAVIORAL_REVALIDATION_PATH.exists():
+        return json.loads(BEHAVIORAL_REVALIDATION_PATH.read_text(encoding="utf-8"))
+    return build_behavioral_revalidation(PROJECT_ROOT)
+
+
+
+@app.get("/behavioral-revalidation-proof.json", tags=["System"], summary="Behavioral revalidation executable proof")
+def behavioral_revalidation_proof_json() -> dict[str, Any]:
+    if BEHAVIORAL_REVALIDATION_PROOF_PATH.exists():
+        return json.loads(BEHAVIORAL_REVALIDATION_PROOF_PATH.read_text(encoding="utf-8"))
+    return build_behavioral_revalidation_proof(PROJECT_ROOT)
+
+
+@app.get("/bet-timing-calibration.json", tags=["System"], summary="Bet-sizing and timing calibration boundary")
+def bet_timing_calibration_json() -> dict[str, Any]:
+    if BET_TIMING_CALIBRATION_PATH.exists():
+        return json.loads(BET_TIMING_CALIBRATION_PATH.read_text(encoding="utf-8"))
+    return build_bet_timing_calibration(PROJECT_ROOT)
+
+
+@app.get("/hole-card-data-quality.json", tags=["System"], summary="Hole-card data-quality boundary")
+def hole_card_data_quality_json() -> dict[str, Any]:
+    if HOLE_CARD_DATA_QUALITY_PATH.exists():
+        return json.loads(HOLE_CARD_DATA_QUALITY_PATH.read_text(encoding="utf-8"))
+    return build_hole_card_data_quality(PROJECT_ROOT)
+
+
+@app.get("/strategy-stack-maturity.json", tags=["System"], summary="Strategy stack maturity boundary")
+def strategy_stack_maturity_json() -> dict[str, Any]:
+    if STRATEGY_STACK_MATURITY_PATH.exists():
+        return json.loads(STRATEGY_STACK_MATURITY_PATH.read_text(encoding="utf-8"))
+    return build_strategy_stack_maturity(PROJECT_ROOT)
+
+
 @app.get("/strategy-readiness.json", tags=["System"], summary="Strategy readiness")
 def strategy_readiness_json() -> dict[str, Any]:
     return load_combined_strategy_readiness(PRODUCTION_GATE_REPORT_PATH, DEPLOYED_STRATEGY_GATE_REPORT_PATH)
@@ -922,7 +1023,21 @@ def predict_page() -> str:
     description="Accepts a poker game state and returns the selected action with action probabilities.",
 )
 def predict(payload: dict[str, Any]) -> dict[str, Any]:
-    request = PredictionRequest.from_dict(payload)
-    return get_agent().predict(request).to_dict()
+    started = time.perf_counter()
+    try:
+        request = PredictionRequest.from_dict(payload)
+        result = get_agent().predict(request).to_dict()
+        runtime_monitoring_state.observe_prediction(
+            result,
+            latency_ms=(time.perf_counter() - started) * 1000.0,
+            request_payload=payload,
+        )
+        return result
+    except Exception as exc:
+        runtime_monitoring_state.observe_error(
+            latency_ms=(time.perf_counter() - started) * 1000.0,
+            error_type=type(exc).__name__,
+        )
+        raise
 
 

@@ -49,29 +49,57 @@ raw_production_gate=FAIL
 
 The deployed strategy stack is approved for production rollout with monitoring because policy acceptance, human-likeness, repository hygiene, service delivery, and production-scale validated Hold'em self-play pass. The standalone supervised model artifact remains `NOT_STANDALONE_APPROVED`; its raw model-quality gate is still reported as a component risk instead of being hidden or converted to a false PASS.
 
+The deployment approval is intentionally bounded: the current strategy stack is approved for monitored rollout, not as a final maximally optimized poker engine. This boundary is generated at `reports\strategy_stack_maturity.json`, rendered at `reports\strategy_stack_maturity.md`, and exposed through `GET /strategy-stack-maturity.json`.
+
+Human-likeness and action-distribution checks pass for the current validation scope, but they are not treated as final global evidence. The revalidation boundary is generated at `reports\behavioral_revalidation.json`, rendered at `reports\behavioral_revalidation.md`, and exposed through `GET /behavioral-revalidation.json`; it requires revalidation on larger and cleaner real gameplay data while keeping the current monitored deployment unblocked.
+
+The executable proof is generated at `reports\behavioral_revalidation_proof.json`, rendered at `reports\behavioral_revalidation_proof.md`, and exposed through `GET /behavioral-revalidation-proof.json`. It validates the passing contract and verifies that false generalized claims fail the same validator.
+
+
+Bet-sizing and timing behavior are implemented and measured in the current delivery scope. The service returns `bet_size`, `wait_time_ms`, `sizing_method`, and `timing_method`; however, higher-realism behavior still requires calibration with more reviewed real-player bet-size and decision-timing labels. This boundary is generated at `reports\bet_timing_calibration.json`, rendered at `reports\bet_timing_calibration.md`, and exposed through `GET /bet-timing-calibration.json`.
+
+
+Missing or unreliable hole-card data remains a core dataset limitation. The routed policy bundle mitigates this by separating observed-card and missing-card policy paths, but it does not claim to solve the upstream OCR/card-label quality issue. This boundary is generated at `reports\hole_card_data_quality.json`, rendered at `reports\hole_card_data_quality.md`, and exposed through `GET /hole-card-data-quality.json`.
+
 Machine-readable status endpoints:
 
 ```text
 /contract.json
+/final-delivery-acceptance.json
+/production-runtime-monitoring.json
 /delivery-readiness.json
 /strategy-readiness.json
 /deployed-strategy-gate.json
 /strategy-remediation.json
 /production-approval.json
 /raw-model-status.json
+/challenger-strategy-quality.json
 /approval-boundary.json
 /client-handoff.json
 /llm-decision-context.json
 /training-cluster-requirements.json
 /client-gpu-training-response.json
 /project-completion.json
+/qlora-next-stage.json
 ```
 
 The important distinction is intentional: `deployed_strategy_gate=PASS` approves the stack that is actually deployed, while `raw_production_gate=FAIL` means the raw supervised artifact still needs a stronger challenger model before it can be marketed as a standalone production policy.
 
+Final production-level strategy quality is now guarded by an explicit challenger contract. The project may say that the deployed strategy stack is ready for monitored delivery, but it cannot claim final production-level strategy quality until a stronger challenger model beats the current raw supervised artifact and passes the challenger/raw gates. This boundary is generated at `reports\challenger_strategy_quality.json`, rendered at `reports\challenger_strategy_quality.md`, and exposed through `GET /challenger-strategy-quality.json`.
+
+
+The final acceptance boundary is available at `reports\final_delivery_acceptance.json`, rendered at `reports\final_delivery_acceptance.md`, and exposed through `GET /final-delivery-acceptance.json`. It consolidates service readiness, deployed-stack approval, LLM role limits, raw-model status, hole-card data quality, bet/timing calibration, behavioral revalidation, and multi-agent training boundaries into one machine-readable delivery position.
+
+Production monitoring, rollback rules, and live drift tracking are required when the service is deployed against real traffic. The contract is generated at `reports\production_runtime_monitoring.json`, rendered at `reports\production_runtime_monitoring.md`, and exposed through `GET /production-runtime-monitoring.json`. Real-traffic rollout is blocked if monitoring, rollback, or drift tracking is disabled; this does not block the current delivery package.
+
 The training-cluster contract asks the client to confirm GPU type/count, VRAM, CPU/RAM, storage, interconnect, and whether the environment is dedicated or shared. For current delivery, a dedicated single A100 or H100 is treated as enough to run the same-day acceptance profile: smoke training, simulation sanity checks, validation, and report refresh. Full production-scale multi-agent training remains a separate hardening profile and is not required to mark the current delivery package complete.
 
 The client GPU response is generated as both `reports\client_gpu_training_response.json` and `reports\client_gpu_training_response.md`, and is exposed at `GET /client-gpu-training-response.json`. It is the approved wording for the A100/H100 question: one dedicated A100 or H100 is sufficient for current acceptance training and validation, while full production-scale multi-agent training remains a separate hardening step.
+
+
+The LLM work is intentionally bounded as a controlled decision/context and event-normalization layer. It should not be presented as a fully autonomous poker-playing LLM agent. The formal boundary is generated at `reports\llm_role_boundary.json`, rendered at `reports\llm_role_boundary.md`, and exposed through `GET /llm-role-boundary.json`.
+
+QLoRA or larger LLM fine-tuning is tracked as a next-stage improvement for structured extraction, candidate ranking, and noisy OCR/dealer-log handling. It is not marked as completed or production-approved in the current delivery, and it is exposed through `GET /qlora-next-stage.json` with the report stored at `reports\qlora_next_stage.json`.
 
 ## Multi-Agent Training Boundary
 
@@ -365,6 +393,10 @@ Evidence:
 GET /llm-decision-context.json
 reports\llm_decision_context.json
 reports\llm_decision_context.md
+reports\llm_role_boundary.json
+reports\llm_role_boundary.md
+reports\qlora_next_stage.json
+reports\qlora_next_stage.md
 configs\prompts\poker_decision_full_context.txt
 ```
 
@@ -473,9 +505,15 @@ reports\llm_event_gold_eval.json
 reports\llm_event_gold_report.md
 reports\llm_decision_context.json
 reports\llm_decision_context.md
+reports\llm_role_boundary.json
+reports\llm_role_boundary.md
 reports\llm_transformer_gold_eval.json
 reports\llm_transformer_gold_report.md
 reports\delivery_verification.json
+reports\final_delivery_acceptance.json
+reports\final_delivery_acceptance.md
+reports\production_runtime_monitoring.json
+reports\production_runtime_monitoring.md
 reports\delivery_report.md
 reports\deployed_strategy_gate.json
 reports\delivery_readiness.json

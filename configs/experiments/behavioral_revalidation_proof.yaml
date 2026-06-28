@@ -1,0 +1,18 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: routed_bundle_smoke
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: behavioral_revalidation_proof
+description: Build executable proof that current-scope behavioral PASS cannot be generalized without larger clean gameplay revalidation.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_behavioral_revalidation_proof.py
+  args:
+    project_root: .
+    out: ${logging.reports_dir}/behavioral_revalidation_proof.json
+    markdown_out: ${logging.reports_dir}/behavioral_revalidation_proof.md

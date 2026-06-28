@@ -82,6 +82,11 @@ def require_files(root: Path) -> str:
         "configs/experiments/audit_dataset.yaml",
         "configs/experiments/repo_audit.yaml",
         "configs/experiments/production_gate.yaml",
+        "configs/experiments/strategy_stack_maturity.yaml",
+        "configs/experiments/behavioral_revalidation.yaml",
+        "configs/experiments/behavioral_revalidation_proof.yaml",
+        "configs/experiments/bet_timing_calibration.yaml",
+        "configs/experiments/hole_card_data_quality.yaml",
         "configs/experiments/train_routed_bundle_smoke.yaml",
         "configs/experiments/llm_event_extraction_smoke.yaml",
         "configs/experiments/llm_event_benchmark.yaml",
@@ -95,13 +100,22 @@ def require_files(root: Path) -> str:
         "configs/experiments/llm_decision_candidate_ranker_qwen25.yaml",
         "configs/experiments/llm_decision_candidate_gate.yaml",
         "configs/experiments/llm_architecture_comparison.yaml",
+        "configs/experiments/llm_role_boundary.yaml",
+        "configs/experiments/qlora_next_stage.yaml",
+        "configs/experiments/production_runtime_monitoring.yaml",
         "configs/experiments/project_completion.yaml",
+        "configs/experiments/final_delivery_acceptance.yaml",
+        "configs/experiments/final_delivery_acceptance.yaml",
         "configs/experiments/training_cluster_requirements.yaml",
         "configs/experiments/today_acceptance_training.yaml",
         "configs/experiments/client_gpu_training_response.yaml",
         "configs/experiments/multi_agent_training_status.yaml",
+        "configs/experiments/strategy_stack_maturity.yaml",
+        "configs/experiments/behavioral_revalidation.yaml",
+        "configs/experiments/behavioral_revalidation_proof.yaml",
         "configs/experiments/raw_model_status.yaml",
         "configs/experiments/raw_model_challenger.yaml",
+        "configs/experiments/challenger_strategy_quality.yaml",
         "configs/experiments/verify_delivery.yaml",
         "Dockerfile",
         "docker-compose.yml",
@@ -133,6 +147,14 @@ def require_files(root: Path) -> str:
         "reports/llm_decision_candidate_gate.md",
         "reports/llm_architecture_comparison.json",
         "reports/llm_architecture_comparison.md",
+        "reports/llm_role_boundary.json",
+        "reports/llm_role_boundary.md",
+        "reports/qlora_next_stage.json",
+        "reports/qlora_next_stage.md",
+        "reports/production_runtime_monitoring.json",
+        "reports/production_runtime_monitoring.md",
+        "reports/llm_role_boundary.json",
+        "reports/llm_role_boundary.md",
         "reports/policy_acceptance.json",
         "reports/production_self_play.json",
         "reports/deployed_strategy_gate.json",
@@ -141,14 +163,38 @@ def require_files(root: Path) -> str:
         "reports/scope_contract.md",
         "reports/project_completion.json",
         "reports/project_completion.md",
+        "reports/final_delivery_acceptance.json",
+        "reports/final_delivery_acceptance.md",
+        "reports/final_delivery_acceptance.json",
+        "reports/final_delivery_acceptance.md",
         "reports/model_risk_register.json",
         "reports/model_risk_register.md",
         "reports/production_approval.json",
         "reports/production_approval.md",
+        "reports/strategy_stack_maturity.json",
+        "reports/strategy_stack_maturity.md",
+        "reports/strategy_stack_maturity.json",
+        "reports/strategy_stack_maturity.md",
+        "reports/behavioral_revalidation.json",
+        "reports/behavioral_revalidation.md",
+        "reports/behavioral_revalidation_proof.json",
+        "reports/behavioral_revalidation_proof.md",
+        "reports/bet_timing_calibration.json",
+        "reports/bet_timing_calibration.md",
+        "reports/bet_timing_calibration.json",
+        "reports/bet_timing_calibration.md",
+        "reports/hole_card_data_quality.json",
+        "reports/hole_card_data_quality.md",
+        "reports/hole_card_data_quality.json",
+        "reports/hole_card_data_quality.md",
         "reports/raw_model_status.json",
         "reports/raw_model_status.md",
         "reports/raw_model_challenger.json",
         "reports/raw_model_challenger.md",
+        "reports/challenger_strategy_quality.json",
+        "reports/challenger_strategy_quality.md",
+        "reports/challenger_strategy_quality.json",
+        "reports/challenger_strategy_quality.md",
         "reports/client_handoff.json",
         "reports/client_handoff.md",
         "reports/training_cluster_requirements.json",
@@ -165,20 +211,33 @@ def require_files(root: Path) -> str:
         "evaluation/decision_context_human_holdout.jsonl",
         "scripts/build_model_risk_register.py",
         "scripts/build_production_approval.py",
+        "scripts/build_strategy_stack_maturity.py",
+        "scripts/build_bet_timing_calibration.py",
+        "scripts/build_behavioral_revalidation.py",
+        "scripts/build_behavioral_revalidation_proof.py",
+        "scripts/build_bet_timing_calibration.py",
+        "scripts/build_hole_card_data_quality.py",
         "scripts/build_raw_model_status.py",
         "scripts/train_raw_model_challenger.py",
+        "scripts/build_challenger_strategy_quality.py",
+        "scripts/build_challenger_strategy_quality.py",
         "scripts/build_client_handoff.py",
         "scripts/build_training_cluster_requirements.py",
         "scripts/run_today_acceptance_training.py",
         "scripts/build_client_gpu_training_response.py",
         "scripts/build_multi_agent_training_status.py",
+        "scripts/build_strategy_stack_maturity.py",
         "scripts/build_llm_decision_context.py",
         "scripts/llm_decision_context_eval.py",
         "scripts/build_decision_context_holdout.py",
         "scripts/build_llm_decision_gate.py",
         "scripts/build_llm_architecture_comparison.py",
+        "scripts/build_llm_role_boundary.py",
+        "scripts/build_qlora_next_stage.py",
+        "scripts/build_production_runtime_monitoring.py",
         "scripts/build_scope_contract.py",
         "scripts/build_project_completion.py",
+        "scripts/build_final_delivery_acceptance.py",
         "scripts/train_policy.py",
         "scripts/train_policy_bundle.py",
         "scripts/evaluate_policy.py",
@@ -200,18 +259,31 @@ def require_files(root: Path) -> str:
         "poker_agent/scope_contract.py",
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
+        "poker_agent/strategy_stack_maturity.py",
+        "poker_agent/bet_timing_calibration.py",
+        "poker_agent/behavioral_revalidation.py",
+        "poker_agent/behavioral_revalidation_proof.py",
+        "poker_agent/bet_timing_calibration.py",
+        "poker_agent/hole_card_data_quality.py",
         "poker_agent/raw_model_status.py",
         "poker_agent/raw_model_challenger.py",
+        "poker_agent/challenger_strategy_quality.py",
+        "poker_agent/challenger_strategy_quality.py",
         "poker_agent/client_handoff.py",
         "poker_agent/training_cluster.py",
         "poker_agent/today_training.py",
         "poker_agent/client_gpu_training_response.py",
         "poker_agent/multi_agent_training_status.py",
+        "poker_agent/strategy_stack_maturity.py",
         "poker_agent/llm_decision_context.py",
         "poker_agent/llm_decision_benchmark.py",
+        "poker_agent/llm_role_boundary.py",
+        "poker_agent/qlora_next_stage.py",
+        "poker_agent/production_runtime_monitoring.py",
         "poker_agent/llm_decision_gate.py",
         "poker_agent/llm_architecture_comparison.py",
         "poker_agent/project_completion.py",
+        "poker_agent/final_delivery_acceptance.py",
         "poker_agent/delivery_readiness.py",
         "poker_agent/features.py",
         "poker_agent/action_planning.py",
@@ -223,12 +295,27 @@ def require_files(root: Path) -> str:
         "tests/test_training_cluster.py",
         "tests/test_today_acceptance_training.py",
         "tests/test_client_gpu_training_response.py",
+        "tests/test_bet_timing_calibration.py",
+        "tests/test_final_delivery_acceptance.py",
         "tests/test_multi_agent_training_status.py",
+        "tests/test_strategy_stack_maturity.py",
         "tests/test_llm_decision_benchmark.py",
         "tests/test_llm_decision_gate.py",
         "tests/test_llm_architecture_comparison.py",
+        "tests/test_llm_role_boundary.py",
+        "tests/test_qlora_next_stage.py",
+        "tests/test_production_runtime_monitoring.py",
+        "tests/test_final_delivery_acceptance.py",
+        "tests/test_llm_role_boundary.py",
+        "tests/test_strategy_stack_maturity.py",
+        "tests/test_behavioral_revalidation.py",
+        "tests/test_behavioral_revalidation_proof.py",
+        "tests/test_bet_timing_calibration.py",
+        "tests/test_hole_card_data_quality.py",
         "tests/test_raw_model_status.py",
         "tests/test_raw_model_challenger.py",
+        "tests/test_challenger_strategy_quality.py",
+        "tests/test_hole_card_data_quality.py",
     ]
     missing = [path for path in required if not (root / path).exists()]
     if missing:
@@ -250,18 +337,25 @@ def compile_sources(root: Path) -> str:
         "poker_agent/scope_contract.py",
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
+        "poker_agent/strategy_stack_maturity.py",
+        "poker_agent/behavioral_revalidation.py",
+        "poker_agent/behavioral_revalidation_proof.py",
+        "poker_agent/hole_card_data_quality.py",
         "poker_agent/raw_model_status.py",
         "poker_agent/raw_model_challenger.py",
+        "poker_agent/challenger_strategy_quality.py",
         "poker_agent/client_handoff.py",
         "poker_agent/training_cluster.py",
         "poker_agent/today_training.py",
         "poker_agent/client_gpu_training_response.py",
         "poker_agent/multi_agent_training_status.py",
+        "poker_agent/strategy_stack_maturity.py",
         "poker_agent/llm_decision_context.py",
         "poker_agent/llm_decision_benchmark.py",
         "poker_agent/llm_decision_gate.py",
         "poker_agent/llm_architecture_comparison.py",
         "poker_agent/project_completion.py",
+        "poker_agent/final_delivery_acceptance.py",
         "poker_agent/service.py",
         "poker_agent/slices.py",
         "poker_agent/validation.py",
@@ -270,15 +364,23 @@ def compile_sources(root: Path) -> str:
         "scripts/build_scope_contract.py",
         "scripts/build_model_risk_register.py",
         "scripts/build_production_approval.py",
+        "scripts/build_strategy_stack_maturity.py",
+        "scripts/build_behavioral_revalidation.py",
+        "scripts/build_behavioral_revalidation_proof.py",
+        "scripts/build_hole_card_data_quality.py",
         "scripts/build_raw_model_status.py",
         "scripts/train_raw_model_challenger.py",
+        "scripts/build_challenger_strategy_quality.py",
         "scripts/build_client_handoff.py",
         "scripts/build_training_cluster_requirements.py",
         "scripts/run_today_acceptance_training.py",
         "scripts/build_client_gpu_training_response.py",
         "scripts/build_multi_agent_training_status.py",
+        "scripts/build_strategy_stack_maturity.py",
         "scripts/build_llm_decision_context.py",
+        "scripts/build_llm_role_boundary.py",
         "scripts/build_project_completion.py",
+        "scripts/build_final_delivery_acceptance.py",
         "scripts/check_repo_hygiene.py",
         "scripts/evaluate_policy.py",
         "scripts/llm_event_benchmark.py",
@@ -463,13 +565,23 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     candidate_ranker = _read_json(reports / "llm_decision_candidate_ranker_qwen25.json")
     candidate_gate = _read_json(reports / "llm_decision_candidate_gate.json")
     architecture_comparison = _read_json(reports / "llm_architecture_comparison.json")
+    llm_role_boundary = _read_json(reports / "llm_role_boundary.json")
+    qlora_next_stage = _read_json(reports / "qlora_next_stage.json")
+    production_runtime_monitoring = _read_json(reports / "production_runtime_monitoring.json")
     decision_holdout = _read_json(reports / "decision_context_holdout.json")
     scope_payload = _read_json(reports / "scope_contract.json")
     completion_payload = _read_json(reports / "project_completion.json")
+    final_delivery_acceptance = _read_json(reports / "final_delivery_acceptance.json")
     risk_payload = _read_json(reports / "model_risk_register.json")
     approval_payload = _read_json(reports / "production_approval.json")
+    strategy_stack_maturity = _read_json(reports / "strategy_stack_maturity.json")
+    behavioral_revalidation = _read_json(reports / "behavioral_revalidation.json")
+    behavioral_revalidation_proof = _read_json(reports / "behavioral_revalidation_proof.json")
+    bet_timing_calibration = _read_json(reports / "bet_timing_calibration.json")
+    hole_card_data_quality = _read_json(reports / "hole_card_data_quality.json")
     raw_model_status = _read_json(reports / "raw_model_status.json")
     raw_model_challenger = _read_json(reports / "raw_model_challenger.json")
+    challenger_strategy_quality = _read_json(reports / "challenger_strategy_quality.json")
     handoff_payload = _read_json(reports / "client_handoff.json")
     cluster_payload = _read_json(reports / "training_cluster_requirements.json")
     today_training = _read_json(reports / "today_acceptance_training.json")
@@ -508,6 +620,121 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Model risk register does not preserve deployed strategy approval")
     if approval_payload.get("overall_status") != "APPROVED_WITH_COMPONENT_RISK":
         raise AssertionError(f"Unexpected production approval status: {approval_payload.get('overall_status')}")
+    maturity_current = strategy_stack_maturity.get("current_strategy_stack") or {}
+    maturity_final = strategy_stack_maturity.get("final_engine_boundary") or {}
+    if strategy_stack_maturity.get("overall_status") != "PASS":
+        raise AssertionError(f"Strategy stack maturity contract did not pass: {strategy_stack_maturity.get('overall_status')}")
+    if maturity_current.get("status") != "APPROVED_FOR_DEPLOYMENT_WITH_MONITORING":
+        raise AssertionError("Strategy stack must be approved only for deployment with monitoring")
+    if maturity_current.get("monitoring_required") is not True:
+        raise AssertionError("Strategy stack deployment must require monitoring")
+    if maturity_current.get("rollback_plan_required") is not True:
+        raise AssertionError("Strategy stack deployment must require a rollback plan")
+    if maturity_final.get("status") != "NOT_FINAL_MAXIMALLY_OPTIMIZED_ENGINE":
+        raise AssertionError("Strategy stack must not be represented as a final optimized engine")
+    if maturity_final.get("final_engine_claim_allowed") is not False:
+        raise AssertionError("Final-engine claim must remain blocked")
+    if maturity_final.get("maximally_optimized_claim_allowed") is not False:
+        raise AssertionError("Maximally optimized engine claim must remain blocked")
+    if (strategy_stack_maturity.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Strategy stack maturity invariants failed: {strategy_stack_maturity.get('invariants')}")
+    behavioral_scope = behavioral_revalidation.get("current_validation_scope") or {}
+    behavioral_boundary = behavioral_revalidation.get("revalidation_boundary") or {}
+    if behavioral_revalidation.get("overall_status") != "PASS":
+        raise AssertionError(f"Behavioral revalidation contract did not pass: {behavioral_revalidation.get('overall_status')}")
+    if behavioral_scope.get("human_likeness_status") != "PASS":
+        raise AssertionError("Human-likeness must pass for the current validation scope")
+    if behavioral_scope.get("action_distribution_status") != "PASS":
+        raise AssertionError("Action-distribution must pass for the current validation scope")
+    if behavioral_boundary.get("larger_clean_real_gameplay_revalidation_required") is not True:
+        raise AssertionError("Behavioral checks must require revalidation on larger clean real gameplay data")
+    if behavioral_boundary.get("generalized_human_likeness_claim_allowed") is not False:
+        raise AssertionError("Generalized human-likeness claims must remain blocked")
+    if behavioral_boundary.get("generalized_action_distribution_claim_allowed") is not False:
+        raise AssertionError("Generalized action-distribution claims must remain blocked")
+    if behavioral_boundary.get("production_blocker") is not False:
+        raise AssertionError("Behavioral revalidation requirement must not block current monitored deployment")
+    if (behavioral_revalidation.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Behavioral revalidation invariants failed: {behavioral_revalidation.get('invariants')}")
+    if behavioral_revalidation_proof.get("overall_status") != "PASS":
+        raise AssertionError(f"Behavioral revalidation proof did not pass: {behavioral_revalidation_proof.get('overall_status')}")
+    if behavioral_revalidation_proof.get("proof_status") != "PASS":
+        raise AssertionError("Behavioral revalidation proof cases did not pass")
+    proof_cases = {case.get("name"): case for case in behavioral_revalidation_proof.get("proof_cases") or []}
+    for required_case in (
+        "base_contract_is_valid",
+        "blocks_missing_larger_real_gameplay_revalidation",
+        "blocks_generalized_human_likeness_claim",
+        "blocks_generalized_action_distribution_claim",
+        "blocks_wrong_revalidation_scope",
+    ):
+        if (proof_cases.get(required_case) or {}).get("passed") is not True:
+            raise AssertionError(f"Behavioral revalidation proof case failed or missing: {required_case}")
+    if (proof_cases.get("base_contract_is_valid") or {}).get("observed_status") != "PASS":
+        raise AssertionError("Behavioral proof must show the base contract passes")
+    for blocked_case in (
+        "blocks_missing_larger_real_gameplay_revalidation",
+        "blocks_generalized_human_likeness_claim",
+        "blocks_generalized_action_distribution_claim",
+        "blocks_wrong_revalidation_scope",
+    ):
+        if (proof_cases.get(blocked_case) or {}).get("observed_status") != "FAIL":
+            raise AssertionError(f"Behavioral proof did not block false claim: {blocked_case}")
+    if (behavioral_revalidation_proof.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Behavioral revalidation proof invariants failed: {behavioral_revalidation_proof.get('invariants')}")
+
+    bet_timing_current = bet_timing_calibration.get("current_delivery_scope") or {}
+    bet_timing_boundary = bet_timing_calibration.get("calibration_boundary") or {}
+    bet_timing_fields = set(bet_timing_current.get("api_response_fields") or [])
+    for required_field in ("bet_size", "wait_time_ms", "sizing_method", "timing_method"):
+        if required_field not in bet_timing_fields:
+            raise AssertionError(f"Bet/timing calibration contract missing response field: {required_field}")
+    if bet_timing_calibration.get("overall_status") != "PASS":
+        raise AssertionError(f"Bet/timing calibration contract did not pass: {bet_timing_calibration.get('overall_status')}")
+    if bet_timing_current.get("implementation_status") != "IMPLEMENTED_AND_MEASURED":
+        raise AssertionError("Bet-sizing and timing must remain implemented and measured")
+    if bet_timing_current.get("timing_and_bet_size_status") != "PASS":
+        raise AssertionError("Timing and bet-size measurement must pass for the current scope")
+    if bet_timing_boundary.get("requires_more_real_player_behavior_labels") is not True:
+        raise AssertionError("Higher-realism bet/timing calibration must require more real player labels")
+    if bet_timing_boundary.get("requires_bet_size_labels") is not True:
+        raise AssertionError("Bet-size labels must remain required for higher-realism calibration")
+    if bet_timing_boundary.get("requires_decision_timing_labels") is not True:
+        raise AssertionError("Decision-timing labels must remain required for higher-realism calibration")
+    if bet_timing_boundary.get("final_high_realism_claim_allowed") is not False:
+        raise AssertionError("Final high-realism bet/timing claim must remain blocked")
+    if bet_timing_boundary.get("production_blocker_for_current_delivery") is not False:
+        raise AssertionError("Bet/timing calibration gap must not block current delivery")
+    if (bet_timing_calibration.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Bet/timing calibration invariants failed: {bet_timing_calibration.get('invariants')}")
+
+    hole_cov = hole_card_data_quality.get("coverage_snapshot") or {}
+    hole_mitigation = hole_card_data_quality.get("mitigation_boundary") or {}
+    hole_upstream = hole_card_data_quality.get("upstream_data_quality_boundary") or {}
+    if hole_card_data_quality.get("overall_status") != "PASS":
+        raise AssertionError(f"Hole-card data-quality contract did not pass: {hole_card_data_quality.get('overall_status')}")
+    if float(hole_cov.get("missing_hole_card_rate", 0.0)) <= float(hole_cov.get("complete_hole_card_rate", 1.0)):
+        raise AssertionError("Hole-card audit must preserve missing-card dominance over complete-card coverage")
+    if hole_mitigation.get("mitigation_status") != "MITIGATED_BY_ROUTED_POLICY_BUNDLE":
+        raise AssertionError("Routed policy bundle mitigation must remain active for hole-card missingness")
+    if hole_mitigation.get("routed_policy_bundle_handles_missingness") is not True:
+        raise AssertionError("Routed policy bundle must explicitly handle missing hole-card paths")
+    if hole_mitigation.get("fully_solves_upstream_data_quality_issue") is not False:
+        raise AssertionError("Routed policy bundle must not claim to fully solve upstream hole-card data quality")
+    if hole_upstream.get("limitation_status") != "OPEN_DATA_QUALITY_LIMITATION":
+        raise AssertionError("Hole-card data-quality limitation must remain open")
+    if hole_upstream.get("upstream_data_quality_issue_resolved") is not False:
+        raise AssertionError("Upstream hole-card data-quality issue cannot be marked resolved")
+    if hole_upstream.get("requires_ocr_or_parser_improvement") is not True:
+        raise AssertionError("Hole-card boundary must require OCR/parser improvement")
+    if hole_upstream.get("requires_larger_reviewed_card_labels") is not True:
+        raise AssertionError("Hole-card boundary must require larger reviewed card labels")
+    if hole_upstream.get("production_blocker_for_current_deployment") is not False:
+        raise AssertionError("Hole-card limitation must remain a component risk, not a current deployment blocker")
+    if hole_upstream.get("component_risk") is not True:
+        raise AssertionError("Hole-card limitation must remain visible as a component risk")
+    if (hole_card_data_quality.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Hole-card data-quality invariants failed: {hole_card_data_quality.get('invariants')}")
     raw_contract = raw_model_status.get("raw_supervised_model") or {}
     raw_boundary = raw_model_status.get("release_boundary") or {}
     if raw_contract.get("runtime_status") != "LOADABLE":
@@ -533,6 +760,24 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Raw model challenger incorrectly approves a failing standalone candidate")
     if challenger_gate.get("status") != "PASS" and raw_model_challenger.get("standalone_status") != "NOT_STANDALONE_APPROVED":
         raise AssertionError("Raw model challenger does not preserve standalone non-approval")
+    strategy_quality_boundary = challenger_strategy_quality.get("strategy_quality_boundary") or {}
+    strategy_quality_challenger = challenger_strategy_quality.get("challenger_result") or {}
+    if challenger_strategy_quality.get("overall_status") != "PASS":
+        raise AssertionError(f"Challenger strategy-quality contract did not pass: {challenger_strategy_quality.get('overall_status')}")
+    if (challenger_strategy_quality.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Challenger strategy-quality invariants failed: {challenger_strategy_quality.get('invariants')}")
+    if strategy_quality_boundary.get("challenger_required_before_final_claim") is not True:
+        raise AssertionError("Final strategy-quality claims must require a challenger before approval")
+    if strategy_quality_boundary.get("challenger_compared_to_raw_model") is not True:
+        raise AssertionError("Challenger must be compared before final strategy-quality claims")
+    if strategy_quality_boundary.get("final_production_strategy_quality_claim_allowed") is not False:
+        raise AssertionError("Final production-level strategy quality must remain blocked until challenger gates pass")
+    if strategy_quality_boundary.get("current_delivery_blocker") is not False:
+        raise AssertionError("Challenger strategy-quality gap must not block current delivery")
+    if strategy_quality_boundary.get("deployed_strategy_stack_affected") is not False:
+        raise AssertionError("Challenger strategy-quality gap must not affect deployed stack approval")
+    if strategy_quality_challenger.get("gate_status") != challenger_gate.get("status"):
+        raise AssertionError("Challenger strategy-quality contract does not match raw challenger gate status")
     if approval_payload.get("raw_supervised_model", {}).get("standalone_status") != "NOT_STANDALONE_APPROVED":
         raise AssertionError("Production approval does not preserve raw-model standalone boundary")
     if approval_payload.get("risk_position", {}).get("deployment_blockers") != 0:
@@ -691,6 +936,141 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Architecture comparison incorrectly grants production approval")
     if (architecture_comparison.get("approval_boundary") or {}).get("deployed_strategy_stack_affected") is not False:
         raise AssertionError("LLM architecture comparison incorrectly affects deployed strategy approval")
+
+    llm_role = llm_role_boundary.get("current_llm_role") or {}
+    llm_event_layer = llm_role.get("event_normalization_layer") or {}
+    llm_context_layer = llm_role.get("decision_context_layer") or {}
+    llm_autonomous_boundary = llm_role_boundary.get("autonomous_llm_agent_boundary") or {}
+    if llm_role_boundary.get("overall_status") != "PASS":
+        raise AssertionError(f"LLM role boundary did not pass: {llm_role_boundary.get('overall_status')}")
+    if llm_role.get("status") != "CONTROLLED_DECISION_CONTEXT_AND_EVENT_NORMALIZATION_LAYER":
+        raise AssertionError("LLM work must remain a controlled decision/context and event-normalization layer")
+    if llm_event_layer.get("implemented") is not True:
+        raise AssertionError("LLM role boundary must preserve event-normalization layer evidence")
+    if llm_context_layer.get("implemented") is not True:
+        raise AssertionError("LLM role boundary must preserve decision-context layer evidence")
+    if llm_role.get("llm_decision_path_production_approved") is not False:
+        raise AssertionError("LLM decision path must not be production-approved as the deployed poker policy")
+    if llm_autonomous_boundary.get("status") != "NOT_FULLY_AUTONOMOUS_POKER_PLAYING_LLM_AGENT":
+        raise AssertionError("LLM boundary must explicitly reject autonomous LLM-agent status")
+    if llm_autonomous_boundary.get("fully_autonomous_poker_playing_llm_agent_present") is not False:
+        raise AssertionError("Fully autonomous poker-playing LLM agent must not be marked present")
+    if llm_autonomous_boundary.get("fully_autonomous_llm_agent_claim_allowed") is not False:
+        raise AssertionError("Fully autonomous LLM-agent claim must remain blocked")
+    if llm_autonomous_boundary.get("deployed_autonomous_endpoint_is_llm") is not False:
+        raise AssertionError("Controlled stateful autonomous endpoint must not be labeled as an LLM agent")
+    if llm_autonomous_boundary.get("production_blocker_for_current_delivery") is not False:
+        raise AssertionError("LLM role boundary must not block current delivery")
+    if (llm_role_boundary.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"LLM role boundary invariants failed: {llm_role_boundary.get('invariants')}")
+
+    qlora_boundary = qlora_next_stage.get("stage_boundary") or {}
+    qlora_targets = qlora_next_stage.get("target_use_cases") or {}
+    if qlora_next_stage.get("overall_status") != "PASS":
+        raise AssertionError(f"QLoRA next-stage boundary did not pass: {qlora_next_stage.get('overall_status')}")
+    if qlora_boundary.get("stage_status") != "NEXT_STAGE_IMPROVEMENT":
+        raise AssertionError("QLoRA/larger LLM fine-tuning must remain a next-stage improvement")
+    if qlora_boundary.get("fine_tuning_completed") is not False:
+        raise AssertionError("QLoRA fine-tuning must not be marked completed in the current delivery")
+    if qlora_boundary.get("production_approved") is not False:
+        raise AssertionError("QLoRA fine-tuning must not be marked production-approved")
+    if qlora_boundary.get("current_delivery_blocker") is not False:
+        raise AssertionError("QLoRA next-stage improvement must not block current delivery")
+    if qlora_boundary.get("autonomous_llm_agent_claim_allowed") is not False:
+        raise AssertionError("QLoRA plan must not allow autonomous LLM-agent claims")
+    for target in ("structured_extraction", "candidate_ranking", "noisy_ocr_dealer_log_handling"):
+        if (qlora_targets.get(target) or {}).get("recommended") is not True:
+            raise AssertionError(f"QLoRA target not recommended: {target}")
+    if (qlora_targets.get("autonomous_poker_policy") or {}).get("recommended") is not False:
+        raise AssertionError("QLoRA must not target autonomous poker policy as the immediate production path")
+    if (qlora_next_stage.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"QLoRA next-stage invariants failed: {qlora_next_stage.get('invariants')}")
+
+    runtime_boundary = production_runtime_monitoring.get("runtime_observability_boundary") or {}
+    if production_runtime_monitoring.get("overall_status") != "PASS":
+        raise AssertionError(f"Production monitoring contract did not pass: {production_runtime_monitoring.get('overall_status')}")
+    if runtime_boundary.get("monitoring_required_for_real_traffic") is not True:
+        raise AssertionError("Monitoring must be required for real-traffic rollout")
+    if runtime_boundary.get("rollback_rules_required_for_real_traffic") is not True:
+        raise AssertionError("Rollback rules must be required for real-traffic rollout")
+    if runtime_boundary.get("live_drift_tracking_required_for_real_traffic") is not True:
+        raise AssertionError("Live drift tracking must be required for real-traffic rollout")
+    if runtime_boundary.get("real_traffic_claim_allowed_without_observability") is not False:
+        raise AssertionError("Unmonitored real-traffic production claim must be blocked")
+    if runtime_boundary.get("real_traffic_blocker_if_disabled") is not True:
+        raise AssertionError("Disabled observability must block real-traffic rollout")
+    if runtime_boundary.get("current_delivery_blocker") is not False:
+        raise AssertionError("Monitoring contract must not block the current delivery package")
+    if (production_runtime_monitoring.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Production monitoring invariants failed: {production_runtime_monitoring.get('invariants')}")
+
+    final_acceptance_summary = final_delivery_acceptance.get("acceptance_summary") or {}
+    final_acceptance_risks = final_delivery_acceptance.get("tracked_component_risks") or {}
+    final_raw = final_acceptance_risks.get("raw_supervised_model") or {}
+    final_llm = final_acceptance_risks.get("llm_work") or {}
+    final_qlora = final_acceptance_risks.get("qlora_larger_llm_fine_tuning") or {}
+    final_runtime_monitoring = final_acceptance_risks.get("production_runtime_monitoring") or {}
+    final_challenger = final_acceptance_risks.get("challenger_strategy_quality") or {}
+    final_hole = final_acceptance_risks.get("hole_card_data_quality") or {}
+    final_bet = final_acceptance_risks.get("bet_timing_calibration") or {}
+    final_behavioral = final_acceptance_risks.get("behavioral_revalidation") or {}
+    final_multi = final_acceptance_risks.get("multi_agent_training") or {}
+    if final_delivery_acceptance.get("overall_status") != "PASS":
+        raise AssertionError(f"Final delivery acceptance did not pass: {final_delivery_acceptance.get('overall_status')}")
+    if final_delivery_acceptance.get("final_status") != "READY_WITH_TRACKED_COMPONENT_RISKS":
+        raise AssertionError("Final delivery acceptance must preserve tracked component-risk status")
+    if final_acceptance_summary.get("service_delivery") != "READY":
+        raise AssertionError("Final acceptance must mark service delivery as ready")
+    if final_acceptance_summary.get("deployed_strategy_stack") != "APPROVED":
+        raise AssertionError("Final acceptance must preserve deployed strategy-stack approval")
+    if final_raw.get("standalone_status") != "NOT_STANDALONE_APPROVED":
+        raise AssertionError("Final acceptance must not approve the raw supervised model as standalone")
+    if final_raw.get("component_risk") is not True or final_raw.get("production_blocker") is not False:
+        raise AssertionError("Final acceptance must keep raw model as component risk, not production blocker")
+    if final_llm.get("role") != "CONTROLLED_DECISION_CONTEXT_AND_EVENT_NORMALIZATION_LAYER":
+        raise AssertionError("Final acceptance must preserve controlled LLM role")
+    if final_llm.get("fully_autonomous_llm_agent_claim_allowed") is not False:
+        raise AssertionError("Final acceptance must block fully autonomous LLM-agent claims")
+    if final_qlora.get("stage_status") != "NEXT_STAGE_IMPROVEMENT":
+        raise AssertionError("Final acceptance must keep QLoRA/larger LLM fine-tuning as next-stage improvement")
+    if final_qlora.get("fine_tuning_completed") is not False:
+        raise AssertionError("Final acceptance must not mark QLoRA fine-tuning complete")
+    if final_qlora.get("production_approved") is not False:
+        raise AssertionError("Final acceptance must not approve QLoRA fine-tuning as production-ready")
+    if final_qlora.get("current_delivery_blocker") is not False:
+        raise AssertionError("Final acceptance must not make QLoRA a current delivery blocker")
+    if final_runtime_monitoring.get("monitoring_required_for_real_traffic") is not True:
+        raise AssertionError("Final acceptance must require monitoring for real traffic")
+    if final_runtime_monitoring.get("rollback_rules_required_for_real_traffic") is not True:
+        raise AssertionError("Final acceptance must require rollback rules for real traffic")
+    if final_runtime_monitoring.get("live_drift_tracking_required_for_real_traffic") is not True:
+        raise AssertionError("Final acceptance must require live drift tracking for real traffic")
+    if final_runtime_monitoring.get("real_traffic_claim_allowed_without_observability") is not False:
+        raise AssertionError("Final acceptance must block unmonitored real-traffic claims")
+    if final_runtime_monitoring.get("real_traffic_blocker_if_disabled") is not True:
+        raise AssertionError("Final acceptance must block real traffic when observability is disabled")
+    if final_runtime_monitoring.get("current_delivery_blocker") is not False:
+        raise AssertionError("Final acceptance must not make monitoring a current delivery blocker")
+    if final_challenger.get("challenger_required_before_final_claim") is not True:
+        raise AssertionError("Final acceptance must require a challenger before final strategy-quality claims")
+    if final_challenger.get("challenger_compared_to_raw_model") is not True:
+        raise AssertionError("Final acceptance must preserve challenger comparison evidence")
+    if final_challenger.get("final_production_strategy_quality_claim_allowed") is not False:
+        raise AssertionError("Final acceptance must block final strategy-quality claims until challenger gates pass")
+    if final_challenger.get("current_delivery_blocker") is not False:
+        raise AssertionError("Final acceptance must not make challenger strategy-quality gap a delivery blocker")
+    if final_challenger.get("deployed_strategy_stack_affected") is not False:
+        raise AssertionError("Final acceptance must not let challenger gap affect deployed stack approval")
+    if final_hole.get("upstream_resolved") is not False:
+        raise AssertionError("Final acceptance must not mark upstream hole-card quality as resolved")
+    if final_bet.get("final_high_realism_claim_allowed") is not False:
+        raise AssertionError("Final acceptance must block final high-realism bet/timing claims")
+    if final_behavioral.get("larger_clean_real_gameplay_revalidation_required") is not True:
+        raise AssertionError("Final acceptance must require larger clean gameplay revalidation")
+    if final_multi.get("full_production_scale_multi_agent_training_status") != "NOT_COMPLETED":
+        raise AssertionError("Final acceptance must not mark full production-scale multi-agent training complete")
+    if (final_delivery_acceptance.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Final delivery acceptance invariants failed: {final_delivery_acceptance.get('invariants')}")
     return (
         f"delivery={delivery.get('overall_status')}, deployed={deployed.get('strategy_policy_status')}, "
         f"raw_gate={gate.get('status')}, handoff={handoff_payload.get('handoff_status')}, "
@@ -736,7 +1116,12 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/experiments/today_acceptance_training.yaml",
         "configs/experiments/client_gpu_training_response.yaml",
         "configs/experiments/multi_agent_training_status.yaml",
+        "configs/experiments/strategy_stack_maturity.yaml",
+        "configs/experiments/behavioral_revalidation.yaml",
+        "configs/experiments/behavioral_revalidation_proof.yaml",
+        "configs/experiments/hole_card_data_quality.yaml",
         "configs/experiments/production_gate.yaml",
+        "configs/experiments/challenger_strategy_quality.yaml",
         "configs/experiments/verify_delivery.yaml",
     ]
     missing = [relative for relative in required_configs if not (root / relative).exists()]
@@ -775,6 +1160,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "configs/experiments/llm_decision_candidate_ranker_qwen25.yaml",
         "configs/experiments/llm_decision_candidate_gate.yaml",
         "configs/experiments/llm_architecture_comparison.yaml",
+        "configs/experiments/challenger_strategy_quality.yaml",
         "evaluation/decision_context_smoke.jsonl",
         "evaluation/decision_context_human_holdout.jsonl",
         "configs/experiments/project_completion.yaml",
@@ -813,10 +1199,20 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/model_risk_register.md",
         "reports/production_approval.json",
         "reports/production_approval.md",
+        "reports/strategy_stack_maturity.json",
+        "reports/strategy_stack_maturity.md",
+        "reports/strategy_stack_maturity.json",
+        "reports/strategy_stack_maturity.md",
+        "reports/behavioral_revalidation.json",
+        "reports/behavioral_revalidation.md",
+        "reports/behavioral_revalidation_proof.json",
+        "reports/behavioral_revalidation_proof.md",
         "reports/raw_model_status.json",
         "reports/raw_model_status.md",
         "reports/raw_model_challenger.json",
         "reports/raw_model_challenger.md",
+        "reports/challenger_strategy_quality.json",
+        "reports/challenger_strategy_quality.md",
         "reports/client_handoff.json",
         "reports/client_handoff.md",
         "reports/training_cluster_requirements.json",
@@ -831,6 +1227,9 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/autonomous_agent.py",
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
+        "poker_agent/strategy_stack_maturity.py",
+        "poker_agent/behavioral_revalidation.py",
+        "poker_agent/behavioral_revalidation_proof.py",
         "poker_agent/raw_model_status.py",
         "poker_agent/raw_model_challenger.py",
         "poker_agent/client_handoff.py",
@@ -838,12 +1237,14 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/today_training.py",
         "poker_agent/client_gpu_training_response.py",
         "poker_agent/multi_agent_training_status.py",
+        "poker_agent/strategy_stack_maturity.py",
         "poker_agent/approval_boundary.py",
         "poker_agent/llm_decision_context.py",
         "poker_agent/llm_decision_benchmark.py",
         "poker_agent/llm_decision_gate.py",
         "poker_agent/llm_architecture_comparison.py",
         "poker_agent/project_completion.py",
+        "poker_agent/final_delivery_acceptance.py",
         "poker_agent/api_contract.py",
         "poker_agent/delivery_readiness.py",
         "poker_agent/scope_contract.py",
@@ -851,6 +1252,9 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/audit_repository.py",
         "scripts/build_model_risk_register.py",
         "scripts/build_production_approval.py",
+        "scripts/build_strategy_stack_maturity.py",
+        "scripts/build_behavioral_revalidation.py",
+        "scripts/build_behavioral_revalidation_proof.py",
         "scripts/build_raw_model_status.py",
         "scripts/train_raw_model_challenger.py",
         "scripts/build_client_handoff.py",
@@ -858,12 +1262,14 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/run_today_acceptance_training.py",
         "scripts/build_client_gpu_training_response.py",
         "scripts/build_multi_agent_training_status.py",
+        "scripts/build_strategy_stack_maturity.py",
         "scripts/build_llm_decision_context.py",
         "scripts/llm_decision_context_eval.py",
         "scripts/build_decision_context_holdout.py",
         "scripts/build_llm_decision_gate.py",
         "scripts/build_llm_architecture_comparison.py",
         "scripts/build_project_completion.py",
+        "scripts/build_final_delivery_acceptance.py",
         "scripts/build_scope_contract.py",
         "scripts/llm_event_gold_eval.py",
         "scripts/run_hydra_experiment.py",
@@ -873,6 +1279,9 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "tests/test_today_acceptance_training.py",
         "tests/test_client_gpu_training_response.py",
         "tests/test_multi_agent_training_status.py",
+        "tests/test_challenger_strategy_quality.py",
+        "tests/test_strategy_stack_maturity.py",
+        "tests/test_hole_card_data_quality.py",
         "verify_delivery.ps1",
     }
     if not zip_path.exists():
