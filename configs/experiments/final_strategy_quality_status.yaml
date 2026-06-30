@@ -1,0 +1,18 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: hist_gradient_boosting
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: final_strategy_quality_status
+description: Aggregate delivery readiness and the remaining hardening gates before final production-level poker strategy quality can be claimed.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_final_strategy_quality_status.py
+  args:
+    project_root: .
+    out: ${logging.reports_dir}/final_strategy_quality_status.json
+    markdown_out: ${logging.reports_dir}/final_strategy_quality_status.md

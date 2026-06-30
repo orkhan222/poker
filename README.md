@@ -66,6 +66,7 @@ Machine-readable status endpoints:
 ```text
 /contract.json
 /final-delivery-acceptance.json
+/final-strategy-quality-status.json
 /production-runtime-monitoring.json
 /delivery-readiness.json
 /strategy-readiness.json
@@ -87,10 +88,12 @@ The important distinction is intentional: `deployed_strategy_gate=PASS` approves
 
 Final production-level strategy quality is now guarded by an explicit challenger contract. The project may say that the deployed strategy stack is ready for monitored delivery, but it cannot claim final production-level strategy quality until a stronger challenger model beats the current raw supervised artifact and passes the challenger/raw gates. This boundary is generated at `reports\challenger_strategy_quality.json`, rendered at `reports\challenger_strategy_quality.md`, and exposed through `GET /challenger-strategy-quality.json`.
 
+The consolidated strategy-quality boundary is generated at `reports\final_strategy_quality_status.json`, rendered at `reports\final_strategy_quality_status.md`, and exposed through `GET /final-strategy-quality-status.json`. It keeps software delivery ready while blocking final production-level poker strategy quality until the remaining hardening items are complete: stronger challenger model, improved hole-card data, calibration, larger validation data, and production-scale multi-agent training.
+
 
 The final acceptance boundary is available at `reports\final_delivery_acceptance.json`, rendered at `reports\final_delivery_acceptance.md`, and exposed through `GET /final-delivery-acceptance.json`. It consolidates service readiness, deployed-stack approval, LLM role limits, raw-model status, hole-card data quality, bet/timing calibration, behavioral revalidation, and multi-agent training boundaries into one machine-readable delivery position.
 
-Production monitoring, rollback rules, and live drift tracking are required when the service is deployed against real traffic. The contract is generated at `reports\production_runtime_monitoring.json`, rendered at `reports\production_runtime_monitoring.md`, and exposed through `GET /production-runtime-monitoring.json`. Real-traffic rollout is blocked if monitoring, rollback, or drift tracking is disabled; this does not block the current delivery package.
+Production monitoring, rollback rules, live drift tracking, prediction-distribution tracking, and model-confidence monitoring are required before the service can be approved for real production traffic. The contract is generated at `reports\production_runtime_monitoring.json`, rendered at `reports\production_runtime_monitoring.md`, and exposed through `GET /production-runtime-monitoring.json`. Real-traffic approval is blocked if any of those observability controls are disabled; this does not block the current delivery package.
 
 The training-cluster contract asks the client to confirm GPU type/count, VRAM, CPU/RAM, storage, interconnect, and whether the environment is dedicated or shared. For current delivery, a dedicated single A100 or H100 is treated as enough to run the same-day acceptance profile: smoke training, simulation sanity checks, validation, and report refresh. Full production-scale multi-agent training remains a separate hardening profile and is not required to mark the current delivery package complete.
 
@@ -99,13 +102,15 @@ The client GPU response is generated as both `reports\client_gpu_training_respon
 
 The LLM work is intentionally bounded as a controlled decision/context and event-normalization layer. It should not be presented as a fully autonomous poker-playing LLM agent. The formal boundary is generated at `reports\llm_role_boundary.json`, rendered at `reports\llm_role_boundary.md`, and exposed through `GET /llm-role-boundary.json`.
 
-QLoRA or larger LLM fine-tuning is tracked as a next-stage improvement for structured extraction, candidate ranking, and noisy OCR/dealer-log handling. It is not marked as completed or production-approved in the current delivery, and it is exposed through `GET /qlora-next-stage.json` with the report stored at `reports\qlora_next_stage.json`.
+QLoRA or larger LLM fine-tuning is tracked as a next-stage research/quality-improvement milestone for noisy OCR/dealer-log normalization, structured extraction, candidate ranking, and JSON/schema compliance improvement. It is not a current delivery blocker, not marked as completed, and not production-approved in this delivery. The boundary is exposed through `GET /qlora-next-stage.json` and stored at `reports\qlora_next_stage.json`.
 
 ## Multi-Agent Training Boundary
 
 Full production-scale multi-agent training has not been completed yet. The current acceptance training is sufficient for delivery validation, but it is not a full long-running self-play training cycle. This boundary is now enforced by code, not only by documentation.
 
 The formal status contract is generated at `reports\multi_agent_training_status.json`, rendered at `reports\multi_agent_training_status.md`, and exposed through `GET /multi-agent-training-status.json`. The verifier blocks any false claim that the current acceptance run completed full production-scale multi-agent training.
+
+The current self-play evidence is delivery validation, not training completion. The separate production-hardening plan requires a `full_multi_agent_training` profile, a single dedicated NVIDIA A100 or H100, at least five independent training seeds, materially larger paired-hand simulation volume than acceptance validation, and an estimated five-day dedicated training cycle.
 
 ## Today Acceptance Training
 
@@ -363,8 +368,9 @@ legal actions and schema-valid probabilities, removes generation fallback, and
 reduces average latency substantially. Its measured Macro F1 is still below the
 acceptance threshold, so it is selected as the next research architecture but
 is not enabled as a production decision path. The next model experiment is a
-LoRA/QLoRA action-ranking adapter trained on manually reviewed state-action
-pairs.
+LoRA/QLoRA extraction and candidate-ranking adapter trained on manually
+reviewed noisy OCR/dealer-log examples, with JSON/schema compliance gates
+before any production promotion.
 
 ```text
 minimal_zero_shot
@@ -447,6 +453,8 @@ The raw supervised model is explicitly tracked as a loadable service component, 
 
 The invariant is strict: if `production_gate.status=FAIL`, the raw model cannot be marked as `STANDALONE_APPROVED`. It may remain loadable inside the approved deployed strategy stack, but the standalone limitation must stay visible as a component risk.
 
+The same contract also reports critical minority-action stability. Current raw-model evidence marks `call` and `raise` as weak critical actions, so headline accuracy must not be used as a substitute for production strategy quality.
+
 ## Raw Model Challenger Gate
 
 The raw supervised limitation is now backed by an executable challenger workflow rather than only a written risk note. The workflow trains several standalone supervised candidates, evaluates them on the same grouped holdout contract, applies the raw production thresholds, and blocks promotion unless every gate passes.
@@ -512,6 +520,8 @@ reports\llm_transformer_gold_report.md
 reports\delivery_verification.json
 reports\final_delivery_acceptance.json
 reports\final_delivery_acceptance.md
+reports\final_strategy_quality_status.json
+reports\final_strategy_quality_status.md
 reports\production_runtime_monitoring.json
 reports\production_runtime_monitoring.md
 reports\delivery_report.md

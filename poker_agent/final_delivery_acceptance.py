@@ -45,6 +45,9 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
     raw_contract = raw_model.get("raw_supervised_model") or {}
     raw_release_boundary = raw_model.get("release_boundary") or {}
     qlora_boundary = qlora_next_stage.get("stage_boundary") or {}
+    qlora_targets = qlora_next_stage.get("target_use_cases") or {}
+    qlora_delivery = qlora_next_stage.get("delivery_classification") or {}
+    qlora_plan = qlora_next_stage.get("recommended_training_plan") or {}
     runtime_monitoring = production_runtime_monitoring.get("runtime_observability_boundary") or {}
     challenger_boundary = challenger_strategy_quality.get("strategy_quality_boundary") or {}
     challenger_result = challenger_strategy_quality.get("challenger_result") or {}
@@ -96,17 +99,45 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "qlora_larger_llm_fine_tuning": {
                 "boundary": QLORA_BOUNDARY,
                 "stage_status": qlora_boundary.get("stage_status"),
+                "milestone_type": qlora_boundary.get("milestone_type"),
                 "fine_tuning_completed": qlora_boundary.get("fine_tuning_completed"),
                 "production_approved": qlora_boundary.get("production_approved"),
                 "current_delivery_blocker": qlora_boundary.get("current_delivery_blocker"),
-                "target": "structured extraction, candidate ranking, and noisy OCR/dealer-log handling",
+                "delivery_blocker": qlora_boundary.get("delivery_blocker"),
+                "approved_current_delivery_component": qlora_boundary.get("approved_current_delivery_component"),
+                "requires_separate_approval_before_promotion": qlora_boundary.get(
+                    "requires_separate_approval_before_promotion"
+                ),
+                "delivery_classification": qlora_delivery,
+                "adapter_scope": qlora_plan.get("adapter_scope"),
+                "targets": {
+                    "noisy_ocr_dealer_log_normalization": (qlora_targets.get("noisy_ocr_dealer_log_normalization") or {}).get("recommended"),
+                    "structured_extraction": (qlora_targets.get("structured_extraction") or {}).get("recommended"),
+                    "candidate_ranking": (qlora_targets.get("candidate_ranking") or {}).get("recommended"),
+                    "json_schema_compliance_improvement": (
+                        qlora_targets.get("json_schema_compliance_improvement") or {}
+                    ).get("recommended"),
+                    "autonomous_poker_policy": (qlora_targets.get("autonomous_poker_policy") or {}).get("recommended"),
+                },
+                "target": (
+                    "noisy OCR/dealer-log normalization, structured extraction, candidate ranking, "
+                    "and JSON/schema compliance improvement"
+                ),
             },
             "production_runtime_monitoring": {
                 "boundary": RUNTIME_MONITORING_BOUNDARY,
                 "monitoring_required_for_real_traffic": runtime_monitoring.get("monitoring_required_for_real_traffic"),
                 "rollback_rules_required_for_real_traffic": runtime_monitoring.get("rollback_rules_required_for_real_traffic"),
                 "live_drift_tracking_required_for_real_traffic": runtime_monitoring.get("live_drift_tracking_required_for_real_traffic"),
+                "prediction_distribution_tracking_required_for_real_traffic": runtime_monitoring.get(
+                    "prediction_distribution_tracking_required_for_real_traffic"
+                ),
+                "model_confidence_monitoring_required_for_real_traffic": runtime_monitoring.get(
+                    "model_confidence_monitoring_required_for_real_traffic"
+                ),
                 "real_traffic_claim_allowed_without_observability": runtime_monitoring.get("real_traffic_claim_allowed_without_observability"),
+                "real_production_traffic_approved": runtime_monitoring.get("real_production_traffic_approved"),
+                "real_production_traffic_approval_status": runtime_monitoring.get("real_production_traffic_approval_status"),
                 "real_traffic_blocker_if_disabled": runtime_monitoring.get("real_traffic_blocker_if_disabled"),
                 "current_delivery_blocker": runtime_monitoring.get("current_delivery_blocker"),
             },
@@ -161,7 +192,7 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "The deployed strategy stack is approved for the delivered runtime boundary with monitoring.",
             "The LLM work is a controlled decision/context and event-normalization layer, not a fully autonomous LLM poker player.",
             "QLoRA or larger LLM fine-tuning is tracked as a next-stage improvement, not as completed production-approved work.",
-            "Real-traffic rollout requires active monitoring, rollback rules, and live drift tracking.",
+            "Real-traffic rollout requires active monitoring, rollback rules, live drift tracking, prediction-distribution tracking, and model-confidence monitoring.",
             "The raw supervised model is loadable inside the approved stack but not standalone production-approved.",
             "Final production-level strategy quality is blocked until a stronger challenger passes the challenger and raw gates.",
             "Known gaps are tracked as component risks or future calibration milestones, not hidden blockers.",
@@ -172,7 +203,8 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "A failing challenger model is promoted as a production strategy policy.",
             "The project contains a fully autonomous poker-playing LLM agent.",
             "QLoRA or larger LLM fine-tuning has already produced a production-approved model.",
-            "The service is approved for real traffic without monitoring, rollback, and live drift tracking.",
+            "The service is approved for real traffic without monitoring, rollback, live drift tracking, prediction-distribution tracking, and model-confidence monitoring.",
+            "Real production traffic is approved before observability is enabled.",
             "Hole-card data quality is fully solved upstream.",
             "Bet-sizing and timing are fully calibrated for all production-realism conditions.",
             "Full production-scale multi-agent training has been completed by the current acceptance run.",
@@ -195,7 +227,7 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
         },
         "next_milestones": [
             "Train and promote a stronger standalone raw supervised challenger only after it beats the current raw supervised model and passes every raw gate.",
-            "Run QLoRA or larger-LLM fine-tuning as a separate next-stage milestone for structured extraction, candidate ranking, and noisy OCR/dealer-log handling.",
+            "Run QLoRA or larger-LLM fine-tuning as a separate next-stage milestone for noisy OCR/dealer-log normalization, structured extraction, candidate ranking, and JSON/schema compliance improvement.",
             "Enable external production telemetry storage, alerting, rollback procedures, and live drift tracking before real-traffic rollout.",
             "Collect larger reviewed real gameplay labels for timing, bet size, hole-card visibility, and action distribution slices.",
             "Run a separate full production-scale multi-agent training cycle under an approved A100/H100 cluster profile.",
@@ -250,20 +282,54 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
         violations.append("llm_role_boundary_must_not_block_delivery")
     if qlora.get("stage_status") != "NEXT_STAGE_IMPROVEMENT":
         violations.append("qlora_must_remain_next_stage_improvement")
+    if qlora.get("milestone_type") != "RESEARCH_QUALITY_IMPROVEMENT_MILESTONE":
+        violations.append("qlora_must_remain_research_quality_improvement_milestone")
     if qlora.get("fine_tuning_completed") is not False:
         violations.append("qlora_must_not_be_marked_completed")
     if qlora.get("production_approved") is not False:
         violations.append("qlora_must_not_be_marked_production_approved")
     if qlora.get("current_delivery_blocker") is not False:
         violations.append("qlora_must_not_block_current_delivery")
+    if qlora.get("delivery_blocker") is not False:
+        violations.append("qlora_delivery_blocker_must_be_false")
+    if qlora.get("approved_current_delivery_component") is not False:
+        violations.append("qlora_must_not_be_current_delivery_component")
+    if qlora.get("requires_separate_approval_before_promotion") is not True:
+        violations.append("qlora_must_require_separate_promotion_approval")
+    qlora_delivery = qlora.get("delivery_classification") or {}
+    if qlora_delivery.get("next_stage_research_milestone") is not True:
+        violations.append("qlora_delivery_classification_must_be_next_stage_research_milestone")
+    if qlora_delivery.get("current_delivery_blocker") is not False:
+        violations.append("qlora_delivery_classification_must_not_block_current_delivery")
+    if qlora.get("adapter_scope") != "EVENT_NORMALIZATION_STRUCTURED_EXTRACTION_AND_CANDIDATE_RANKING":
+        violations.append("qlora_adapter_scope_must_remain_event_normalization_and_ranking")
+    qlora_targets = qlora.get("targets") or {}
+    for target in (
+        "noisy_ocr_dealer_log_normalization",
+        "structured_extraction",
+        "candidate_ranking",
+        "json_schema_compliance_improvement",
+    ):
+        if qlora_targets.get(target) is not True:
+            violations.append(f"qlora_target_must_remain_enabled:{target}")
+    if qlora_targets.get("autonomous_poker_policy") is not False:
+        violations.append("qlora_must_not_target_autonomous_poker_policy")
     if runtime_observability.get("monitoring_required_for_real_traffic") is not True:
         violations.append("monitoring_must_be_required_for_real_traffic")
     if runtime_observability.get("rollback_rules_required_for_real_traffic") is not True:
         violations.append("rollback_rules_must_be_required_for_real_traffic")
     if runtime_observability.get("live_drift_tracking_required_for_real_traffic") is not True:
         violations.append("live_drift_tracking_must_be_required_for_real_traffic")
+    if runtime_observability.get("prediction_distribution_tracking_required_for_real_traffic") is not True:
+        violations.append("prediction_distribution_tracking_must_be_required_for_real_traffic")
+    if runtime_observability.get("model_confidence_monitoring_required_for_real_traffic") is not True:
+        violations.append("model_confidence_monitoring_must_be_required_for_real_traffic")
     if runtime_observability.get("real_traffic_claim_allowed_without_observability") is not False:
         violations.append("unmonitored_real_traffic_claim_must_be_blocked")
+    if runtime_observability.get("real_production_traffic_approved") is not False:
+        violations.append("real_production_traffic_must_not_be_approved_before_observability")
+    if runtime_observability.get("real_production_traffic_approval_status") != "NOT_APPROVED_UNTIL_OBSERVABILITY_ENABLED":
+        violations.append("real_production_traffic_status_must_require_observability")
     if runtime_observability.get("real_traffic_blocker_if_disabled") is not True:
         violations.append("disabled_observability_must_block_real_traffic_rollout")
     if runtime_observability.get("current_delivery_blocker") is not False:
@@ -336,6 +402,8 @@ def render_final_delivery_acceptance_markdown(payload: dict[str, Any]) -> str:
         f"- LLM work: `{risks['llm_work']['boundary']}`",
         f"- QLoRA/larger LLM fine-tuning: `{risks['qlora_larger_llm_fine_tuning']['stage_status']}`",
         f"- Production runtime monitoring: `{risks['production_runtime_monitoring']['boundary']}`",
+        f"- Real production traffic approved: `{risks['production_runtime_monitoring']['real_production_traffic_approved']}`",
+        f"- Real production traffic approval status: `{risks['production_runtime_monitoring']['real_production_traffic_approval_status']}`",
         f"- Challenger strategy quality: `{risks['challenger_strategy_quality']['boundary']}`",
         f"- Final strategy-quality claim allowed: `{risks['challenger_strategy_quality']['final_production_strategy_quality_claim_allowed']}`",
         f"- Hole-card upstream resolved: `{risks['hole_card_data_quality']['upstream_resolved']}`",

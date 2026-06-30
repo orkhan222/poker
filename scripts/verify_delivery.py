@@ -105,6 +105,7 @@ def require_files(root: Path) -> str:
         "configs/experiments/production_runtime_monitoring.yaml",
         "configs/experiments/project_completion.yaml",
         "configs/experiments/final_delivery_acceptance.yaml",
+        "configs/experiments/final_strategy_quality_status.yaml",
         "configs/experiments/final_delivery_acceptance.yaml",
         "configs/experiments/training_cluster_requirements.yaml",
         "configs/experiments/today_acceptance_training.yaml",
@@ -165,6 +166,8 @@ def require_files(root: Path) -> str:
         "reports/project_completion.md",
         "reports/final_delivery_acceptance.json",
         "reports/final_delivery_acceptance.md",
+        "reports/final_strategy_quality_status.json",
+        "reports/final_strategy_quality_status.md",
         "reports/final_delivery_acceptance.json",
         "reports/final_delivery_acceptance.md",
         "reports/model_risk_register.json",
@@ -238,6 +241,7 @@ def require_files(root: Path) -> str:
         "scripts/build_scope_contract.py",
         "scripts/build_project_completion.py",
         "scripts/build_final_delivery_acceptance.py",
+        "scripts/build_final_strategy_quality_status.py",
         "scripts/train_policy.py",
         "scripts/train_policy_bundle.py",
         "scripts/evaluate_policy.py",
@@ -284,6 +288,7 @@ def require_files(root: Path) -> str:
         "poker_agent/llm_architecture_comparison.py",
         "poker_agent/project_completion.py",
         "poker_agent/final_delivery_acceptance.py",
+        "poker_agent/final_strategy_quality_status.py",
         "poker_agent/delivery_readiness.py",
         "poker_agent/features.py",
         "poker_agent/action_planning.py",
@@ -306,6 +311,7 @@ def require_files(root: Path) -> str:
         "tests/test_qlora_next_stage.py",
         "tests/test_production_runtime_monitoring.py",
         "tests/test_final_delivery_acceptance.py",
+        "tests/test_final_strategy_quality_status.py",
         "tests/test_llm_role_boundary.py",
         "tests/test_strategy_stack_maturity.py",
         "tests/test_behavioral_revalidation.py",
@@ -356,6 +362,7 @@ def compile_sources(root: Path) -> str:
         "poker_agent/llm_architecture_comparison.py",
         "poker_agent/project_completion.py",
         "poker_agent/final_delivery_acceptance.py",
+        "poker_agent/final_strategy_quality_status.py",
         "poker_agent/service.py",
         "poker_agent/slices.py",
         "poker_agent/validation.py",
@@ -381,6 +388,7 @@ def compile_sources(root: Path) -> str:
         "scripts/build_llm_role_boundary.py",
         "scripts/build_project_completion.py",
         "scripts/build_final_delivery_acceptance.py",
+        "scripts/build_final_strategy_quality_status.py",
         "scripts/check_repo_hygiene.py",
         "scripts/evaluate_policy.py",
         "scripts/llm_event_benchmark.py",
@@ -572,6 +580,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     scope_payload = _read_json(reports / "scope_contract.json")
     completion_payload = _read_json(reports / "project_completion.json")
     final_delivery_acceptance = _read_json(reports / "final_delivery_acceptance.json")
+    final_strategy_quality_status = _read_json(reports / "final_strategy_quality_status.json")
     risk_payload = _read_json(reports / "model_risk_register.json")
     approval_payload = _read_json(reports / "production_approval.json")
     strategy_stack_maturity = _read_json(reports / "strategy_stack_maturity.json")
@@ -855,6 +864,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     if "Do not represent" not in gpu_boundary.get("do_not_claim", ""):
         raise AssertionError("Client GPU response must preserve the no-false-production-claim boundary")
     multi_agent_boundary = multi_agent_training_status.get("training_boundary") or {}
+    multi_agent_validation_boundary = multi_agent_training_status.get("validation_vs_training_boundary") or {}
+    multi_agent_hardening_plan = multi_agent_training_status.get("hardening_training_plan") or {}
     multi_agent_approval = multi_agent_training_status.get("approval_boundary") or {}
     if multi_agent_training_status.get("overall_status") != "PASS":
         raise AssertionError(f"Multi-agent training status did not pass: {multi_agent_training_status.get('overall_status')}")
@@ -868,6 +879,26 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Long-running self-play cannot be completed by the acceptance run")
     if multi_agent_boundary.get("production_blocker") is not False:
         raise AssertionError("Deferred full multi-agent training must not block the current delivery package")
+    if multi_agent_validation_boundary.get("acceptance_self_play_is_delivery_validation") is not True:
+        raise AssertionError("Acceptance self-play must be reported as delivery validation")
+    if multi_agent_validation_boundary.get("acceptance_self_play_counts_as_full_training") is not False:
+        raise AssertionError("Acceptance self-play must not count as full production-scale training")
+    if multi_agent_hardening_plan.get("required_profile") != "full_multi_agent_training":
+        raise AssertionError("Full training hardening plan must require the full_multi_agent_training profile")
+    if multi_agent_hardening_plan.get("required_gpu_class") != "single dedicated NVIDIA A100 or H100":
+        raise AssertionError("Full training hardening plan must require a dedicated A100/H100 class GPU")
+    if multi_agent_hardening_plan.get("seed_stability_required") is not True:
+        raise AssertionError("Full training hardening plan must require seed stability")
+    if int(multi_agent_hardening_plan.get("minimum_independent_training_seeds") or 0) < 5:
+        raise AssertionError("Full training hardening plan requires at least five independent seeds")
+    if int(multi_agent_hardening_plan.get("minimum_paired_hands") or 0) <= int(
+        multi_agent_validation_boundary.get("acceptance_self_play_paired_hands") or 0
+    ):
+        raise AssertionError("Full training hardening simulation volume must exceed acceptance self-play volume")
+    if int(multi_agent_hardening_plan.get("estimated_duration_days_single_a100_or_h100") or 0) < 5:
+        raise AssertionError("Full training hardening plan must preserve the five-day A100/H100 estimate")
+    if multi_agent_hardening_plan.get("completion_status") != "NOT_COMPLETED":
+        raise AssertionError("Full training hardening plan must remain NOT_COMPLETED until executed")
     if multi_agent_approval.get("full_training_claim_allowed") is not False:
         raise AssertionError("Full multi-agent training claims must remain blocked")
     if (multi_agent_training_status.get("invariants") or {}).get("status") != "PASS":
@@ -966,19 +997,43 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
 
     qlora_boundary = qlora_next_stage.get("stage_boundary") or {}
     qlora_targets = qlora_next_stage.get("target_use_cases") or {}
+    qlora_delivery = qlora_next_stage.get("delivery_classification") or {}
+    qlora_plan = qlora_next_stage.get("recommended_training_plan") or {}
     if qlora_next_stage.get("overall_status") != "PASS":
         raise AssertionError(f"QLoRA next-stage boundary did not pass: {qlora_next_stage.get('overall_status')}")
     if qlora_boundary.get("stage_status") != "NEXT_STAGE_IMPROVEMENT":
         raise AssertionError("QLoRA/larger LLM fine-tuning must remain a next-stage improvement")
+    if qlora_boundary.get("milestone_type") != "RESEARCH_QUALITY_IMPROVEMENT_MILESTONE":
+        raise AssertionError("QLoRA/larger LLM fine-tuning must remain a research-quality improvement milestone")
     if qlora_boundary.get("fine_tuning_completed") is not False:
         raise AssertionError("QLoRA fine-tuning must not be marked completed in the current delivery")
     if qlora_boundary.get("production_approved") is not False:
         raise AssertionError("QLoRA fine-tuning must not be marked production-approved")
     if qlora_boundary.get("current_delivery_blocker") is not False:
         raise AssertionError("QLoRA next-stage improvement must not block current delivery")
+    if qlora_boundary.get("delivery_blocker") is not False:
+        raise AssertionError("QLoRA delivery blocker must remain false")
+    if qlora_boundary.get("approved_current_delivery_component") is not False:
+        raise AssertionError("QLoRA must not be marked as an approved current-delivery component")
+    if qlora_boundary.get("requires_separate_approval_before_promotion") is not True:
+        raise AssertionError("QLoRA promotion must require separate approval")
     if qlora_boundary.get("autonomous_llm_agent_claim_allowed") is not False:
         raise AssertionError("QLoRA plan must not allow autonomous LLM-agent claims")
-    for target in ("structured_extraction", "candidate_ranking", "noisy_ocr_dealer_log_handling"):
+    if qlora_delivery.get("next_stage_research_milestone") is not True:
+        raise AssertionError("QLoRA delivery classification must remain next-stage research milestone")
+    if qlora_delivery.get("current_delivery_component") is not False:
+        raise AssertionError("QLoRA must not be classified as a current delivery component")
+    if qlora_delivery.get("current_delivery_blocker") is not False:
+        raise AssertionError("QLoRA delivery classification must not block current delivery")
+    if qlora_plan.get("adapter_scope") != "EVENT_NORMALIZATION_STRUCTURED_EXTRACTION_AND_CANDIDATE_RANKING":
+        raise AssertionError("QLoRA adapter scope must remain event-normalization/structured-extraction/candidate-ranking")
+    for target in (
+        "noisy_ocr_dealer_log_normalization",
+        "structured_extraction",
+        "candidate_ranking",
+        "noisy_ocr_dealer_log_handling",
+        "json_schema_compliance_improvement",
+    ):
         if (qlora_targets.get(target) or {}).get("recommended") is not True:
             raise AssertionError(f"QLoRA target not recommended: {target}")
     if (qlora_targets.get("autonomous_poker_policy") or {}).get("recommended") is not False:
@@ -995,14 +1050,59 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Rollback rules must be required for real-traffic rollout")
     if runtime_boundary.get("live_drift_tracking_required_for_real_traffic") is not True:
         raise AssertionError("Live drift tracking must be required for real-traffic rollout")
+    if runtime_boundary.get("prediction_distribution_tracking_required_for_real_traffic") is not True:
+        raise AssertionError("Prediction distribution tracking must be required for real-traffic rollout")
+    if runtime_boundary.get("model_confidence_monitoring_required_for_real_traffic") is not True:
+        raise AssertionError("Model confidence monitoring must be required for real-traffic rollout")
     if runtime_boundary.get("real_traffic_claim_allowed_without_observability") is not False:
         raise AssertionError("Unmonitored real-traffic production claim must be blocked")
+    if runtime_boundary.get("real_production_traffic_approved") is not False:
+        raise AssertionError("Real production traffic must not be approved before observability is enabled")
+    if runtime_boundary.get("real_production_traffic_approval_status") != "NOT_APPROVED_UNTIL_OBSERVABILITY_ENABLED":
+        raise AssertionError("Real production traffic approval status must require enabled observability")
     if runtime_boundary.get("real_traffic_blocker_if_disabled") is not True:
         raise AssertionError("Disabled observability must block real-traffic rollout")
     if runtime_boundary.get("current_delivery_blocker") is not False:
         raise AssertionError("Monitoring contract must not block the current delivery package")
     if (production_runtime_monitoring.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError(f"Production monitoring invariants failed: {production_runtime_monitoring.get('invariants')}")
+
+    final_strategy_delivery = final_strategy_quality_status.get("delivery_boundary") or {}
+    final_strategy_boundary = final_strategy_quality_status.get("final_strategy_quality_boundary") or {}
+    final_strategy_remaining = final_strategy_quality_status.get("remaining_work") or {}
+    final_strategy_real_traffic = final_strategy_quality_status.get("real_traffic_boundary") or {}
+    if final_strategy_quality_status.get("overall_status") != "PASS":
+        raise AssertionError(
+            f"Final strategy quality status did not pass: {final_strategy_quality_status.get('overall_status')}"
+        )
+    if final_strategy_delivery.get("software_delivery_ready") is not True:
+        raise AssertionError("Final strategy quality status must preserve software delivery readiness")
+    if final_strategy_delivery.get("current_delivery_blocker") is not False:
+        raise AssertionError("Final strategy quality hardening gap must not block current delivery")
+    if final_strategy_boundary.get("status") != "NOT_APPROVED_PENDING_HARDENING_GATES":
+        raise AssertionError("Final strategy quality must remain not approved pending hardening gates")
+    if final_strategy_boundary.get("final_production_strategy_quality_approved") is not False:
+        raise AssertionError("Final production-level strategy quality must not be approved")
+    if final_strategy_boundary.get("final_production_strategy_quality_claim_allowed") is not False:
+        raise AssertionError("Final production-level strategy quality claim must remain blocked")
+    required_final_strategy_items = {
+        "stronger_challenger_model",
+        "hole_card_data_quality",
+        "calibration",
+        "larger_validation_data",
+        "production_scale_multi_agent_training",
+    }
+    if set(final_strategy_remaining) != required_final_strategy_items:
+        raise AssertionError("Final strategy quality status must track every remaining hardening item")
+    for name in required_final_strategy_items:
+        if (final_strategy_remaining.get(name) or {}).get("status") != "REQUIRED":
+            raise AssertionError(f"Final strategy hardening item must remain required: {name}")
+    if final_strategy_real_traffic.get("real_production_traffic_approved") is not False:
+        raise AssertionError("Final strategy quality status must not approve real production traffic")
+    if (final_strategy_quality_status.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(
+            f"Final strategy quality status invariants failed: {final_strategy_quality_status.get('invariants')}"
+        )
 
     final_acceptance_summary = final_delivery_acceptance.get("acceptance_summary") or {}
     final_acceptance_risks = final_delivery_acceptance.get("tracked_component_risks") or {}
@@ -1033,20 +1133,47 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Final acceptance must block fully autonomous LLM-agent claims")
     if final_qlora.get("stage_status") != "NEXT_STAGE_IMPROVEMENT":
         raise AssertionError("Final acceptance must keep QLoRA/larger LLM fine-tuning as next-stage improvement")
+    if final_qlora.get("milestone_type") != "RESEARCH_QUALITY_IMPROVEMENT_MILESTONE":
+        raise AssertionError("Final acceptance must keep QLoRA as a research-quality improvement milestone")
     if final_qlora.get("fine_tuning_completed") is not False:
         raise AssertionError("Final acceptance must not mark QLoRA fine-tuning complete")
     if final_qlora.get("production_approved") is not False:
         raise AssertionError("Final acceptance must not approve QLoRA fine-tuning as production-ready")
     if final_qlora.get("current_delivery_blocker") is not False:
         raise AssertionError("Final acceptance must not make QLoRA a current delivery blocker")
+    if final_qlora.get("delivery_blocker") is not False:
+        raise AssertionError("Final acceptance must not make QLoRA a delivery blocker")
+    if final_qlora.get("approved_current_delivery_component") is not False:
+        raise AssertionError("Final acceptance must not mark QLoRA as approved current-delivery component")
+    if final_qlora.get("adapter_scope") != "EVENT_NORMALIZATION_STRUCTURED_EXTRACTION_AND_CANDIDATE_RANKING":
+        raise AssertionError("Final acceptance must preserve QLoRA adapter scope")
+    final_qlora_targets = final_qlora.get("targets") or {}
+    for target in (
+        "noisy_ocr_dealer_log_normalization",
+        "structured_extraction",
+        "candidate_ranking",
+        "json_schema_compliance_improvement",
+    ):
+        if final_qlora_targets.get(target) is not True:
+            raise AssertionError(f"Final acceptance must preserve QLoRA target: {target}")
+    if final_qlora_targets.get("autonomous_poker_policy") is not False:
+        raise AssertionError("Final acceptance must keep autonomous poker policy out of QLoRA target scope")
     if final_runtime_monitoring.get("monitoring_required_for_real_traffic") is not True:
         raise AssertionError("Final acceptance must require monitoring for real traffic")
     if final_runtime_monitoring.get("rollback_rules_required_for_real_traffic") is not True:
         raise AssertionError("Final acceptance must require rollback rules for real traffic")
     if final_runtime_monitoring.get("live_drift_tracking_required_for_real_traffic") is not True:
         raise AssertionError("Final acceptance must require live drift tracking for real traffic")
+    if final_runtime_monitoring.get("prediction_distribution_tracking_required_for_real_traffic") is not True:
+        raise AssertionError("Final acceptance must require prediction distribution tracking for real traffic")
+    if final_runtime_monitoring.get("model_confidence_monitoring_required_for_real_traffic") is not True:
+        raise AssertionError("Final acceptance must require model confidence monitoring for real traffic")
     if final_runtime_monitoring.get("real_traffic_claim_allowed_without_observability") is not False:
         raise AssertionError("Final acceptance must block unmonitored real-traffic claims")
+    if final_runtime_monitoring.get("real_production_traffic_approved") is not False:
+        raise AssertionError("Final acceptance must not approve real production traffic before observability is enabled")
+    if final_runtime_monitoring.get("real_production_traffic_approval_status") != "NOT_APPROVED_UNTIL_OBSERVABILITY_ENABLED":
+        raise AssertionError("Final acceptance must keep real production traffic approval pending observability")
     if final_runtime_monitoring.get("real_traffic_blocker_if_disabled") is not True:
         raise AssertionError("Final acceptance must block real traffic when observability is disabled")
     if final_runtime_monitoring.get("current_delivery_blocker") is not False:
@@ -1122,6 +1249,7 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/experiments/hole_card_data_quality.yaml",
         "configs/experiments/production_gate.yaml",
         "configs/experiments/challenger_strategy_quality.yaml",
+        "configs/experiments/final_strategy_quality_status.yaml",
         "configs/experiments/verify_delivery.yaml",
     ]
     missing = [relative for relative in required_configs if not (root / relative).exists()]
@@ -1161,6 +1289,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "configs/experiments/llm_decision_candidate_gate.yaml",
         "configs/experiments/llm_architecture_comparison.yaml",
         "configs/experiments/challenger_strategy_quality.yaml",
+        "configs/experiments/final_strategy_quality_status.yaml",
         "evaluation/decision_context_smoke.jsonl",
         "evaluation/decision_context_human_holdout.jsonl",
         "configs/experiments/project_completion.yaml",
@@ -1213,6 +1342,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/raw_model_challenger.md",
         "reports/challenger_strategy_quality.json",
         "reports/challenger_strategy_quality.md",
+        "reports/final_strategy_quality_status.json",
+        "reports/final_strategy_quality_status.md",
         "reports/client_handoff.json",
         "reports/client_handoff.md",
         "reports/training_cluster_requirements.json",
@@ -1245,6 +1376,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/llm_architecture_comparison.py",
         "poker_agent/project_completion.py",
         "poker_agent/final_delivery_acceptance.py",
+        "poker_agent/final_strategy_quality_status.py",
         "poker_agent/api_contract.py",
         "poker_agent/delivery_readiness.py",
         "poker_agent/scope_contract.py",
@@ -1270,6 +1402,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/build_llm_architecture_comparison.py",
         "scripts/build_project_completion.py",
         "scripts/build_final_delivery_acceptance.py",
+        "scripts/build_final_strategy_quality_status.py",
         "scripts/build_scope_contract.py",
         "scripts/llm_event_gold_eval.py",
         "scripts/run_hydra_experiment.py",
@@ -1280,6 +1413,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "tests/test_client_gpu_training_response.py",
         "tests/test_multi_agent_training_status.py",
         "tests/test_challenger_strategy_quality.py",
+        "tests/test_final_strategy_quality_status.py",
         "tests/test_strategy_stack_maturity.py",
         "tests/test_hole_card_data_quality.py",
         "verify_delivery.ps1",

@@ -12,6 +12,7 @@ from typing import Any, Mapping
 PRODUCTION_RUNTIME_MONITORING_VERSION = "2026-06-28"
 REAL_TRAFFIC_REQUIREMENT = "REQUIRES_MONITORING_ROLLBACK_AND_LIVE_DRIFT_TRACKING"
 READY_TO_ENABLE = "CONFIGURED_FOR_REAL_TRAFFIC_ENABLEMENT"
+REAL_TRAFFIC_NOT_APPROVED_UNTIL_OBSERVABILITY = "NOT_APPROVED_UNTIL_OBSERVABILITY_ENABLED"
 BASELINE_ACTION_DISTRIBUTION = {
     "fold": 0.26,
     "check": 0.18,
@@ -42,7 +43,8 @@ class RuntimeMonitoringState:
         request_payload: Mapping[str, Any] | None = None,
     ) -> None:
         probabilities = result.get("probabilities") if isinstance(result.get("probabilities"), Mapping) else {}
-        confidence = _confidence(probabilities)
+        clean_probabilities = _clean_probabilities(probabilities)
+        confidence = _confidence(clean_probabilities)
         action = str(result.get("action") or result.get("recommended_action") or "unknown")
         model_status = str(result.get("model_status") or result.get("model_version") or "unknown")
         event = {
@@ -50,6 +52,7 @@ class RuntimeMonitoringState:
             "kind": "prediction",
             "action": action,
             "confidence": confidence,
+            "probabilities": clean_probabilities,
             "latency_ms": float(latency_ms),
             "model_status": model_status,
             "fallback": "fallback" in model_status.lower(),
@@ -69,6 +72,7 @@ class RuntimeMonitoringState:
                     "kind": "error",
                     "action": "error",
                     "confidence": 0.0,
+                    "probabilities": {},
                     "latency_ms": float(latency_ms),
                     "model_status": error_type,
                     "fallback": False,
@@ -99,6 +103,7 @@ def build_runtime_snapshot(events: list[dict[str, Any]]) -> dict[str, Any]:
     action_counts = Counter(str(event.get("action")) for event in predictions)
     distribution = _normalize_counts(action_counts, BASELINE_ACTION_DISTRIBUTION.keys())
     latencies = sorted(float(event.get("latency_ms", 0.0)) for event in events)
+    confidences = sorted(float(event.get("confidence", 0.0)) for event in predictions)
     fallback_count = sum(1 for event in predictions if event.get("fallback"))
     low_confidence_count = sum(1 for event in predictions if float(event.get("confidence", 0.0)) < 0.40)
     missing_card_count = sum(1 for event in predictions if event.get("missing_hole_cards") is True)
@@ -107,6 +112,22 @@ def build_runtime_snapshot(events: list[dict[str, Any]]) -> dict[str, Any]:
         "prediction_count": len(predictions),
         "error_count": len(errors),
         "action_distribution": distribution,
+        "prediction_distribution_tracking": {
+            "status": "ACTIVE" if predictions else "CONFIGURED_NO_LIVE_TRAFFIC",
+            "sample_count": len(predictions),
+            "action_counts": {label: int(action_counts.get(label, 0)) for label in BASELINE_ACTION_DISTRIBUTION},
+            "action_distribution": distribution,
+            "probability_mean_by_action": _mean_probabilities(predictions),
+        },
+        "model_confidence_monitoring": {
+            "status": "ACTIVE" if predictions else "CONFIGURED_NO_LIVE_TRAFFIC",
+            "sample_count": len(predictions),
+            "avg_confidence": _mean(confidences),
+            "p05_confidence": _percentile(confidences, 0.05),
+            "p50_confidence": _percentile(confidences, 0.50),
+            "p95_confidence": _percentile(confidences, 0.95),
+            "low_confidence_rate": _ratio(low_confidence_count, len(predictions)),
+        },
         "error_rate": _ratio(len(errors), total),
         "fallback_rate": _ratio(fallback_count, len(predictions)),
         "low_confidence_rate": _ratio(low_confidence_count, len(predictions)),
@@ -173,7 +194,11 @@ def build_production_runtime_monitoring(
             "monitoring_required_for_real_traffic": True,
             "rollback_rules_required_for_real_traffic": True,
             "live_drift_tracking_required_for_real_traffic": True,
+            "prediction_distribution_tracking_required_for_real_traffic": True,
+            "model_confidence_monitoring_required_for_real_traffic": True,
             "real_traffic_claim_allowed_without_observability": False,
+            "real_production_traffic_approved": False,
+            "real_production_traffic_approval_status": REAL_TRAFFIC_NOT_APPROVED_UNTIL_OBSERVABILITY,
             "real_traffic_blocker_if_disabled": True,
             "current_delivery_blocker": False,
             "service_delivery": final_summary.get("service_delivery"),
@@ -240,12 +265,15 @@ def build_production_runtime_monitoring(
         "allowed_claims": [
             "The delivery package includes a production monitoring and rollback contract.",
             "Real-traffic rollout is allowed only with active monitoring, rollback, and drift tracking.",
+            "Real-traffic approval additionally requires prediction-distribution tracking and model-confidence monitoring.",
             "The in-process snapshot is for service-local visibility; production must persist telemetry externally.",
         ],
         "blocked_claims": [
             "The service is approved for real traffic without monitoring.",
+            "The service is approved for real production traffic before observability is enabled.",
             "Rollback is optional for production rollout.",
             "Offline validation alone replaces live drift tracking.",
+            "Prediction distribution and model confidence monitoring are optional for real traffic.",
             "In-process telemetry is sufficient as the only production monitoring store.",
         ],
         "evidence": {
@@ -279,14 +307,29 @@ def validate_production_runtime_monitoring(payload: Mapping[str, Any]) -> dict[s
         violations.append("rollback_rules_must_be_required_for_real_traffic")
     if boundary.get("live_drift_tracking_required_for_real_traffic") is not True:
         violations.append("live_drift_tracking_must_be_required_for_real_traffic")
+    if boundary.get("prediction_distribution_tracking_required_for_real_traffic") is not True:
+        violations.append("prediction_distribution_tracking_must_be_required_for_real_traffic")
+    if boundary.get("model_confidence_monitoring_required_for_real_traffic") is not True:
+        violations.append("model_confidence_monitoring_must_be_required_for_real_traffic")
     if boundary.get("real_traffic_claim_allowed_without_observability") is not False:
         violations.append("unmonitored_real_traffic_claim_must_be_blocked")
+    if boundary.get("real_production_traffic_approved") is not False:
+        violations.append("real_production_traffic_must_not_be_approved_without_enabled_observability")
+    if boundary.get("real_production_traffic_approval_status") != REAL_TRAFFIC_NOT_APPROVED_UNTIL_OBSERVABILITY:
+        violations.append("real_production_traffic_status_must_require_enabled_observability")
     if boundary.get("real_traffic_blocker_if_disabled") is not True:
         violations.append("disabled_observability_must_block_real_traffic_rollout")
     if boundary.get("current_delivery_blocker") is not False:
         violations.append("monitoring_contract_must_not_block_current_delivery_package")
 
-    required_streams = {"prediction_latency_ms", "action_distribution", "confidence_distribution", "model_status_and_fallback_rate", "validation_error_rate"}
+    required_streams = {
+        "prediction_latency_ms",
+        "action_distribution",
+        "probability_distribution",
+        "confidence_distribution",
+        "model_status_and_fallback_rate",
+        "validation_error_rate",
+    }
     if not required_streams.issubset(set(plan.get("required_streams") or [])):
         violations.append("monitoring_plan_missing_required_streams")
 
@@ -334,6 +377,10 @@ def render_production_runtime_monitoring_markdown(payload: Mapping[str, Any]) ->
         f"- Monitoring required for real traffic: `{boundary['monitoring_required_for_real_traffic']}`",
         f"- Rollback rules required for real traffic: `{boundary['rollback_rules_required_for_real_traffic']}`",
         f"- Live drift tracking required for real traffic: `{boundary['live_drift_tracking_required_for_real_traffic']}`",
+        f"- Prediction distribution tracking required for real traffic: `{boundary['prediction_distribution_tracking_required_for_real_traffic']}`",
+        f"- Model confidence monitoring required for real traffic: `{boundary['model_confidence_monitoring_required_for_real_traffic']}`",
+        f"- Real production traffic approved: `{boundary['real_production_traffic_approved']}`",
+        f"- Real production traffic approval status: `{boundary['real_production_traffic_approval_status']}`",
         f"- Real traffic blocker if disabled: `{boundary['real_traffic_blocker_if_disabled']}`",
         f"- Current delivery blocker: `{boundary['current_delivery_blocker']}`",
         "",
@@ -355,6 +402,9 @@ def render_production_runtime_monitoring_markdown(payload: Mapping[str, Any]) ->
         f"- Error rate: `{snapshot['error_rate']}`",
         f"- Fallback rate: `{snapshot['fallback_rate']}`",
         f"- Action distribution JS: `{snapshot['action_distribution_js']}`",
+        f"- Prediction distribution tracking: `{snapshot['prediction_distribution_tracking']['status']}`",
+        f"- Confidence monitoring: `{snapshot['model_confidence_monitoring']['status']}`",
+        f"- Low confidence rate: `{snapshot['model_confidence_monitoring']['low_confidence_rate']}`",
         f"- Rollback status: `{snapshot['rollback_evaluation']['status']}`",
         "",
         f"Invariant status: `{payload['invariants']['status']}`",
@@ -371,6 +421,19 @@ def _confidence(probabilities: Mapping[str, Any]) -> float:
         except (TypeError, ValueError):
             continue
     return max(values) if values else 0.0
+
+
+def _clean_probabilities(probabilities: Mapping[str, Any]) -> dict[str, float]:
+    clean: dict[str, float] = {}
+    for label in BASELINE_ACTION_DISTRIBUTION:
+        try:
+            clean[label] = max(float(probabilities.get(label, 0.0)), 0.0)
+        except (TypeError, ValueError):
+            clean[label] = 0.0
+    total = sum(clean.values())
+    if total <= 0.0:
+        return {label: 0.0 for label in BASELINE_ACTION_DISTRIBUTION}
+    return {label: value / total for label, value in clean.items()}
 
 
 def _payload_value(payload: Mapping[str, Any] | None, key: str) -> Any:
@@ -398,6 +461,20 @@ def _ratio(numerator: int, denominator: int) -> float:
 
 def _mean(values: list[float]) -> float:
     return float(sum(values) / len(values)) if values else 0.0
+
+
+def _mean_probabilities(events: list[dict[str, Any]]) -> dict[str, float]:
+    if not events:
+        return {label: 0.0 for label in BASELINE_ACTION_DISTRIBUTION}
+    totals = {label: 0.0 for label in BASELINE_ACTION_DISTRIBUTION}
+    for event in events:
+        probabilities = event.get("probabilities") if isinstance(event.get("probabilities"), Mapping) else {}
+        for label in totals:
+            try:
+                totals[label] += float(probabilities.get(label, 0.0))
+            except (TypeError, ValueError):
+                continue
+    return {label: value / len(events) for label, value in totals.items()}
 
 
 def _percentile(values: list[float], q: float) -> float:

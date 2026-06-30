@@ -56,9 +56,29 @@ def _write_reports(reports: Path) -> None:
             {
                 "stage_boundary": {
                     "stage_status": "NEXT_STAGE_IMPROVEMENT",
+                    "milestone_type": "RESEARCH_QUALITY_IMPROVEMENT_MILESTONE",
                     "fine_tuning_completed": False,
                     "production_approved": False,
                     "current_delivery_blocker": False,
+                    "delivery_blocker": False,
+                    "approved_current_delivery_component": False,
+                    "requires_separate_approval_before_promotion": True,
+                },
+                "delivery_classification": {
+                    "current_delivery_component": False,
+                    "current_delivery_blocker": False,
+                    "next_stage_research_milestone": True,
+                    "promotion_requires_new_gate": True,
+                },
+                "recommended_training_plan": {
+                    "adapter_scope": "EVENT_NORMALIZATION_STRUCTURED_EXTRACTION_AND_CANDIDATE_RANKING"
+                },
+                "target_use_cases": {
+                    "noisy_ocr_dealer_log_normalization": {"recommended": True},
+                    "structured_extraction": {"recommended": True},
+                    "candidate_ranking": {"recommended": True},
+                    "json_schema_compliance_improvement": {"recommended": True},
+                    "autonomous_poker_policy": {"recommended": False},
                 }
             }
         ),
@@ -72,7 +92,11 @@ def _write_reports(reports: Path) -> None:
                     "monitoring_required_for_real_traffic": True,
                     "rollback_rules_required_for_real_traffic": True,
                     "live_drift_tracking_required_for_real_traffic": True,
+                    "prediction_distribution_tracking_required_for_real_traffic": True,
+                    "model_confidence_monitoring_required_for_real_traffic": True,
                     "real_traffic_claim_allowed_without_observability": False,
+                    "real_production_traffic_approved": False,
+                    "real_production_traffic_approval_status": "NOT_APPROVED_UNTIL_OBSERVABILITY_ENABLED",
                     "real_traffic_blocker_if_disabled": True,
                     "current_delivery_blocker": False,
                 }
@@ -189,8 +213,19 @@ def test_final_delivery_acceptance_passes_with_tracked_risks(tmp_path: Path) -> 
     assert payload["acceptance_summary"]["deployed_strategy_stack"] == "APPROVED"
     assert payload["tracked_component_risks"]["llm_work"]["fully_autonomous_llm_agent_claim_allowed"] is False
     assert payload["tracked_component_risks"]["qlora_larger_llm_fine_tuning"]["stage_status"] == "NEXT_STAGE_IMPROVEMENT"
+    assert payload["tracked_component_risks"]["qlora_larger_llm_fine_tuning"]["milestone_type"] == "RESEARCH_QUALITY_IMPROVEMENT_MILESTONE"
     assert payload["tracked_component_risks"]["qlora_larger_llm_fine_tuning"]["production_approved"] is False
+    assert payload["tracked_component_risks"]["qlora_larger_llm_fine_tuning"]["delivery_blocker"] is False
+    assert payload["tracked_component_risks"]["qlora_larger_llm_fine_tuning"]["approved_current_delivery_component"] is False
+    assert payload["tracked_component_risks"]["qlora_larger_llm_fine_tuning"]["targets"]["json_schema_compliance_improvement"] is True
     assert payload["tracked_component_risks"]["production_runtime_monitoring"]["monitoring_required_for_real_traffic"] is True
+    assert payload["tracked_component_risks"]["production_runtime_monitoring"]["prediction_distribution_tracking_required_for_real_traffic"] is True
+    assert payload["tracked_component_risks"]["production_runtime_monitoring"]["model_confidence_monitoring_required_for_real_traffic"] is True
+    assert payload["tracked_component_risks"]["production_runtime_monitoring"]["real_production_traffic_approved"] is False
+    assert (
+        payload["tracked_component_risks"]["production_runtime_monitoring"]["real_production_traffic_approval_status"]
+        == "NOT_APPROVED_UNTIL_OBSERVABILITY_ENABLED"
+    )
     assert payload["tracked_component_risks"]["production_runtime_monitoring"]["real_traffic_blocker_if_disabled"] is True
     assert payload["tracked_component_risks"]["challenger_strategy_quality"]["challenger_required_before_final_claim"] is True
     assert payload["tracked_component_risks"]["challenger_strategy_quality"]["final_production_strategy_quality_claim_allowed"] is False
@@ -203,7 +238,13 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     payload["tracked_component_risks"]["llm_work"]["fully_autonomous_llm_agent_present"] = True
     payload["tracked_component_risks"]["raw_supervised_model"]["standalone_status"] = "STANDALONE_APPROVED"
     payload["tracked_component_risks"]["qlora_larger_llm_fine_tuning"]["production_approved"] = True
+    payload["tracked_component_risks"]["qlora_larger_llm_fine_tuning"]["delivery_blocker"] = True
+    payload["tracked_component_risks"]["qlora_larger_llm_fine_tuning"]["targets"]["json_schema_compliance_improvement"] = False
     payload["tracked_component_risks"]["production_runtime_monitoring"]["monitoring_required_for_real_traffic"] = False
+    payload["tracked_component_risks"]["production_runtime_monitoring"]["prediction_distribution_tracking_required_for_real_traffic"] = False
+    payload["tracked_component_risks"]["production_runtime_monitoring"]["model_confidence_monitoring_required_for_real_traffic"] = False
+    payload["tracked_component_risks"]["production_runtime_monitoring"]["real_production_traffic_approved"] = True
+    payload["tracked_component_risks"]["production_runtime_monitoring"]["real_production_traffic_approval_status"] = "APPROVED"
     payload["tracked_component_risks"]["challenger_strategy_quality"]["final_production_strategy_quality_claim_allowed"] = True
     payload.pop("overall_status", None)
 
@@ -213,7 +254,13 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     assert "fully_autonomous_llm_agent_must_not_be_present" in invariants["violations"]
     assert "raw_model_must_not_be_standalone_approved" in invariants["violations"]
     assert "qlora_must_not_be_marked_production_approved" in invariants["violations"]
+    assert "qlora_delivery_blocker_must_be_false" in invariants["violations"]
+    assert "qlora_target_must_remain_enabled:json_schema_compliance_improvement" in invariants["violations"]
     assert "monitoring_must_be_required_for_real_traffic" in invariants["violations"]
+    assert "prediction_distribution_tracking_must_be_required_for_real_traffic" in invariants["violations"]
+    assert "model_confidence_monitoring_must_be_required_for_real_traffic" in invariants["violations"]
+    assert "real_production_traffic_must_not_be_approved_before_observability" in invariants["violations"]
+    assert "real_production_traffic_status_must_require_observability" in invariants["violations"]
     assert "final_strategy_quality_claim_must_remain_blocked_until_challenger_passes" in invariants["violations"]
 
 

@@ -147,6 +147,8 @@ $ProjectCompletionReport = Join-Path $ReportsDir "project_completion.json"
 $ProjectCompletionMarkdownReport = Join-Path $ReportsDir "project_completion.md"
 $FinalDeliveryAcceptanceReport = Join-Path $ReportsDir "final_delivery_acceptance.json"
 $FinalDeliveryAcceptanceMarkdownReport = Join-Path $ReportsDir "final_delivery_acceptance.md"
+$FinalStrategyQualityStatusReport = Join-Path $ReportsDir "final_strategy_quality_status.json"
+$FinalStrategyQualityStatusMarkdownReport = Join-Path $ReportsDir "final_strategy_quality_status.md"
 $ProductionRuntimeMonitoringReport = Join-Path $ReportsDir "production_runtime_monitoring.json"
 # $ProductionRuntimeMonitoringMarkdownReport = Join-Path $ReportsDir "production_runtime_monitoring.md"
 $ModelRiskRegisterReport = Join-Path $ReportsDir "model_risk_register.json"
@@ -485,6 +487,12 @@ Write-Host "7h-1/8 Building final delivery acceptance contract..." -ForegroundCo
     --out $FinalDeliveryAcceptanceReport `
     --markdown-out $FinalDeliveryAcceptanceMarkdownReport
 
+Write-Host "7h-2/8 Building final strategy quality status contract..." -ForegroundColor Green
+& $Python scripts\build_final_strategy_quality_status.py `
+    --project-root $ProjectRoot `
+    --out $FinalStrategyQualityStatusReport `
+    --markdown-out $FinalStrategyQualityStatusMarkdownReport
+
 Write-Host "8/8 Rebuilding delivery ZIP..." -ForegroundColor Green
 
 $GeneratedDirs = Get-ChildItem -Force -Recurse -Directory -Filter "__pycache__" -ErrorAction SilentlyContinue | Where-Object {
@@ -534,6 +542,7 @@ Write-Host "Instruction-model report: $TransformerMarkdownReport"
 Write-Host "Scope contract: $ScopeContractReport"
 Write-Host "Project completion: $ProjectCompletionReport"
 Write-Host "Final delivery acceptance: $FinalDeliveryAcceptanceReport"
+Write-Host "Final strategy quality status: $FinalStrategyQualityStatusReport"
 Write-Host "Production runtime monitoring: $ProductionRuntimeMonitoringReport"
 Write-Host "QLoRA next-stage boundary: $QloraNextStageReport"
 Write-Host "Model risk register: $ModelRiskRegisterReport"

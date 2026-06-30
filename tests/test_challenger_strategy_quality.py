@@ -47,6 +47,22 @@ def _write_reports(reports: Path, challenger_gate: str = "FAIL", raw_gate: str =
                         "passed_gates": 2,
                         "total_gates": 7,
                         "failed_gates": ["macro_f1", "calibration"],
+                        "gates": [
+                            {
+                                "name": "macro_f1",
+                                "observed": 0.48,
+                                "threshold": 0.50,
+                                "passed": False,
+                                "impact": "Minority poker actions must be learned.",
+                            },
+                            {
+                                "name": "calibration",
+                                "observed": 0.16,
+                                "threshold": 0.10,
+                                "passed": False,
+                                "impact": "Prediction confidence must be calibrated.",
+                            },
+                        ],
                     },
                     "valid_metrics": {
                         "accuracy": 0.70,
@@ -81,6 +97,12 @@ def test_challenger_strategy_quality_blocks_final_claim_until_gates_pass(tmp_pat
     assert boundary["final_production_strategy_quality_claim_allowed"] is False
     assert boundary["current_delivery_blocker"] is False
     assert boundary["deployed_strategy_stack_affected"] is False
+    failure_analysis = {item["name"]: item for item in payload["gate_failure_analysis"]}
+    assert failure_analysis["macro_f1"]["observed"] == 0.48
+    assert failure_analysis["macro_f1"]["threshold"] == 0.50
+    assert failure_analysis["macro_f1"]["shortfall"] == 0.020000000000000018
+    assert abs(failure_analysis["calibration"]["shortfall"] - 0.06) < 1e-12
+    assert "minority-action" in failure_analysis["macro_f1"]["remediation"]
     assert "A failing challenger can be promoted as the production policy." in payload["blocked_claims"]
 
 
@@ -97,6 +119,20 @@ def test_challenger_strategy_quality_rejects_false_final_approval(tmp_path: Path
     assert invariants["status"] == "FAIL"
     assert "final_strategy_quality_requires_raw_gate_pass" in invariants["violations"]
     assert "final_strategy_quality_requires_challenger_gate_pass" in invariants["violations"]
+
+
+def test_challenger_strategy_quality_requires_analysis_for_failed_gates(tmp_path: Path) -> None:
+    _write_reports(tmp_path / "reports")
+    payload = build_challenger_strategy_quality(tmp_path)
+    payload["gate_failure_analysis"] = []
+
+    invariants = validate_challenger_strategy_quality(payload)
+
+    assert invariants["status"] == "FAIL"
+    assert any(
+        violation.startswith("failed_challenger_gates_missing_failure_analysis")
+        for violation in invariants["violations"]
+    )
 
 
 def test_challenger_strategy_quality_endpoint_returns_contract() -> None:

@@ -45,7 +45,11 @@ def test_production_runtime_monitoring_requires_observability_for_real_traffic(t
     assert boundary["monitoring_required_for_real_traffic"] is True
     assert boundary["rollback_rules_required_for_real_traffic"] is True
     assert boundary["live_drift_tracking_required_for_real_traffic"] is True
+    assert boundary["prediction_distribution_tracking_required_for_real_traffic"] is True
+    assert boundary["model_confidence_monitoring_required_for_real_traffic"] is True
     assert boundary["real_traffic_claim_allowed_without_observability"] is False
+    assert boundary["real_production_traffic_approved"] is False
+    assert boundary["real_production_traffic_approval_status"] == "NOT_APPROVED_UNTIL_OBSERVABILITY_ENABLED"
     assert boundary["real_traffic_blocker_if_disabled"] is True
     assert boundary["current_delivery_blocker"] is False
 
@@ -57,7 +61,11 @@ def test_production_runtime_monitoring_blocks_unmonitored_real_traffic_claim(tmp
     boundary["monitoring_required_for_real_traffic"] = False
     boundary["rollback_rules_required_for_real_traffic"] = False
     boundary["live_drift_tracking_required_for_real_traffic"] = False
+    boundary["prediction_distribution_tracking_required_for_real_traffic"] = False
+    boundary["model_confidence_monitoring_required_for_real_traffic"] = False
     boundary["real_traffic_claim_allowed_without_observability"] = True
+    boundary["real_production_traffic_approved"] = True
+    boundary["real_production_traffic_approval_status"] = "APPROVED"
     boundary["real_traffic_blocker_if_disabled"] = False
     payload.pop("overall_status", None)
 
@@ -67,7 +75,11 @@ def test_production_runtime_monitoring_blocks_unmonitored_real_traffic_claim(tmp
     assert "monitoring_must_be_required_for_real_traffic" in invariants["violations"]
     assert "rollback_rules_must_be_required_for_real_traffic" in invariants["violations"]
     assert "live_drift_tracking_must_be_required_for_real_traffic" in invariants["violations"]
+    assert "prediction_distribution_tracking_must_be_required_for_real_traffic" in invariants["violations"]
+    assert "model_confidence_monitoring_must_be_required_for_real_traffic" in invariants["violations"]
     assert "unmonitored_real_traffic_claim_must_be_blocked" in invariants["violations"]
+    assert "real_production_traffic_must_not_be_approved_without_enabled_observability" in invariants["violations"]
+    assert "real_production_traffic_status_must_require_enabled_observability" in invariants["violations"]
 
 
 def test_runtime_monitoring_state_flags_action_distribution_drift() -> None:
@@ -82,6 +94,11 @@ def test_runtime_monitoring_state_flags_action_distribution_drift() -> None:
     snapshot = state.snapshot()
 
     assert snapshot["prediction_count"] == 40
+    assert snapshot["prediction_distribution_tracking"]["status"] == "ACTIVE"
+    assert snapshot["prediction_distribution_tracking"]["action_counts"]["raise"] == 40
+    assert snapshot["prediction_distribution_tracking"]["probability_mean_by_action"]["raise"] == 1.0
+    assert snapshot["model_confidence_monitoring"]["status"] == "ACTIVE"
+    assert snapshot["model_confidence_monitoring"]["avg_confidence"] == 1.0
     assert snapshot["rollback_evaluation"]["rollback_required"] is True
     assert any(trigger["metric"] == "action_distribution_js" for trigger in snapshot["rollback_evaluation"]["triggers"])
 
@@ -93,4 +110,7 @@ def test_production_runtime_monitoring_endpoint_returns_contract() -> None:
 
     assert payload["overall_status"] == "PASS"
     assert payload["runtime_observability_boundary"]["monitoring_required_for_real_traffic"] is True
+    assert payload["runtime_observability_boundary"]["prediction_distribution_tracking_required_for_real_traffic"] is True
+    assert payload["runtime_observability_boundary"]["model_confidence_monitoring_required_for_real_traffic"] is True
+    assert payload["runtime_observability_boundary"]["real_production_traffic_approved"] is False
     assert payload["runtime_observability_boundary"]["current_delivery_blocker"] is False

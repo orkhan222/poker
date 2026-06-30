@@ -43,6 +43,7 @@ def build_raw_model_status(project_root: Path) -> dict[str, Any]:
     service_loadable = runtime_status == LOADABLE
     failed_gates = _failed_gates(production_gate)
     metrics = production_gate.get("valid_metrics") or {}
+    critical_action_evidence = _critical_action_evidence(metrics, production_gate)
 
     payload = {
         "version": RAW_MODEL_STATUS_VERSION,
@@ -89,6 +90,7 @@ def build_raw_model_status(project_root: Path) -> dict[str, Any]:
                 "lift_vs_majority": metrics.get("lift_vs_majority"),
                 "ece_10": metrics.get("ece_10"),
             },
+            "critical_action_evidence": critical_action_evidence,
             "best_challenger": _best_challenger_summary(challenger),
         },
         "next_step": {
@@ -119,6 +121,7 @@ def render_raw_model_status_markdown(payload: dict[str, Any]) -> str:
     raw = payload["raw_supervised_model"]
     boundary = payload["release_boundary"]
     metrics = payload["quality_evidence"]["metrics"]
+    critical_actions = payload["quality_evidence"].get("critical_action_evidence") or {}
     failed_gates = payload["quality_evidence"].get("failed_gates") or []
     challenger = payload["quality_evidence"].get("best_challenger") or {}
     lines = [
@@ -146,6 +149,21 @@ def render_raw_model_status_markdown(payload: dict[str, Any]) -> str:
         f"- Majority baseline accuracy: `{metrics.get('majority_baseline_accuracy')}`",
         f"- Lift vs majority: `{metrics.get('lift_vs_majority')}`",
         f"- Failed gates: `{', '.join(failed_gates) if failed_gates else 'none'}`",
+        "",
+        "## Critical Action Evidence",
+        "",
+        f"- Minority action stability: `{critical_actions.get('minority_action_stability')}`",
+        f"- Business risk: `{critical_actions.get('business_risk')}`",
+        f"- Critical actions: `{', '.join(critical_actions.get('critical_actions') or [])}`",
+        f"- Weak critical actions: `{', '.join(critical_actions.get('weak_critical_actions') or [])}`",
+        *[
+            (
+                f"- `{action}`: f1=`{values.get('f1')}`, precision=`{values.get('precision')}`, "
+                f"recall=`{values.get('recall')}`, support=`{values.get('support')}`"
+            )
+            for action, values in (critical_actions.get("per_action") or {}).items()
+        ],
+        f"- Reason: {critical_actions.get('reason')}",
         "",
         "## Best Challenger",
         "",
@@ -187,6 +205,9 @@ def validate_raw_model_status(payload: dict[str, Any]) -> list[str]:
         violations.append("not_standalone_approved_must_be_tracked_as_component_risk")
     if boundary.get("production_blocker") and boundary.get("service_delivery_allowed"):
         violations.append("production_blocker_cannot_allow_service_delivery")
+    critical_actions = (payload.get("quality_evidence") or {}).get("critical_action_evidence") or {}
+    if gate_status != "PASS" and critical_actions.get("minority_action_stability") == "STABLE_FOR_STANDALONE_POLICY":
+        violations.append("failing_raw_gate_cannot_mark_minority_actions_stable")
     return violations
 
 
@@ -216,6 +237,48 @@ def _best_challenger_summary(challenger: dict[str, Any]) -> dict[str, Any] | Non
             "lift_vs_majority": metrics.get("lift_vs_majority"),
             "ece_10": metrics.get("ece_10"),
         },
+    }
+
+
+def _critical_action_evidence(metrics: dict[str, Any], production_gate: dict[str, Any]) -> dict[str, Any]:
+    per_class = metrics.get("per_class") or {}
+    critical_actions = ["call", "raise"]
+    weak_threshold = 0.50
+    per_action: dict[str, dict[str, Any]] = {}
+    weak_actions: list[str] = []
+    for action in critical_actions:
+        action_metrics = per_class.get(action) or {}
+        f1 = action_metrics.get("f1")
+        if f1 is not None and float(f1) < weak_threshold:
+            weak_actions.append(action)
+        per_action[action] = {
+            "f1": f1,
+            "precision": action_metrics.get("precision"),
+            "recall": action_metrics.get("recall"),
+            "support": action_metrics.get("support"),
+        }
+
+    failed_gates = set(_failed_gates(production_gate))
+    model_gate_failed = production_gate.get("status") == "FAIL"
+    observed_hole_gate_failed = "observed_hole_cards_macro_f1" in failed_gates
+    dataset_audit_failed = "dataset_audit_blockers" in failed_gates
+    unstable = bool(weak_actions) or model_gate_failed or observed_hole_gate_failed or dataset_audit_failed
+
+    return {
+        "critical_actions": critical_actions,
+        "weak_critical_actions": weak_actions,
+        "weak_action_f1_threshold": weak_threshold,
+        "minority_action_stability": "INSUFFICIENT_FOR_STANDALONE_POLICY"
+        if unstable
+        else "STABLE_FOR_STANDALONE_POLICY",
+        "business_risk": "HIGH" if unstable else "LOW",
+        "observed_hole_card_gate_failed": observed_hole_gate_failed,
+        "dataset_audit_blocker_present": dataset_audit_failed,
+        "per_action": per_action,
+        "reason": (
+            "The raw supervised model can show acceptable headline accuracy while still underperforming "
+            "on critical minority decisions such as call/raise and on card-visible slices."
+        ),
     }
 
 

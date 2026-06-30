@@ -26,9 +26,15 @@ def test_raw_model_status_preserves_component_risk_boundary(tmp_path: Path) -> N
                     "balanced_accuracy": 0.40,
                     "majority_baseline_accuracy": 0.70,
                     "lift_vs_majority": -0.02,
+                    "per_class": {
+                        "call": {"f1": 0.24, "precision": 0.20, "recall": 0.30, "support": 474},
+                        "raise": {"f1": 0.19, "precision": 0.37, "recall": 0.13, "support": 1230},
+                    },
                 },
                 "gates": [
                     {"name": "macro_f1", "passed": False},
+                    {"name": "observed_hole_cards_macro_f1", "passed": False},
+                    {"name": "dataset_audit_blockers", "passed": False},
                     {"name": "calibration", "passed": True},
                 ],
             }
@@ -58,6 +64,11 @@ def test_raw_model_status_preserves_component_risk_boundary(tmp_path: Path) -> N
     assert payload["release_boundary"]["component_risk"] is True
     assert payload["release_boundary"]["production_blocker"] is False
     assert "macro_f1" in payload["quality_evidence"]["failed_gates"]
+    critical_actions = payload["quality_evidence"]["critical_action_evidence"]
+    assert critical_actions["minority_action_stability"] == "INSUFFICIENT_FOR_STANDALONE_POLICY"
+    assert critical_actions["business_risk"] == "HIGH"
+    assert critical_actions["weak_critical_actions"] == ["call", "raise"]
+    assert critical_actions["per_action"]["raise"]["f1"] == 0.19
     assert_raw_model_status(payload)
 
 
@@ -81,6 +92,32 @@ def test_raw_model_status_rejects_false_standalone_approval() -> None:
 
     assert "raw_model_cannot_be_standalone_approved_when_quality_gate_fails" in violations
     assert "standalone_status_cannot_be_approved_when_quality_gate_fails" in violations
+
+
+def test_raw_model_status_rejects_false_minority_action_stability() -> None:
+    payload = {
+        "raw_supervised_model": {
+            "runtime_status": "LOADABLE",
+            "service_loadable": True,
+            "quality_gate_status": "FAIL",
+            "standalone_status": "NOT_STANDALONE_APPROVED",
+            "approved_as_standalone_policy": False,
+        },
+        "release_boundary": {
+            "component_risk": True,
+            "production_blocker": False,
+            "service_delivery_allowed": True,
+        },
+        "quality_evidence": {
+            "critical_action_evidence": {
+                "minority_action_stability": "STABLE_FOR_STANDALONE_POLICY",
+            }
+        },
+    }
+
+    violations = validate_raw_model_status(payload)
+
+    assert "failing_raw_gate_cannot_mark_minority_actions_stable" in violations
 
 
 def test_raw_model_status_endpoint_returns_current_boundary() -> None:

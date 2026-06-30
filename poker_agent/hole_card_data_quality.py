@@ -10,6 +10,9 @@ HOLE_CARD_DATA_QUALITY_VERSION = "2026-06-28"
 OPEN_DATA_QUALITY_LIMITATION = "OPEN_DATA_QUALITY_LIMITATION"
 MITIGATED_BY_ROUTED_POLICY_BUNDLE = "MITIGATED_BY_ROUTED_POLICY_BUNDLE"
 UPSTREAM_NOT_RESOLVED = "UPSTREAM_NOT_RESOLVED"
+DEGRADED_STRENGTH_SIGNAL = "DEGRADED_BY_MISSING_HOLE_CARDS"
+MISSING_RATE_RISK_THRESHOLD = 0.50
+STRENGTH_PROXY_ZERO_RATE_THRESHOLD = 0.50
 
 
 def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
@@ -20,10 +23,20 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
     raw_challenger = _read_optional_json(reports / "raw_model_challenger.json")
 
     players = audit.get("players") or {}
+    features = audit.get("features") or {}
+    zero_rates = features.get("critical_feature_zero_rates") or {}
     audit_findings = audit.get("findings") or production_gate.get("audit_findings") or []
     selected_architecture = today_training.get("selected_architecture", "UNKNOWN")
     routed_active = selected_architecture == "routed_policy_bundle"
     hole_card_finding = _find_hole_card_finding(audit_findings)
+    strength_proxy_finding = _find_strength_proxy_finding(audit_findings)
+    production_observed_gate = _gate_by_name(production_gate.get("gates") or [], "observed_hole_cards_macro_f1")
+    raw_challenger_gate = ((raw_challenger.get("best_candidate") or {}).get("gate") or {})
+    raw_challenger_slices = (
+        (raw_challenger.get("best_candidate") or {}).get("valid_slice_metrics")
+        or (raw_challenger.get("best_candidate") or {}).get("slice_metrics")
+        or {}
+    )
 
     payload: dict[str, Any] = {
         "version": HOLE_CARD_DATA_QUALITY_VERSION,
@@ -41,12 +54,32 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
             "card_count_distribution": players.get("card_count_distribution", {}),
             "audit_finding": hole_card_finding,
         },
+        "strength_signal_impact": {
+            "status": DEGRADED_STRENGTH_SIGNAL,
+            "strength_proxy_zero_rate": zero_rates.get("strength_proxy"),
+            "missing_hole_card_rate": players.get("missing_hole_card_rate"),
+            "complete_hole_card_rate": players.get("complete_hole_card_rate"),
+            "primary_hand_strength_signal_reliable_for_standalone_policy": False,
+            "observed_hole_cards_macro_f1": production_observed_gate.get("observed"),
+            "observed_hole_cards_threshold": production_observed_gate.get("threshold"),
+            "observed_hole_cards_gate_passed": production_observed_gate.get("passed"),
+            "challenger_observed_hole_cards_macro_f1": (
+                raw_challenger_slices.get("observed_hole_cards") or {}
+            ).get("macro_f1"),
+            "strength_proxy_audit_finding": strength_proxy_finding,
+            "expected_model_impact": (
+                "Card-strength features cannot be treated as the primary reliable signal while most "
+                "player rows have missing hole cards and strength_proxy is zero-dominant."
+            ),
+        },
         "mitigation_boundary": {
             "selected_architecture": selected_architecture,
             "mitigation_status": MITIGATED_BY_ROUTED_POLICY_BUNDLE if routed_active else "MITIGATION_NOT_ACTIVE",
             "routed_policy_bundle_handles_missingness": routed_active,
             "observed_card_policy_path": "uses private-card/card-texture features when two hole cards are observed",
             "public_context_policy_path": "removes private-card features when hole cards are missing or unreliable",
+            "mitigation_scope": "RUNTIME_RISK_REDUCTION_NOT_DATA_REPAIR",
+            "requires_slice_specific_monitoring": True,
             "fully_solves_upstream_data_quality_issue": False,
         },
         "upstream_data_quality_boundary": {
@@ -64,7 +97,7 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
             "production_gate": "reports/production_gate.json",
             "today_acceptance_training": "reports/today_acceptance_training.json",
             "raw_model_challenger": "reports/raw_model_challenger.json",
-            "raw_challenger_failed_gates": raw_challenger.get("failed_gates", []),
+            "raw_challenger_failed_gates": raw_challenger_gate.get("failed_gates", []),
         },
         "required_upstream_fixes": [
             "Improve OCR/card extraction and dealer-log reconciliation for player hole cards.",
@@ -90,11 +123,13 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
 def validate_hole_card_data_quality(payload: dict[str, Any]) -> dict[str, Any]:
     violations: list[str] = []
     coverage = payload.get("coverage_snapshot") or {}
+    strength = payload.get("strength_signal_impact") or {}
     mitigation = payload.get("mitigation_boundary") or {}
     upstream = payload.get("upstream_data_quality_boundary") or {}
 
     missing_rate = _as_float(coverage.get("missing_hole_card_rate"))
     complete_rate = _as_float(coverage.get("complete_hole_card_rate"))
+    strength_zero_rate = _as_float(strength.get("strength_proxy_zero_rate"))
     if missing_rate is None:
         violations.append("missing_hole_card_rate_is_required")
     if complete_rate is None:
@@ -104,12 +139,31 @@ def validate_hole_card_data_quality(payload: dict[str, Any]) -> dict[str, Any]:
     if not coverage.get("audit_finding"):
         violations.append("hole_card_audit_finding_must_remain_visible")
 
+    high_missingness = missing_rate is not None and missing_rate >= MISSING_RATE_RISK_THRESHOLD
+    high_strength_zero_rate = (
+        strength_zero_rate is not None and strength_zero_rate >= STRENGTH_PROXY_ZERO_RATE_THRESHOLD
+    )
+    if high_missingness and strength.get("status") != DEGRADED_STRENGTH_SIGNAL:
+        violations.append("high_hole_card_missingness_must_degrade_strength_signal")
+    if high_strength_zero_rate and strength.get("status") != DEGRADED_STRENGTH_SIGNAL:
+        violations.append("high_strength_proxy_zero_rate_must_degrade_strength_signal")
+    if (high_missingness or high_strength_zero_rate) and (
+        strength.get("primary_hand_strength_signal_reliable_for_standalone_policy") is not False
+    ):
+        violations.append("degraded_strength_signal_cannot_be_standalone_reliable")
+    if high_strength_zero_rate and not strength.get("strength_proxy_audit_finding"):
+        violations.append("strength_proxy_audit_finding_must_remain_visible")
+
     if mitigation.get("mitigation_status") != MITIGATED_BY_ROUTED_POLICY_BUNDLE:
         violations.append("routed_policy_bundle_mitigation_must_be_active")
     if mitigation.get("routed_policy_bundle_handles_missingness") is not True:
         violations.append("routed_policy_bundle_must_handle_missingness")
     if mitigation.get("fully_solves_upstream_data_quality_issue") is not False:
         violations.append("routed_policy_bundle_must_not_claim_to_fully_solve_upstream_data_quality")
+    if mitigation.get("mitigation_scope") != "RUNTIME_RISK_REDUCTION_NOT_DATA_REPAIR":
+        violations.append("routed_policy_bundle_scope_must_remain_runtime_mitigation_not_data_repair")
+    if mitigation.get("requires_slice_specific_monitoring") is not True:
+        violations.append("hole_card_routes_must_require_slice_specific_monitoring")
 
     if upstream.get("limitation_status") != OPEN_DATA_QUALITY_LIMITATION:
         violations.append("hole_card_limitation_must_remain_open")
@@ -145,6 +199,7 @@ def write_hole_card_data_quality(
 
 def render_hole_card_data_quality_markdown(payload: dict[str, Any]) -> str:
     coverage = payload["coverage_snapshot"]
+    strength = payload["strength_signal_impact"]
     mitigation = payload["mitigation_boundary"]
     upstream = payload["upstream_data_quality_boundary"]
     lines = [
@@ -158,10 +213,22 @@ def render_hole_card_data_quality_markdown(payload: dict[str, Any]) -> str:
         f"- Partial hole-card rate: `{coverage.get('partial_hole_card_rate')}`",
         f"- Complete hole-card rate: `{coverage.get('complete_hole_card_rate')}`",
         "",
+        "## Strength Signal Impact",
+        "",
+        f"- Strength signal status: `{strength['status']}`",
+        f"- Strength proxy zero rate: `{strength.get('strength_proxy_zero_rate')}`",
+        f"- Primary hand-strength signal reliable for standalone policy: `{strength['primary_hand_strength_signal_reliable_for_standalone_policy']}`",
+        f"- Observed-hole-card macro F1: `{strength.get('observed_hole_cards_macro_f1')}`",
+        f"- Observed-hole-card threshold: `{strength.get('observed_hole_cards_threshold')}`",
+        f"- Challenger observed-hole-card macro F1: `{strength.get('challenger_observed_hole_cards_macro_f1')}`",
+        f"- Expected impact: {strength['expected_model_impact']}",
+        "",
         "## Mitigation Boundary",
         "",
         f"- Selected architecture: `{mitigation['selected_architecture']}`",
         f"- Mitigation status: `{mitigation['mitigation_status']}`",
+        f"- Mitigation scope: `{mitigation['mitigation_scope']}`",
+        f"- Requires slice-specific monitoring: `{mitigation['requires_slice_specific_monitoring']}`",
         f"- Fully solves upstream data-quality issue: `{mitigation['fully_solves_upstream_data_quality_issue']}`",
         "",
         "## Upstream Boundary",
@@ -188,6 +255,21 @@ def _find_hole_card_finding(findings: list[dict[str, Any]]) -> dict[str, Any] | 
         if "hole-card" in issue or "hole card" in issue:
             return finding
     return None
+
+
+def _find_strength_proxy_finding(findings: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for finding in findings:
+        issue = str(finding.get("issue", "")).lower()
+        if "strength_proxy" in issue or "strength proxy" in issue:
+            return finding
+    return None
+
+
+def _gate_by_name(gates: list[dict[str, Any]], name: str) -> dict[str, Any]:
+    for gate in gates:
+        if gate.get("name") == name:
+            return gate
+    return {}
 
 
 def _as_float(value: Any) -> float | None:

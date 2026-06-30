@@ -26,6 +26,8 @@ def build_challenger_strategy_quality(project_root: Path) -> dict[str, Any]:
     challenger_gate = challenger_best.get("gate") or {}
     challenger_metrics = challenger_best.get("valid_metrics") or {}
     challenger_slices = challenger_best.get("valid_slice_metrics") or challenger_best.get("slice_metrics") or {}
+    challenger_failed_gates = challenger_gate.get("failed_gates") or []
+    gate_failure_analysis = _gate_failure_analysis(challenger_gate)
 
     raw_gate_status = str(production_gate.get("status") or raw_contract.get("quality_gate_status") or "UNKNOWN")
     challenger_gate_status = str(challenger_gate.get("status") or "MISSING")
@@ -69,7 +71,7 @@ def build_challenger_strategy_quality(project_root: Path) -> dict[str, Any]:
             "gate_status": challenger_gate_status,
             "passed_gates": challenger_gate.get("passed_gates"),
             "total_gates": challenger_gate.get("total_gates"),
-            "failed_gates": challenger_gate.get("failed_gates") or [],
+            "failed_gates": challenger_failed_gates,
             "accuracy": challenger_metrics.get("accuracy"),
             "macro_f1": challenger_metrics.get("macro_f1"),
             "balanced_accuracy": challenger_metrics.get("balanced_accuracy"),
@@ -79,6 +81,7 @@ def build_challenger_strategy_quality(project_root: Path) -> dict[str, Any]:
             "observed_hole_cards_macro_f1": (challenger_slices.get("observed_hole_cards") or {}).get("macro_f1"),
             "facing_bet_macro_f1": (challenger_slices.get("facing_bet") or {}).get("macro_f1"),
         },
+        "gate_failure_analysis": gate_failure_analysis,
         "minimum_promotion_requirements": [
             "Train at least one stronger challenger artifact on the grouped holdout contract.",
             "Compare the challenger against the current raw supervised artifact and majority baseline.",
@@ -104,7 +107,7 @@ def build_challenger_strategy_quality(project_root: Path) -> dict[str, Any]:
             "production_gate": "reports/production_gate.json",
             "deployed_strategy_gate": "reports/deployed_strategy_gate.json",
         },
-        "next_actions": _next_actions(challenger_gate.get("failed_gates") or []),
+        "next_actions": _next_actions(challenger_failed_gates),
     }
     payload["invariants"] = validate_challenger_strategy_quality(payload)
     payload["overall_status"] = "PASS" if payload["invariants"]["status"] == "PASS" else "FAIL"
@@ -116,6 +119,7 @@ def validate_challenger_strategy_quality(payload: dict[str, Any]) -> dict[str, A
     boundary = payload.get("strategy_quality_boundary") or {}
     raw = payload.get("current_raw_supervised_model") or {}
     challenger = payload.get("challenger_result") or {}
+    failure_analysis = payload.get("gate_failure_analysis") or []
     blocked_claims = payload.get("blocked_claims") or []
 
     final_claim_allowed = boundary.get("final_production_strategy_quality_claim_allowed") is True
@@ -148,6 +152,11 @@ def validate_challenger_strategy_quality(payload: dict[str, Any]) -> dict[str, A
         violations.append("blocked_claims_must_reject_failing_challenger_promotion")
     if "Final production-level strategy quality is approved without a passing challenger." not in blocked_claims:
         violations.append("blocked_claims_must_reject_final_quality_without_challenger")
+    if challenger_gate_status != REQUIRED_CHALLENGER_GATE:
+        analyzed = {item.get("name") for item in failure_analysis}
+        missing = set(challenger.get("failed_gates") or []) - analyzed
+        if missing:
+            violations.append(f"failed_challenger_gates_missing_failure_analysis:{','.join(sorted(missing))}")
 
     return {"status": "FAIL" if violations else "PASS", "violations": violations}
 
@@ -199,9 +208,21 @@ def render_challenger_strategy_quality_markdown(payload: dict[str, Any]) -> str:
         f"- Calibration ECE@10: `{challenger.get('calibration_ece_10')}`",
         f"- Failed gates: `{', '.join(challenger.get('failed_gates') or []) or 'none'}`",
         "",
-        "## Blocked Claims",
+        "## Gate Failure Analysis",
         "",
     ]
+    for item in payload.get("gate_failure_analysis") or []:
+        lines.append(
+            f"- `{item['name']}`: observed=`{item.get('observed')}`, threshold=`{item.get('threshold')}`, "
+            f"shortfall=`{item.get('shortfall')}`, remediation={item.get('remediation')}"
+        )
+    lines.extend(
+        [
+            "",
+        "## Blocked Claims",
+        "",
+        ]
+    )
     lines.extend(f"- {claim}" for claim in payload["blocked_claims"])
     lines.extend(["", "## Next Actions", ""])
     lines.extend(f"- {item}" for item in payload["next_actions"])
@@ -237,6 +258,60 @@ def _next_actions(failed_gates: list[str]) -> list[str]:
     if "dataset_audit_blockers" in failed:
         actions.append("Close dataset audit blockers before any standalone production-policy claim.")
     return actions
+
+
+def _gate_failure_analysis(challenger_gate: dict[str, Any]) -> list[dict[str, Any]]:
+    analysis: list[dict[str, Any]] = []
+    for gate in challenger_gate.get("gates") or []:
+        if gate.get("passed") is not False:
+            continue
+        name = str(gate.get("name"))
+        observed = gate.get("observed")
+        threshold = gate.get("threshold")
+        analysis.append(
+            {
+                "name": name,
+                "observed": observed,
+                "threshold": threshold,
+                "shortfall": _gate_gap_to_pass(name, observed, threshold),
+                "impact": gate.get("impact"),
+                "remediation": _remediation_for_gate(name),
+            }
+        )
+    if not analysis:
+        for name in challenger_gate.get("failed_gates") or []:
+            analysis.append(
+                {
+                    "name": str(name),
+                    "observed": None,
+                    "threshold": None,
+                    "shortfall": None,
+                    "impact": None,
+                    "remediation": _remediation_for_gate(str(name)),
+                }
+            )
+    return analysis
+
+
+def _gate_gap_to_pass(name: str, observed: Any, threshold: Any) -> float | None:
+    if not isinstance(observed, (int, float)) or not isinstance(threshold, (int, float)):
+        return None
+    lower_is_better = {"calibration", "dataset_audit_blockers"}
+    if name in lower_is_better:
+        return max(0.0, float(observed) - float(threshold))
+    return max(0.0, float(threshold) - float(observed))
+
+
+def _remediation_for_gate(name: str) -> str:
+    mapping = {
+        "macro_f1": "Improve minority-action recall with class weighting, resampling, richer betting-history features, and candidate-specific error analysis.",
+        "calibration": "Apply held-out probability calibration and reject promotion until ECE is below the production threshold.",
+        "observed_hole_cards_macro_f1": "Increase reviewed hole-card coverage and train card-visible specialist features.",
+        "facing_bet_macro_f1": "Strengthen pot-odds, pressure, stack-to-pot, and previous-action features for call/fold/raise decisions under pressure.",
+        "dataset_audit_blockers": "Close dataset audit blockers before any standalone production-policy claim.",
+        "balanced_accuracy": "Improve recall across all classes instead of optimizing headline accuracy.",
+    }
+    return mapping.get(name, "Investigate the failing slice and add a targeted remediation before promotion.")
 
 
 def _read_optional_json(path: Path) -> dict[str, Any]:

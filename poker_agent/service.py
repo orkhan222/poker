@@ -22,6 +22,7 @@ from poker_agent.client_gpu_training_response import build_client_gpu_training_r
 from poker_agent.challenger_strategy_quality import build_challenger_strategy_quality
 from poker_agent.delivery_readiness import summarize_delivery_readiness
 from poker_agent.final_delivery_acceptance import build_final_delivery_acceptance
+from poker_agent.final_strategy_quality_status import build_final_strategy_quality_status
 from poker_agent.llm_decision_context import build_decision_context_report
 from poker_agent.llm_role_boundary import build_llm_role_boundary
 from poker_agent.model_risk_register import build_model_risk_register
@@ -82,6 +83,7 @@ BEHAVIORAL_REVALIDATION_PROOF_PATH = PROJECT_ROOT / "reports" / "behavioral_reva
 HOLE_CARD_DATA_QUALITY_PATH = PROJECT_ROOT / "reports" / "hole_card_data_quality.json"
 BET_TIMING_CALIBRATION_PATH = PROJECT_ROOT / "reports" / "bet_timing_calibration.json"
 FINAL_DELIVERY_ACCEPTANCE_PATH = PROJECT_ROOT / "reports" / "final_delivery_acceptance.json"
+FINAL_STRATEGY_QUALITY_STATUS_PATH = PROJECT_ROOT / "reports" / "final_strategy_quality_status.json"
 PRODUCTION_RUNTIME_MONITORING_PATH = PROJECT_ROOT / "reports" / "production_runtime_monitoring.json"
 
 
@@ -678,6 +680,17 @@ def final_delivery_acceptance_json() -> dict[str, Any]:
     if FINAL_DELIVERY_ACCEPTANCE_PATH.exists():
         return json.loads(FINAL_DELIVERY_ACCEPTANCE_PATH.read_text(encoding="utf-8"))
     return build_final_delivery_acceptance(PROJECT_ROOT)
+
+
+@app.get(
+    "/final-strategy-quality-status.json",
+    tags=["System"],
+    summary="Final production-level strategy quality boundary",
+)
+def final_strategy_quality_status_json() -> dict[str, Any]:
+    if FINAL_STRATEGY_QUALITY_STATUS_PATH.exists():
+        return json.loads(FINAL_STRATEGY_QUALITY_STATUS_PATH.read_text(encoding="utf-8"))
+    return build_final_strategy_quality_status(PROJECT_ROOT)
 
 
 @app.get("/production-runtime-monitoring.json", tags=["System"], summary="Production monitoring, rollback, and drift tracking")

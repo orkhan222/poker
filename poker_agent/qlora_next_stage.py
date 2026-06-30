@@ -10,6 +10,15 @@ NEXT_STAGE_IMPROVEMENT = "NEXT_STAGE_IMPROVEMENT"
 CONTROLLED_LAYER = "CONTROLLED_DECISION_CONTEXT_AND_EVENT_NORMALIZATION_LAYER"
 NOT_COMPLETED = "NOT_COMPLETED"
 NOT_PRODUCTION_APPROVED = "NOT_PRODUCTION_APPROVED"
+RESEARCH_QUALITY_IMPROVEMENT_MILESTONE = "RESEARCH_QUALITY_IMPROVEMENT_MILESTONE"
+ADAPTER_SCOPE = "EVENT_NORMALIZATION_STRUCTURED_EXTRACTION_AND_CANDIDATE_RANKING"
+
+REQUIRED_TARGET_USE_CASES = (
+    "noisy_ocr_dealer_log_normalization",
+    "structured_extraction",
+    "candidate_ranking",
+    "json_schema_compliance_improvement",
+)
 
 
 def build_qlora_next_stage(project_root: Path) -> dict[str, Any]:
@@ -36,27 +45,48 @@ def build_qlora_next_stage(project_root: Path) -> dict[str, Any]:
         ),
         "stage_boundary": {
             "stage_status": NEXT_STAGE_IMPROVEMENT,
+            "milestone_type": RESEARCH_QUALITY_IMPROVEMENT_MILESTONE,
             "fine_tuning_status": NOT_COMPLETED,
             "fine_tuning_completed": False,
             "production_status": NOT_PRODUCTION_APPROVED,
             "production_approved": False,
             "current_delivery_blocker": False,
+            "delivery_blocker": False,
+            "approved_current_delivery_component": False,
+            "requires_separate_approval_before_promotion": True,
             "current_llm_role": llm_current.get("status"),
             "autonomous_llm_agent_claim_allowed": llm_boundary.get("fully_autonomous_llm_agent_claim_allowed", False),
             "deployed_strategy_stack_affected": architecture_boundary.get("deployed_strategy_stack_affected", False),
             "llm_agent_production_approved": candidate_boundary.get("llm_agent_production_approved", False),
         },
         "target_use_cases": {
+            "noisy_ocr_dealer_log_normalization": {"recommended": True, "priority": "high"},
             "structured_extraction": {"recommended": True, "priority": "high"},
             "candidate_ranking": {"recommended": True, "priority": "high"},
-            "noisy_ocr_dealer_log_handling": {"recommended": True, "priority": "high"},
+            "noisy_ocr_dealer_log_handling": {
+                "recommended": True,
+                "priority": "high",
+                "alias_for": "noisy_ocr_dealer_log_normalization",
+            },
+            "json_schema_compliance_improvement": {"recommended": True, "priority": "high"},
             "autonomous_poker_policy": {"recommended": False, "priority": "deferred"},
+        },
+        "delivery_classification": {
+            "current_delivery_component": False,
+            "current_delivery_blocker": False,
+            "next_stage_research_milestone": True,
+            "promotion_requires_new_gate": True,
+            "reason": (
+                "QLoRA and larger-LLM fine-tuning are quality-improvement work for extraction and "
+                "ranking. The delivered service does not depend on this adapter being trained or promoted."
+            ),
         },
         "recommended_training_plan": {
             "primary_model": "Qwen/Qwen2.5-1.5B-Instruct",
             "secondary_model": "Qwen/Qwen3-1.7B",
             "lightweight_baseline": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
             "larger_llm_role": "Research benchmark only unless latency and cost gates justify promotion.",
+            "adapter_scope": ADAPTER_SCOPE,
             "method": "QLoRA",
             "quantization": "4-bit NF4",
             "lora_rank": [8, 16],
@@ -66,6 +96,7 @@ def build_qlora_next_stage(project_root: Path) -> dict[str, Any]:
             "epochs": [2, 4],
             "max_seq_len": [1024, 4096],
             "train_target": "controlled event extraction and candidate ranking, not unconstrained poker decision making",
+            "excluded_target": "standalone autonomous poker policy",
         },
         "data_requirements": {
             "initial_validation_examples": 500,
@@ -81,6 +112,8 @@ def build_qlora_next_stage(project_root: Path) -> dict[str, Any]:
         },
         "acceptance_gates": [
             {"name": "schema_validity", "threshold": ">= 0.99"},
+            {"name": "json_parse_success", "threshold": ">= 0.995"},
+            {"name": "schema_key_exactness", "threshold": "no extra keys and no missing required keys"},
             {"name": "macro_f1", "threshold": "> current candidate ranker and deterministic baseline"},
             {"name": "event_type_exact_match", "threshold": ">= 0.90 on reviewed holdout"},
             {"name": "action_exact_match", "threshold": ">= 0.90 on reviewed action subset"},
@@ -89,10 +122,11 @@ def build_qlora_next_stage(project_root: Path) -> dict[str, Any]:
             {"name": "latency_memory", "threshold": "within deployment budget"},
             {"name": "baseline_comparison", "threshold": "statistically improves controlled candidate ranker"},
             {"name": "deterministic_fallback", "threshold": "available for invalid or low-confidence outputs"},
+            {"name": "promotion_review", "threshold": "separate approval before production promotion"},
         ],
         "allowed_claims": [
             "QLoRA/larger LLM fine-tuning is a planned next-stage improvement.",
-            "The target is controlled structured extraction, candidate ranking, and noisy OCR/dealer-log handling.",
+            "The target is controlled noisy OCR/dealer-log normalization, structured extraction, candidate ranking, and JSON/schema compliance improvement.",
             "The current delivery remains valid without marking QLoRA as completed or production-approved.",
         ],
         "blocked_claims": [
@@ -117,6 +151,7 @@ def build_qlora_next_stage(project_root: Path) -> dict[str, Any]:
             "Reviewed train/validation/test sets grouped by source hand or source file.",
             "Reproducible Hydra config and saved training configuration.",
             "Baseline comparison against deterministic parser and measured candidate ranker.",
+            "JSON/schema compliance improvement against a reviewed corrupted-OCR holdout.",
             "Production serving benchmark with rollback to deterministic fallback.",
         ],
     }
@@ -135,12 +170,20 @@ def validate_qlora_next_stage(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("overall_status_must_be_assigned_after_invariant_validation")
     if boundary.get("stage_status") != NEXT_STAGE_IMPROVEMENT:
         violations.append("qlora_must_remain_next_stage_improvement")
+    if boundary.get("milestone_type") != RESEARCH_QUALITY_IMPROVEMENT_MILESTONE:
+        violations.append("qlora_must_be_research_quality_improvement_milestone")
     if boundary.get("fine_tuning_completed") is not False:
         violations.append("qlora_fine_tuning_must_not_be_marked_completed")
     if boundary.get("production_approved") is not False:
         violations.append("qlora_must_not_be_marked_production_approved")
     if boundary.get("current_delivery_blocker") is not False:
         violations.append("qlora_next_stage_must_not_block_current_delivery")
+    if boundary.get("delivery_blocker") is not False:
+        violations.append("qlora_delivery_blocker_must_be_false")
+    if boundary.get("approved_current_delivery_component") is not False:
+        violations.append("qlora_must_not_be_current_delivery_approved_component")
+    if boundary.get("requires_separate_approval_before_promotion") is not True:
+        violations.append("qlora_promotion_must_require_separate_approval")
     if boundary.get("current_llm_role") != CONTROLLED_LAYER:
         violations.append("qlora_plan_must_preserve_controlled_llm_role")
     if boundary.get("autonomous_llm_agent_claim_allowed") is not False:
@@ -150,12 +193,26 @@ def validate_qlora_next_stage(payload: dict[str, Any]) -> dict[str, Any]:
     if boundary.get("llm_agent_production_approved") is not False:
         violations.append("qlora_plan_must_not_approve_llm_agent_policy")
 
-    for key in ("structured_extraction", "candidate_ranking", "noisy_ocr_dealer_log_handling"):
+    delivery = payload.get("delivery_classification") or {}
+    if delivery.get("current_delivery_component") is not False:
+        violations.append("qlora_delivery_classification_must_not_be_current_component")
+    if delivery.get("current_delivery_blocker") is not False:
+        violations.append("qlora_delivery_classification_must_not_block_delivery")
+    if delivery.get("next_stage_research_milestone") is not True:
+        violations.append("qlora_delivery_classification_must_be_next_stage_research_milestone")
+    if delivery.get("promotion_requires_new_gate") is not True:
+        violations.append("qlora_delivery_classification_must_require_new_gate")
+
+    for key in REQUIRED_TARGET_USE_CASES:
         if (targets.get(key) or {}).get("recommended") is not True:
             violations.append(f"{key}_must_be_recommended_target")
+    if (targets.get("noisy_ocr_dealer_log_handling") or {}).get("recommended") is not True:
+        violations.append("noisy_ocr_dealer_log_handling_alias_must_remain_recommended")
     if (targets.get("autonomous_poker_policy") or {}).get("recommended") is not False:
         violations.append("autonomous_poker_policy_must_not_be_immediate_qlora_target")
 
+    if plan.get("adapter_scope") != ADAPTER_SCOPE:
+        violations.append("qlora_adapter_scope_must_be_extraction_and_ranking")
     if plan.get("method") != "QLoRA":
         violations.append("training_plan_must_use_qlora")
     if plan.get("quantization") != "4-bit NF4":
@@ -165,12 +222,15 @@ def validate_qlora_next_stage(payload: dict[str, Any]) -> dict[str, Any]:
 
     required_gates = {
         "schema_validity",
+        "json_parse_success",
+        "schema_key_exactness",
         "macro_f1",
         "event_type_exact_match",
         "action_exact_match",
         "latency_memory",
         "baseline_comparison",
         "deterministic_fallback",
+        "promotion_review",
     }
     missing_gates = sorted(required_gates - gate_names)
     if missing_gates:
@@ -203,9 +263,11 @@ def render_qlora_next_stage_markdown(payload: dict[str, Any]) -> str:
         "## Stage Boundary",
         "",
         f"- Stage status: `{boundary['stage_status']}`",
+        f"- Milestone type: `{boundary['milestone_type']}`",
         f"- Fine-tuning completed: `{boundary['fine_tuning_completed']}`",
         f"- Production approved: `{boundary['production_approved']}`",
         f"- Current delivery blocker: `{boundary['current_delivery_blocker']}`",
+        f"- Requires separate approval before promotion: `{boundary['requires_separate_approval_before_promotion']}`",
         f"- Current LLM role: `{boundary['current_llm_role']}`",
         f"- Autonomous LLM-agent claim allowed: `{boundary['autonomous_llm_agent_claim_allowed']}`",
         "",
@@ -213,6 +275,7 @@ def render_qlora_next_stage_markdown(payload: dict[str, Any]) -> str:
         "",
         f"- Primary model: `{plan['primary_model']}`",
         f"- Secondary model: `{plan['secondary_model']}`",
+        f"- Adapter scope: `{plan['adapter_scope']}`",
         f"- Method: `{plan['method']}`",
         f"- Quantization: `{plan['quantization']}`",
         f"- Train target: `{plan['train_target']}`",
