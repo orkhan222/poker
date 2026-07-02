@@ -25,10 +25,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--agent-b-name", default="phase1_llm_agent_b")
     parser.add_argument("--agent-a-source", default="phase1_trained_llm_policy_a")
     parser.add_argument("--agent-b-source", default="phase1_trained_llm_policy_b")
+    parser.add_argument("--agent-a-model-path", default=None)
+    parser.add_argument("--agent-b-model-path", default=None)
+    parser.add_argument(
+        "--phase1-adapters-ready",
+        action="store_true",
+        help="Allow measured arena execution only when both Phase 1 policy adapters are supplied.",
+    )
     parser.add_argument(
         "--run-if-available",
         action="store_true",
-        help="Run measured OpenSpiel episodes if pyspiel is installed; otherwise write a pending-runtime report.",
+        help=(
+            "Run measured OpenSpiel episodes only if pyspiel is installed and "
+            "--phase1-adapters-ready with both adapter paths is supplied."
+        ),
     )
     return parser.parse_args()
 
@@ -44,6 +54,9 @@ def main() -> None:
         agent_b_name=args.agent_b_name,
         agent_a_source=args.agent_a_source,
         agent_b_source=args.agent_b_source,
+        agent_a_model_path=args.agent_a_model_path,
+        agent_b_model_path=args.agent_b_model_path,
+        phase1_adapters_ready=args.phase1_adapters_ready,
     )
     payload = write_phase3_open_spiel_arena_report(
         args.project_root,

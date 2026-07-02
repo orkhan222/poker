@@ -912,6 +912,10 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Full multi-agent training claims must remain blocked")
     if (multi_agent_training_status.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError(f"Multi-agent training status invariants failed: {multi_agent_training_status.get('invariants')}")
+    if phase3_open_spiel_arena.get("overall_status") != "PASS":
+        raise AssertionError(f"Phase 3 OpenSpiel arena contract did not pass: {phase3_open_spiel_arena.get('overall_status')}")
+    if (phase3_open_spiel_arena.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Phase 3 OpenSpiel arena invariants failed: {phase3_open_spiel_arena.get('invariants')}")
     phase3_contract = phase3_open_spiel_arena.get("arena_contract") or {}
     phase3_quality = phase3_open_spiel_arena.get("quality_boundary") or {}
     if phase3_contract.get("arena_type") != "AGENT_ONLY_OPEN_SPIEL_ARENA":
@@ -930,8 +934,12 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         runtime_boundary = phase3_open_spiel_arena.get("runtime_boundary") or {}
         if runtime_boundary.get("run_if_available_required_for_metrics") is not True:
             raise AssertionError("Pending Phase 3 OpenSpiel arena report must require a measured runtime run for metrics")
+        if runtime_boundary.get("phase1_adapters_required_for_metrics") is not True:
+            raise AssertionError("Pending Phase 3 OpenSpiel arena report must require Phase 1 adapters for metrics")
         if phase3_quality.get("metrics_claim_allowed") is not False:
             raise AssertionError("Pending Phase 3 OpenSpiel arena report must not allow metric claims")
+        if "metrics" in phase3_open_spiel_arena:
+            raise AssertionError("Pending Phase 3 OpenSpiel arena report must not include measured metrics")
     if risk_payload.get("raw_supervised_model_status") == "NOT_STANDALONE_APPROVED":
         summary = risk_payload.get("risk_summary", {})
         if summary.get("component_risks", 0) < 1:

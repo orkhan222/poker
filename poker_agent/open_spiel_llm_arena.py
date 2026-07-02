@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from poker_agent.action_planning import build_action_plan
-from poker_agent.agents import RuleBasedAgent
+from poker_agent.agents import MLPolicyAgent
 from poker_agent.schemas import PredictionRequest, PredictionResponse
 
 
@@ -19,6 +19,7 @@ DEFAULT_OPEN_SPIEL_GAME = "kuhn_poker"
 AGENT_ONLY_ARENA_STATUS = "AGENT_ONLY_OPEN_SPIEL_ARENA"
 RUNTIME_PENDING_STATUS = "READY_PENDING_OPEN_SPIEL_RUNTIME"
 RUN_COMPLETED_STATUS = "COMPLETED"
+METRICS_BLOCKED_STATUS = "BLOCKED_UNTIL_OPEN_SPIEL_RUNTIME_AND_PHASE1_ADAPTERS"
 
 
 class OpenSpielArenaError(RuntimeError):
@@ -71,11 +72,24 @@ class ArenaRunConfig:
     agent_b_name: str = "phase1_llm_agent_b"
     agent_a_source: str = "phase1_trained_llm_policy_a"
     agent_b_source: str = "phase1_trained_llm_policy_b"
+    agent_a_model_path: str | None = None
+    agent_b_model_path: str | None = None
+    phase1_adapters_ready: bool = False
 
     def agent_specs(self) -> tuple[ArenaAgentSpec, ArenaAgentSpec]:
         return (
-            ArenaAgentSpec(seat=0, name=self.agent_a_name, source=self.agent_a_source),
-            ArenaAgentSpec(seat=1, name=self.agent_b_name, source=self.agent_b_source),
+            ArenaAgentSpec(
+                seat=0,
+                name=self.agent_a_name,
+                source=self.agent_a_source,
+                model_path=self.agent_a_model_path,
+            ),
+            ArenaAgentSpec(
+                seat=1,
+                name=self.agent_b_name,
+                source=self.agent_b_source,
+                model_path=self.agent_b_model_path,
+            ),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -84,6 +98,7 @@ class ArenaRunConfig:
             "episodes": self.episodes,
             "seed": self.seed,
             "max_steps_per_episode": self.max_steps_per_episode,
+            "phase1_adapters_ready": self.phase1_adapters_ready,
             "agents": [spec.to_dict() for spec in self.agent_specs()],
         }
 
@@ -157,12 +172,14 @@ class OpenSpielAgentOnlyArena:
         *,
         seed: int = 42,
         game_name: str = DEFAULT_OPEN_SPIEL_GAME,
+        phase1_policy_adapters_ready: bool = True,
     ):
         self.game = game
         self.policies = policies
         self.seed = seed
         self.game_name = game_name
         self.rng = random.Random(seed)
+        self.phase1_policy_adapters_ready = phase1_policy_adapters_ready
         self.num_players = _game_num_players(game)
         if self.num_players != len(policies):
             raise OpenSpielArenaError(
@@ -244,7 +261,7 @@ class OpenSpielAgentOnlyArena:
                     }
                 )
 
-        return {
+        payload = {
             "version": PHASE3_OPEN_SPIEL_ARENA_VERSION,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "status": RUN_COMPLETED_STATUS,
@@ -264,12 +281,18 @@ class OpenSpielAgentOnlyArena:
                 "human_players_present": False,
                 "fixed_scripted_opponents_present": False,
                 "policy_update_during_arena": False,
+                "open_spiel_runtime_executed": True,
+                "phase1_policy_adapters_ready": self.phase1_policy_adapters_ready,
+                "metrics_claim_allowed": self.phase1_policy_adapters_ready,
                 "purpose": (
                     "Evaluate the two Phase 1 LLM policies against each other in an OpenSpiel "
                     "multi-agent arena before any promotion decision."
                 ),
             },
         }
+        payload["invariants"] = validate_phase3_open_spiel_arena_report(payload)
+        payload["overall_status"] = "PASS" if payload["invariants"]["status"] == "PASS" else "FAIL"
+        return payload
 
 
 def build_phase3_open_spiel_arena_report(
@@ -283,21 +306,35 @@ def build_phase3_open_spiel_arena_report(
         return _pending_runtime_report(config, runtime_available=_pyspiel_available())
     try:
         pyspiel = _load_pyspiel()
-        game = pyspiel.load_game(config.game_name)
     except OpenSpielRuntimeUnavailable:
         return _pending_runtime_report(config, runtime_available=False)
 
-    policies: tuple[OpenSpielPolicy, ...] = (
-        ServicePolicyOpenSpielAdapter(config.agent_a_name, RuleBasedAgent(), source=config.agent_a_source),
-        ServicePolicyOpenSpielAdapter(config.agent_b_name, RuleBasedAgent(), source=config.agent_b_source),
+    if not config.phase1_adapters_ready:
+        return _pending_runtime_report(
+            config,
+            runtime_available=True,
+            reason=(
+                "OpenSpiel is available, but measured metrics remain blocked until both Phase 1 "
+                "trained policy adapters are explicitly provided."
+            ),
+        )
+
+    game = pyspiel.load_game(config.game_name)
+    policies = _load_phase1_policy_adapters(project_root, config)
+    arena = OpenSpielAgentOnlyArena(
+        game,
+        policies,
+        seed=config.seed,
+        game_name=config.game_name,
+        phase1_policy_adapters_ready=True,
     )
-    arena = OpenSpielAgentOnlyArena(game, policies, seed=config.seed, game_name=config.game_name)
     payload = arena.run(config.episodes, max_steps_per_episode=config.max_steps_per_episode)
     payload["project_root"] = str(project_root)
     payload["runtime_note"] = (
-        "This run uses the OpenSpiel runtime. Replace the RuleBasedAgent wiring with the two trained "
-        "Phase 1 LLM policy objects when their model artifacts are available in this environment."
+        "This run uses the OpenSpiel runtime and explicitly supplied Phase 1 policy adapters."
     )
+    payload["invariants"] = validate_phase3_open_spiel_arena_report(payload)
+    payload["overall_status"] = "PASS" if payload["invariants"]["status"] == "PASS" else "FAIL"
     return payload
 
 
@@ -392,8 +429,76 @@ def prediction_request_from_open_spiel_state(state: Any, player_id: int) -> Pred
     )
 
 
-def _pending_runtime_report(config: ArenaRunConfig, *, runtime_available: bool) -> dict[str, Any]:
+def validate_phase3_open_spiel_arena_report(payload: dict[str, Any]) -> dict[str, Any]:
+    violations: list[str] = []
+    status = payload.get("status")
+    contract = payload.get("arena_contract") or {}
+    quality = payload.get("quality_boundary") or {}
+
+    if status not in {RUNTIME_PENDING_STATUS, RUN_COMPLETED_STATUS}:
+        violations.append("phase3_arena_status_must_be_pending_or_completed")
+    if contract.get("arena_type") != AGENT_ONLY_ARENA_STATUS:
+        violations.append("arena_type_must_be_agent_only_open_spiel")
+    if contract.get("agent_only_table") is not True:
+        violations.append("arena_must_be_agent_only")
+    if contract.get("all_seats_controlled_by_agents") is not True:
+        violations.append("all_open_spiel_seats_must_have_agent_policies")
+    if contract.get("human_players_present") is not False:
+        violations.append("human_players_must_not_be_present")
+    if contract.get("fixed_scripted_opponents_present") is not False:
+        violations.append("fixed_scripted_opponents_must_not_be_present")
+    if int(contract.get("num_players") or 0) != 2:
+        violations.append("phase3_llm_arena_must_have_two_players")
+    if int(contract.get("policy_count") or 0) != int(contract.get("num_players") or 0):
+        violations.append("policy_count_must_equal_player_count")
+    if quality.get("is_reinforcement_learning_stage") is not True:
+        violations.append("phase3_arena_must_be_marked_as_reinforcement_learning_stage")
+    if quality.get("agent_only_table") is not True:
+        violations.append("quality_boundary_must_preserve_agent_only_table")
+    if quality.get("human_players_present") is not False:
+        violations.append("quality_boundary_must_block_human_players")
+    if quality.get("fixed_scripted_opponents_present") is not False:
+        violations.append("quality_boundary_must_block_scripted_opponents")
+
+    if status == RUNTIME_PENDING_STATUS:
+        runtime_boundary = payload.get("runtime_boundary") or {}
+        if "metrics" in payload:
+            violations.append("pending_open_spiel_report_must_not_include_measured_metrics")
+        if "sample_episodes" in payload:
+            violations.append("pending_open_spiel_report_must_not_include_sample_episodes")
+        if runtime_boundary.get("run_if_available_required_for_metrics") is not True:
+            violations.append("pending_report_must_require_measured_runtime_run_for_metrics")
+        if runtime_boundary.get("phase1_adapters_required_for_metrics") is not True:
+            violations.append("pending_report_must_require_phase1_adapters_for_metrics")
+        if quality.get("metrics_claim_allowed") is not False:
+            violations.append("pending_report_must_block_metric_claims")
+        if quality.get("metrics_blocked_until") != METRICS_BLOCKED_STATUS:
+            violations.append("pending_report_must_explain_metrics_blocker")
+
+    if status == RUN_COMPLETED_STATUS:
+        metrics = payload.get("metrics")
+        if not isinstance(metrics, dict) or not metrics:
+            violations.append("completed_open_spiel_report_must_include_measured_metrics")
+        if quality.get("open_spiel_runtime_executed") is not True:
+            violations.append("completed_report_must_confirm_open_spiel_runtime_execution")
+        if quality.get("phase1_policy_adapters_ready") is not True:
+            violations.append("completed_report_must_confirm_phase1_policy_adapters")
+        if quality.get("metrics_claim_allowed") is not True:
+            violations.append("completed_report_must_allow_measured_metrics_only_after_runtime_and_adapters")
+
     return {
+        "status": "FAIL" if violations else "PASS",
+        "violations": violations,
+    }
+
+
+def _pending_runtime_report(
+    config: ArenaRunConfig,
+    *,
+    runtime_available: bool,
+    reason: str | None = None,
+) -> dict[str, Any]:
+    payload = {
         "version": PHASE3_OPEN_SPIEL_ARENA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": RUNTIME_PENDING_STATUS,
@@ -408,7 +513,10 @@ def _pending_runtime_report(config: ArenaRunConfig, *, runtime_available: bool) 
         "runtime_boundary": {
             "open_spiel_available": runtime_available,
             "run_if_available_required_for_metrics": True,
-            "reason": (
+            "phase1_adapters_ready": config.phase1_adapters_ready,
+            "phase1_adapters_required_for_metrics": True,
+            "pyspiel_runtime_required_for_metrics": True,
+            "reason": reason or (
                 "The Phase 3 arena code is implemented and configured. Measured arena results require "
                 "executing this report builder in an environment with the OpenSpiel Python runtime and "
                 "the two Phase 1 LLM policy artifacts wired through OpenSpielPolicy adapters."
@@ -421,8 +529,42 @@ def _pending_runtime_report(config: ArenaRunConfig, *, runtime_available: bool) 
             "fixed_scripted_opponents_present": False,
             "policy_update_during_arena": False,
             "metrics_claim_allowed": False,
+            "metrics_blocked_until": METRICS_BLOCKED_STATUS,
         },
     }
+    payload["invariants"] = validate_phase3_open_spiel_arena_report(payload)
+    payload["overall_status"] = "PASS" if payload["invariants"]["status"] == "PASS" else "FAIL"
+    return payload
+
+
+def _load_phase1_policy_adapters(project_root: Path, config: ArenaRunConfig) -> tuple[OpenSpielPolicy, OpenSpielPolicy]:
+    if not config.agent_a_model_path or not config.agent_b_model_path:
+        raise OpenSpielArenaError(
+            "Measured Phase 3 arena runs require both agent_a_model_path and agent_b_model_path."
+        )
+    agent_a_path = _resolve_project_path(project_root, config.agent_a_model_path)
+    agent_b_path = _resolve_project_path(project_root, config.agent_b_model_path)
+    if not agent_a_path.exists() or not agent_b_path.exists():
+        raise OpenSpielArenaError(
+            f"Missing Phase 1 policy adapter artifacts: {agent_a_path}, {agent_b_path}"
+        )
+    return (
+        ServicePolicyOpenSpielAdapter(
+            config.agent_a_name,
+            MLPolicyAgent.from_path(agent_a_path),
+            source=f"{config.agent_a_source}:{agent_a_path}",
+        ),
+        ServicePolicyOpenSpielAdapter(
+            config.agent_b_name,
+            MLPolicyAgent.from_path(agent_b_path),
+            source=f"{config.agent_b_source}:{agent_b_path}",
+        ),
+    )
+
+
+def _resolve_project_path(project_root: Path, raw_path: str) -> Path:
+    path = Path(raw_path)
+    return path if path.is_absolute() else project_root / path
 
 
 def _agent_only_contract(policies: tuple[OpenSpielPolicy, ...], num_players: int) -> dict[str, Any]:
@@ -602,4 +744,3 @@ def _load_pyspiel() -> Any:
             "training environment before running measured Phase 3 arena experiments."
         ) from exc
     return pyspiel
-

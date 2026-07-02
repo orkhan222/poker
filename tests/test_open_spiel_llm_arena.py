@@ -10,6 +10,7 @@ from poker_agent.open_spiel_llm_arena import (
     RUNTIME_PENDING_STATUS,
     build_phase3_open_spiel_arena_report,
     prediction_request_from_open_spiel_state,
+    validate_phase3_open_spiel_arena_report,
 )
 
 
@@ -94,6 +95,10 @@ def test_open_spiel_arena_runs_agent_only_table() -> None:
     assert payload["arena_contract"]["fixed_scripted_opponents_present"] is False
     assert payload["arena_contract"]["all_seats_controlled_by_agents"] is True
     assert payload["quality_boundary"]["is_reinforcement_learning_stage"] is True
+    assert payload["quality_boundary"]["phase1_policy_adapters_ready"] is True
+    assert payload["quality_boundary"]["metrics_claim_allowed"] is True
+    assert payload["invariants"]["status"] == "PASS"
+    assert payload["overall_status"] == "PASS"
     assert payload["metrics"]["per_agent"]["0"]["episodes"] == 8
     assert payload["metrics"]["total_actions"] == 16
 
@@ -117,6 +122,36 @@ def test_pending_report_does_not_claim_measured_metrics() -> None:
     )
 
     assert payload["status"] == RUNTIME_PENDING_STATUS
+    assert payload["overall_status"] == "PASS"
+    assert payload["invariants"]["status"] == "PASS"
     assert payload["arena_contract"]["agent_only_table"] is True
     assert payload["runtime_boundary"]["run_if_available_required_for_metrics"] is True
+    assert payload["runtime_boundary"]["phase1_adapters_required_for_metrics"] is True
     assert payload["quality_boundary"]["metrics_claim_allowed"] is False
+    assert "metrics" not in payload
+
+
+def test_pending_report_with_metrics_fails_invariant() -> None:
+    payload = build_phase3_open_spiel_arena_report(
+        project_root=__import__("pathlib").Path("."),
+        config=ArenaRunConfig(episodes=4),
+        run_if_available=False,
+    )
+    payload["metrics"] = {"fake": 1.0}
+
+    validation = validate_phase3_open_spiel_arena_report(payload)
+
+    assert validation["status"] == "FAIL"
+    assert "pending_open_spiel_report_must_not_include_measured_metrics" in validation["violations"]
+
+
+def test_run_if_available_without_phase1_adapters_stays_pending() -> None:
+    payload = build_phase3_open_spiel_arena_report(
+        project_root=__import__("pathlib").Path("."),
+        config=ArenaRunConfig(episodes=4, phase1_adapters_ready=False),
+        run_if_available=True,
+    )
+
+    assert payload["status"] == RUNTIME_PENDING_STATUS
+    assert payload["quality_boundary"]["metrics_claim_allowed"] is False
+    assert payload["invariants"]["status"] == "PASS"
