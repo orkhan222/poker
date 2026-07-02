@@ -138,11 +138,20 @@ def _write_reports(reports: Path) -> None:
                 "current_delivery_scope": {
                     "implementation_status": "IMPLEMENTED_AND_MEASURED",
                     "timing_and_bet_size_status": "PASS",
+                    "timing_policy_type": "HEURISTIC_OR_TABLE_TEMPO_CALIBRATED",
+                    "real_human_timing_label_quality": "TIMING_LABEL_QUALITY_UNCERTAIN",
+                    "real_human_timing_labels_available": False,
+                    "timing_human_likeness_final_proof_allowed": False,
                 },
                 "calibration_boundary": {
                     "requires_more_real_player_behavior_labels": True,
                     "final_high_realism_claim_allowed": False,
                     "production_blocker_for_current_delivery": False,
+                },
+                "timing_label_quality_boundary": {
+                    "status": "TIMING_LABEL_QUALITY_UNCERTAIN",
+                    "current_delivery_blocker": False,
+                    "model_quality_risk": True,
                 },
             }
         ),
@@ -158,6 +167,56 @@ def _write_reports(reports: Path) -> None:
                     "component_risk": True,
                     "production_blocker_for_current_deployment": False,
                 }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (reports / "actions_context_quality.json").write_text(
+        json.dumps(
+            {
+                "actions_csv_schema_audit": {
+                    "explicit_context_status": "INCOMPLETE_EXPLICIT_BETTING_CONTEXT",
+                    "missing_explicit_context_fields": [
+                        "amount",
+                        "to_call",
+                        "pot_before_action",
+                        "min_raise",
+                        "legal_actions",
+                        "action_order",
+                    ],
+                    "limitation_status": "OPEN_DATASET_LIMITATION",
+                },
+                "derived_context_mitigation": {
+                    "status": "IMPLEMENTED_FROM_PRE_ACTION_EVENT_STREAM",
+                    "uses_target_action_amount_as_feature": False,
+                    "uses_future_outcome_fields": False,
+                    "does_not_fully_replace_explicit_context": True,
+                    "current_delivery_blocker": False,
+                    "model_quality_risk": True,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (reports / "stack_event_context_quality.json").write_text(
+        json.dumps(
+            {
+                "raw_stack_event_boundary": {
+                    "status": "RAW_EVENTS_REQUIRE_DECISION_CONTEXT_DERIVATION",
+                    "raw_stack_events_are_direct_policy_features": False,
+                    "decision_time_derivation_required": True,
+                    "target_action_stack_delta_allowed_as_feature": False,
+                    "post_hand_stack_outcome_allowed_as_feature": False,
+                    "current_delivery_blocker": False,
+                    "model_quality_risk": True,
+                },
+                "derived_context_mitigation": {
+                    "status": "IMPLEMENTED_FROM_PRE_ACTION_STACK_DELTAS",
+                    "uses_target_action_stack_delta_as_feature": False,
+                    "uses_post_hand_outcome_fields": False,
+                    "current_delivery_blocker": False,
+                    "model_quality_risk": True,
+                },
             }
         ),
         encoding="utf-8",
@@ -230,6 +289,19 @@ def test_final_delivery_acceptance_passes_with_tracked_risks(tmp_path: Path) -> 
     assert payload["tracked_component_risks"]["challenger_strategy_quality"]["challenger_required_before_final_claim"] is True
     assert payload["tracked_component_risks"]["challenger_strategy_quality"]["final_production_strategy_quality_claim_allowed"] is False
     assert payload["tracked_component_risks"]["raw_supervised_model"]["standalone_status"] == "NOT_STANDALONE_APPROVED"
+    assert (
+        payload["tracked_component_risks"]["actions_context_quality"]["explicit_context_status"]
+        == "INCOMPLETE_EXPLICIT_BETTING_CONTEXT"
+    )
+    assert payload["tracked_component_risks"]["actions_context_quality"]["current_delivery_blocker"] is False
+    assert payload["tracked_component_risks"]["actions_context_quality"]["model_quality_risk"] is True
+    assert (
+        payload["tracked_component_risks"]["stack_event_context_quality"]["raw_stack_event_status"]
+        == "RAW_EVENTS_REQUIRE_DECISION_CONTEXT_DERIVATION"
+    )
+    assert payload["tracked_component_risks"]["stack_event_context_quality"]["decision_time_derivation_required"] is True
+    assert payload["tracked_component_risks"]["stack_event_context_quality"]["current_delivery_blocker"] is False
+    assert payload["tracked_component_risks"]["stack_event_context_quality"]["model_quality_risk"] is True
 
 
 def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
@@ -246,6 +318,13 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     payload["tracked_component_risks"]["production_runtime_monitoring"]["real_production_traffic_approved"] = True
     payload["tracked_component_risks"]["production_runtime_monitoring"]["real_production_traffic_approval_status"] = "APPROVED"
     payload["tracked_component_risks"]["challenger_strategy_quality"]["final_production_strategy_quality_claim_allowed"] = True
+    payload["tracked_component_risks"]["actions_context_quality"]["explicit_context_status"] = "COMPLETE"
+    payload["tracked_component_risks"]["actions_context_quality"]["does_not_fully_replace_explicit_context"] = False
+    payload["tracked_component_risks"]["actions_context_quality"]["model_quality_risk"] = False
+    payload["tracked_component_risks"]["stack_event_context_quality"]["raw_stack_events_are_direct_policy_features"] = True
+    payload["tracked_component_risks"]["stack_event_context_quality"]["decision_time_derivation_required"] = False
+    payload["tracked_component_risks"]["stack_event_context_quality"]["target_action_stack_delta_allowed_as_feature"] = True
+    payload["tracked_component_risks"]["stack_event_context_quality"]["model_quality_risk"] = False
     payload.pop("overall_status", None)
 
     invariants = validate_final_delivery_acceptance(payload)
@@ -258,6 +337,13 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     assert "qlora_target_must_remain_enabled:json_schema_compliance_improvement" in invariants["violations"]
     assert "monitoring_must_be_required_for_real_traffic" in invariants["violations"]
     assert "prediction_distribution_tracking_must_be_required_for_real_traffic" in invariants["violations"]
+    assert "actions_context_must_remain_marked_incomplete" in invariants["violations"]
+    assert "actions_context_must_not_claim_full_replacement" in invariants["violations"]
+    assert "actions_context_gap_must_remain_model_quality_risk" in invariants["violations"]
+    assert "raw_stack_events_must_not_be_marked_direct_policy_features" in invariants["violations"]
+    assert "stack_events_must_require_decision_time_derivation" in invariants["violations"]
+    assert "target_action_stack_delta_must_not_be_allowed_as_feature" in invariants["violations"]
+    assert "stack_event_context_gap_must_remain_model_quality_risk" in invariants["violations"]
     assert "model_confidence_monitoring_must_be_required_for_real_traffic" in invariants["violations"]
     assert "real_production_traffic_must_not_be_approved_before_observability" in invariants["violations"]
     assert "real_production_traffic_status_must_require_observability" in invariants["violations"]

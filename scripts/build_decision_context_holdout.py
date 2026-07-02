@@ -140,7 +140,7 @@ def build_holdout(
             if action in VALID_ACTIONS:
                 player = players.get((hand_id, position), {})
                 cards = parse_cards(player.get("cards"))
-                stack = safe_float(player.get("starting_stack")) or safe_float(player.get("ending_stack"))
+                stack = safe_float(player.get("starting_stack"))
                 request = PredictionRequest(
                     position=position or "UNK",
                     street=street,

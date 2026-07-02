@@ -32,6 +32,19 @@ def test_bet_timing_calibration_preserves_measured_current_scope_and_future_labe
     assert payload["calibration_boundary"]["requires_more_real_player_behavior_labels"] is True
     assert payload["calibration_boundary"]["final_high_realism_claim_allowed"] is False
     assert payload["calibration_boundary"]["production_blocker_for_current_delivery"] is False
+    assert payload["current_delivery_scope"]["timing_policy_type"] == "HEURISTIC_OR_TABLE_TEMPO_CALIBRATED"
+    assert payload["current_delivery_scope"]["real_human_timing_label_quality"] == "TIMING_LABEL_QUALITY_UNCERTAIN"
+    assert payload["current_delivery_scope"]["real_human_timing_labels_available"] is False
+    assert payload["current_delivery_scope"]["timing_human_likeness_final_proof_allowed"] is False
+    assert payload["timing_label_quality_boundary"]["timing_feature_available"] is True
+    assert payload["timing_label_quality_boundary"]["final_production_human_likeness_proof_allowed"] is False
+    assert payload["timing_label_quality_boundary"]["current_delivery_blocker"] is False
+    assert payload["timing_label_quality_boundary"]["model_quality_risk"] is True
+    proof_cases = {case["name"]: case for case in payload["proof_cases"]}
+    assert proof_cases["base_contract_is_valid"]["observed_status"] == "PASS"
+    assert proof_cases["blocks_final_timing_human_likeness_claim"]["observed_status"] == "FAIL"
+    assert proof_cases["blocks_unreviewed_timing_label_availability_claim"]["observed_status"] == "FAIL"
+    assert proof_cases["blocks_heuristic_timing_relabel_as_supervised"]["observed_status"] == "FAIL"
 
 
 def test_bet_timing_calibration_blocks_false_final_realism_claim() -> None:
@@ -53,6 +66,15 @@ def test_bet_timing_calibration_blocks_false_final_realism_claim() -> None:
             "production_blocker_for_current_delivery": False,
             "final_high_realism_claim_allowed": True,
         },
+        "timing_label_quality_boundary": {
+            "status": "TIMING_LABELS_VERIFIED",
+            "timing_feature_available": True,
+            "timing_policy_type": "LEARNED_FROM_REVIEWED_HUMAN_TIMING_LABELS",
+            "real_human_timing_labels_available": True,
+            "final_production_human_likeness_proof_allowed": True,
+            "current_delivery_blocker": False,
+            "model_quality_risk": False,
+        },
         "metrics_to_revalidate": [],
     }
 
@@ -61,13 +83,22 @@ def test_bet_timing_calibration_blocks_false_final_realism_claim() -> None:
     assert invariants["status"] == "FAIL"
     assert "final_high_realism_claim_must_remain_blocked" in invariants["violations"]
     assert "more_real_player_behavior_labels_must_remain_required" in invariants["violations"]
+    assert "timing_label_quality_status_must_remain_uncertain" in invariants["violations"]
+    assert "timing_boundary_must_not_claim_real_human_timing_labels_available" in invariants["violations"]
+    assert "timing_final_production_human_likeness_proof_must_remain_blocked" in invariants["violations"]
 
 
 def test_bet_timing_calibration_endpoint_returns_contract() -> None:
     from poker_agent.service import bet_timing_calibration_json
+    from poker_agent.api_contract import api_contract
 
+    contract = api_contract()["bet_timing_calibration"]
     payload = bet_timing_calibration_json()
 
+    assert contract["endpoint"] == "/bet-timing-calibration.json"
+    assert contract["timing_label_quality_status"] == "TIMING_LABEL_QUALITY_UNCERTAIN"
+    assert contract["final_production_human_likeness_proof_allowed"] is False
     assert payload["overall_status"] == "PASS"
     assert payload["current_delivery_scope"]["implementation_status"] == "IMPLEMENTED_AND_MEASURED"
     assert payload["calibration_boundary"]["requires_more_real_player_behavior_labels"] is True
+    assert payload["timing_label_quality_boundary"]["status"] == "TIMING_LABEL_QUALITY_UNCERTAIN"

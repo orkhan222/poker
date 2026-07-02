@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import csv
 import json
+import re
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -13,6 +16,125 @@ UPSTREAM_NOT_RESOLVED = "UPSTREAM_NOT_RESOLVED"
 DEGRADED_STRENGTH_SIGNAL = "DEGRADED_BY_MISSING_HOLE_CARDS"
 MISSING_RATE_RISK_THRESHOLD = 0.50
 STRENGTH_PROXY_ZERO_RATE_THRESHOLD = 0.50
+RELIABLE_TWO_CARD_RATE_PROMOTION_THRESHOLD = 0.80
+INVALID_CARD_RATE_PROMOTION_THRESHOLD = 0.02
+CARD_TOKEN_RE = re.compile(r"^(?:[2-9TJQKA][CDHS]|10[CDHS])$", re.IGNORECASE)
+CARD_SPLIT_RE = re.compile(r"[\s,;|/]+")
+MAX_CARD_AUDIT_EXAMPLES = 10
+
+
+def scan_players_hole_cards(
+    project_root: Path,
+    *,
+    max_examples: int = MAX_CARD_AUDIT_EXAMPLES,
+) -> dict[str, Any]:
+    candidates = [
+        project_root / "data" / "players.csv",
+        project_root / "dataset" / "players.csv",
+    ]
+    players_path = next((path for path in candidates if path.exists()), None)
+    if players_path is None:
+        return {
+            "status": "MISSING_PLAYERS_CSV",
+            "candidate_paths": [str(path) for path in candidates],
+            "rows_scanned": 0,
+        }
+
+    rows_scanned = 0
+    missing_rows = 0
+    partial_rows = 0
+    complete_rows = 0
+    reliable_two_card_rows = 0
+    invalid_card_rows = 0
+    duplicate_card_rows = 0
+    overcomplete_card_rows = 0
+    card_count_distribution: Counter[str] = Counter()
+    malformed_examples: list[dict[str, Any]] = []
+
+    with players_path.open("r", encoding="utf-8-sig", errors="replace", newline="") as file:
+        reader = csv.DictReader(file)
+        if not reader.fieldnames or "cards" not in reader.fieldnames:
+            return {
+                "status": "MISSING_CARDS_COLUMN",
+                "path": str(players_path),
+                "columns": reader.fieldnames or [],
+                "rows_scanned": 0,
+            }
+
+        for row_number, row in enumerate(reader, start=2):
+            rows_scanned += 1
+            raw_cards = row.get("cards")
+            tokens = _split_card_tokens(raw_cards)
+            valid_cards, invalid_tokens = _partition_card_tokens(tokens)
+            valid_count = len(valid_cards)
+            unique_valid_count = len(set(valid_cards))
+            has_duplicate = unique_valid_count < valid_count
+            has_invalid = bool(invalid_tokens)
+            is_reliable_two_card_row = valid_count == 2 and unique_valid_count == 2 and not has_invalid
+
+            card_count_distribution[str(valid_count)] += 1
+            if valid_count == 0:
+                missing_rows += 1
+            elif valid_count == 1:
+                partial_rows += 1
+            elif valid_count == 2:
+                complete_rows += 1
+            else:
+                overcomplete_card_rows += 1
+
+            if is_reliable_two_card_row:
+                reliable_two_card_rows += 1
+            if has_invalid:
+                invalid_card_rows += 1
+            if has_duplicate:
+                duplicate_card_rows += 1
+            if (has_invalid or has_duplicate or valid_count > 2) and len(malformed_examples) < max_examples:
+                malformed_examples.append(
+                    {
+                        "row_number": row_number,
+                        "hand_id": row.get("hand_id"),
+                        "position": row.get("position"),
+                        "cards": raw_cards,
+                        "valid_cards": valid_cards,
+                        "invalid_tokens": invalid_tokens,
+                        "duplicate_cards": has_duplicate,
+                    }
+                )
+
+    denominator = max(rows_scanned, 1)
+    missing_rate = missing_rows / denominator
+    reliable_two_card_rate = reliable_two_card_rows / denominator
+    invalid_card_rate = invalid_card_rows / denominator
+    risk_status = (
+        "HIGH_RISK"
+        if missing_rate >= MISSING_RATE_RISK_THRESHOLD
+        or reliable_two_card_rate < RELIABLE_TWO_CARD_RATE_PROMOTION_THRESHOLD
+        or invalid_card_rate >= INVALID_CARD_RATE_PROMOTION_THRESHOLD
+        else "ACCEPTABLE_FOR_PROMOTION"
+    )
+
+    return {
+        "status": "PASS" if rows_scanned > 0 else "EMPTY_PLAYERS_CSV",
+        "path": str(players_path),
+        "rows_scanned": rows_scanned,
+        "missing_rows": missing_rows,
+        "partial_rows": partial_rows,
+        "complete_rows": complete_rows,
+        "reliable_two_card_rows": reliable_two_card_rows,
+        "invalid_card_rows": invalid_card_rows,
+        "duplicate_card_rows": duplicate_card_rows,
+        "overcomplete_card_rows": overcomplete_card_rows,
+        "missing_hole_card_rate": missing_rate,
+        "partial_hole_card_rate": partial_rows / denominator,
+        "complete_hole_card_rate": complete_rows / denominator,
+        "reliable_two_card_rate": reliable_two_card_rate,
+        "invalid_card_rate": invalid_card_rate,
+        "duplicate_card_rate": duplicate_card_rows / denominator,
+        "overcomplete_card_rate": overcomplete_card_rows / denominator,
+        "card_count_distribution": dict(sorted(card_count_distribution.items())),
+        "malformed_examples": malformed_examples,
+        "risk_status": risk_status,
+    }
 
 
 def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
@@ -21,6 +143,7 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
     production_gate = _read_optional_json(reports / "production_gate.json")
     today_training = _read_optional_json(reports / "today_acceptance_training.json")
     raw_challenger = _read_optional_json(reports / "raw_model_challenger.json")
+    direct_card_audit = scan_players_hole_cards(project_root)
 
     players = audit.get("players") or {}
     features = audit.get("features") or {}
@@ -47,11 +170,17 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
             "The routed policy bundle handles this better, but it does not fully solve the upstream data-quality issue."
         ),
         "coverage_snapshot": {
+            "coverage_source": (
+                "direct_players_csv"
+                if direct_card_audit.get("status") == "PASS"
+                else "dataset_audit_report"
+            ),
             "players_rows": players.get("rows"),
             "missing_hole_card_rate": players.get("missing_hole_card_rate"),
             "partial_hole_card_rate": players.get("partial_hole_card_rate"),
             "complete_hole_card_rate": players.get("complete_hole_card_rate"),
             "card_count_distribution": players.get("card_count_distribution", {}),
+            "direct_players_csv_audit": direct_card_audit,
             "audit_finding": hole_card_finding,
         },
         "strength_signal_impact": {
@@ -59,6 +188,8 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
             "strength_proxy_zero_rate": zero_rates.get("strength_proxy"),
             "missing_hole_card_rate": players.get("missing_hole_card_rate"),
             "complete_hole_card_rate": players.get("complete_hole_card_rate"),
+            "direct_reliable_two_card_rate": direct_card_audit.get("reliable_two_card_rate"),
+            "direct_invalid_card_rate": direct_card_audit.get("invalid_card_rate"),
             "primary_hand_strength_signal_reliable_for_standalone_policy": False,
             "observed_hole_cards_macro_f1": production_observed_gate.get("observed"),
             "observed_hole_cards_threshold": production_observed_gate.get("threshold"),
@@ -91,6 +222,18 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
             "production_blocker_for_current_deployment": False,
             "component_risk": True,
             "raw_standalone_policy_affected": True,
+        },
+        "promotion_boundary": {
+            "standalone_policy_promotion_allowed": False,
+            "model_promotion_blocker": True,
+            "current_deployment_blocker": False,
+            "requires_reliable_two_card_rate": RELIABLE_TWO_CARD_RATE_PROMOTION_THRESHOLD,
+            "requires_invalid_card_rate_below": INVALID_CARD_RATE_PROMOTION_THRESHOLD,
+            "requires_reviewed_card_label_set": True,
+            "reason": (
+                "Hole cards are a primary poker-strength signal. Standalone strategy promotion remains "
+                "blocked until players.csv has enough reliable two-card rows and low malformed-card rate."
+            ),
         },
         "evidence": {
             "dataset_audit": "reports/dataset_audit.json",
@@ -126,10 +269,15 @@ def validate_hole_card_data_quality(payload: dict[str, Any]) -> dict[str, Any]:
     strength = payload.get("strength_signal_impact") or {}
     mitigation = payload.get("mitigation_boundary") or {}
     upstream = payload.get("upstream_data_quality_boundary") or {}
+    direct_audit = coverage.get("direct_players_csv_audit") or {}
+    promotion = payload.get("promotion_boundary") or {}
 
     missing_rate = _as_float(coverage.get("missing_hole_card_rate"))
     complete_rate = _as_float(coverage.get("complete_hole_card_rate"))
     strength_zero_rate = _as_float(strength.get("strength_proxy_zero_rate"))
+    direct_missing_rate = _as_float(direct_audit.get("missing_hole_card_rate"))
+    direct_reliable_two_card_rate = _as_float(direct_audit.get("reliable_two_card_rate"))
+    direct_invalid_card_rate = _as_float(direct_audit.get("invalid_card_rate"))
     if missing_rate is None:
         violations.append("missing_hole_card_rate_is_required")
     if complete_rate is None:
@@ -153,6 +301,35 @@ def validate_hole_card_data_quality(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("degraded_strength_signal_cannot_be_standalone_reliable")
     if high_strength_zero_rate and not strength.get("strength_proxy_audit_finding"):
         violations.append("strength_proxy_audit_finding_must_remain_visible")
+
+    if direct_audit:
+        if direct_audit.get("status") != "PASS":
+            violations.append("direct_players_csv_audit_must_pass_when_present")
+        if int(direct_audit.get("rows_scanned") or 0) <= 0:
+            violations.append("direct_players_csv_audit_must_scan_rows")
+        if direct_reliable_two_card_rate is None:
+            violations.append("direct_reliable_two_card_rate_is_required")
+        if direct_missing_rate is None:
+            violations.append("direct_missing_hole_card_rate_is_required")
+        if direct_invalid_card_rate is None:
+            violations.append("direct_invalid_card_rate_is_required")
+        direct_high_missingness = (
+            direct_missing_rate is not None and direct_missing_rate >= MISSING_RATE_RISK_THRESHOLD
+        )
+        direct_low_reliability = (
+            direct_reliable_two_card_rate is not None
+            and direct_reliable_two_card_rate < RELIABLE_TWO_CARD_RATE_PROMOTION_THRESHOLD
+        )
+        direct_high_invalid_rate = (
+            direct_invalid_card_rate is not None
+            and direct_invalid_card_rate >= INVALID_CARD_RATE_PROMOTION_THRESHOLD
+        )
+        if (direct_high_missingness or direct_low_reliability or direct_high_invalid_rate) and (
+            strength.get("status") != DEGRADED_STRENGTH_SIGNAL
+        ):
+            violations.append("direct_players_csv_risk_must_degrade_strength_signal")
+        if direct_high_invalid_rate and not direct_audit.get("malformed_examples"):
+            violations.append("direct_invalid_card_risk_must_include_examples")
 
     if mitigation.get("mitigation_status") != MITIGATED_BY_ROUTED_POLICY_BUNDLE:
         violations.append("routed_policy_bundle_mitigation_must_be_active")
@@ -180,6 +357,19 @@ def validate_hole_card_data_quality(payload: dict[str, Any]) -> dict[str, Any]:
     if upstream.get("component_risk") is not True:
         violations.append("hole_card_limitation_must_remain_a_component_risk")
 
+    if promotion.get("standalone_policy_promotion_allowed") is not False:
+        violations.append("hole_card_risk_must_block_standalone_policy_promotion")
+    if promotion.get("model_promotion_blocker") is not True:
+        violations.append("hole_card_risk_must_remain_model_promotion_blocker")
+    if promotion.get("current_deployment_blocker") is not False:
+        violations.append("hole_card_risk_must_not_block_current_deployment")
+    if _as_float(promotion.get("requires_reliable_two_card_rate")) != RELIABLE_TWO_CARD_RATE_PROMOTION_THRESHOLD:
+        violations.append("hole_card_promotion_reliable_two_card_threshold_must_be_explicit")
+    if _as_float(promotion.get("requires_invalid_card_rate_below")) != INVALID_CARD_RATE_PROMOTION_THRESHOLD:
+        violations.append("hole_card_promotion_invalid_card_threshold_must_be_explicit")
+    if promotion.get("requires_reviewed_card_label_set") is not True:
+        violations.append("hole_card_promotion_must_require_reviewed_card_labels")
+
     return {"status": "FAIL" if violations else "PASS", "violations": violations}
 
 
@@ -202,6 +392,8 @@ def render_hole_card_data_quality_markdown(payload: dict[str, Any]) -> str:
     strength = payload["strength_signal_impact"]
     mitigation = payload["mitigation_boundary"]
     upstream = payload["upstream_data_quality_boundary"]
+    direct_audit = coverage.get("direct_players_csv_audit") or {}
+    promotion = payload["promotion_boundary"]
     lines = [
         "# Hole-Card Data Quality Contract",
         "",
@@ -212,11 +404,19 @@ def render_hole_card_data_quality_markdown(payload: dict[str, Any]) -> str:
         f"- Missing hole-card rate: `{coverage.get('missing_hole_card_rate')}`",
         f"- Partial hole-card rate: `{coverage.get('partial_hole_card_rate')}`",
         f"- Complete hole-card rate: `{coverage.get('complete_hole_card_rate')}`",
+        f"- Coverage source: `{coverage.get('coverage_source')}`",
+        f"- Direct players.csv audit status: `{direct_audit.get('status')}`",
+        f"- Direct players.csv rows scanned: `{direct_audit.get('rows_scanned')}`",
+        f"- Direct reliable two-card rate: `{direct_audit.get('reliable_two_card_rate')}`",
+        f"- Direct invalid-card rate: `{direct_audit.get('invalid_card_rate')}`",
+        f"- Direct malformed examples retained: `{len(direct_audit.get('malformed_examples') or [])}`",
         "",
         "## Strength Signal Impact",
         "",
         f"- Strength signal status: `{strength['status']}`",
         f"- Strength proxy zero rate: `{strength.get('strength_proxy_zero_rate')}`",
+        f"- Direct reliable two-card rate: `{strength.get('direct_reliable_two_card_rate')}`",
+        f"- Direct invalid-card rate: `{strength.get('direct_invalid_card_rate')}`",
         f"- Primary hand-strength signal reliable for standalone policy: `{strength['primary_hand_strength_signal_reliable_for_standalone_policy']}`",
         f"- Observed-hole-card macro F1: `{strength.get('observed_hole_cards_macro_f1')}`",
         f"- Observed-hole-card threshold: `{strength.get('observed_hole_cards_threshold')}`",
@@ -239,6 +439,16 @@ def render_hole_card_data_quality_markdown(payload: dict[str, Any]) -> str:
         f"- Production blocker for current deployment: `{upstream['production_blocker_for_current_deployment']}`",
         f"- Component risk: `{upstream['component_risk']}`",
         "",
+        "## Promotion Boundary",
+        "",
+        f"- Standalone policy promotion allowed: `{promotion['standalone_policy_promotion_allowed']}`",
+        f"- Model promotion blocker: `{promotion['model_promotion_blocker']}`",
+        f"- Current deployment blocker: `{promotion['current_deployment_blocker']}`",
+        f"- Required reliable two-card rate: `{promotion['requires_reliable_two_card_rate']}`",
+        f"- Required invalid-card rate below: `{promotion['requires_invalid_card_rate_below']}`",
+        f"- Requires reviewed card-label set: `{promotion['requires_reviewed_card_label_set']}`",
+        f"- Reason: {promotion['reason']}",
+        "",
         "## Required Upstream Fixes",
         "",
     ]
@@ -247,6 +457,55 @@ def render_hole_card_data_quality_markdown(payload: dict[str, Any]) -> str:
     lines.extend(f"- {claim}" for claim in payload["not_allowed_claims"])
     lines.extend(["", f"Invariant status: `{payload['invariants']['status']}`", ""])
     return "\n".join(lines)
+
+
+def _split_card_tokens(raw_cards: Any) -> list[str]:
+    if raw_cards is None:
+        return []
+    text = str(raw_cards).strip()
+    if not text or text.lower() in {"nan", "none", "null", "[]", "{}"}:
+        return []
+    text = (
+        text.replace("[", " ")
+        .replace("]", " ")
+        .replace("(", " ")
+        .replace(")", " ")
+        .replace('"', " ")
+        .replace("'", " ")
+    )
+    return [token for token in CARD_SPLIT_RE.split(text) if token]
+
+
+def _partition_card_tokens(tokens: list[str]) -> tuple[list[str], list[str]]:
+    valid_cards: list[str] = []
+    invalid_tokens: list[str] = []
+    for token in tokens:
+        normalized = _normalize_card_token(token)
+        if normalized is None:
+            invalid_tokens.append(token)
+        else:
+            valid_cards.append(normalized)
+    return valid_cards, invalid_tokens
+
+
+def _normalize_card_token(token: str) -> str | None:
+    normalized = (
+        token.strip()
+        .upper()
+        .replace("♠", "S")
+        .replace("♤", "S")
+        .replace("♥", "H")
+        .replace("♡", "H")
+        .replace("♦", "D")
+        .replace("♢", "D")
+        .replace("♣", "C")
+        .replace("♧", "C")
+    )
+    if normalized.startswith("10") and len(normalized) == 3:
+        normalized = "T" + normalized[-1]
+    if not CARD_TOKEN_RE.match(normalized):
+        return None
+    return normalized
 
 
 def _find_hole_card_finding(findings: list[dict[str, Any]]) -> dict[str, Any] | None:

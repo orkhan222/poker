@@ -7,6 +7,21 @@ from poker_agent.hole_card_data_quality import build_hole_card_data_quality, val
 
 
 def test_hole_card_data_quality_keeps_limitation_open_with_routed_mitigation(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "players.csv").write_text(
+        "\n".join(
+            [
+                "hand_id,position,cards",
+                "h1,BTN,AS KD",
+                "h2,SB,",
+                "h3,BB,AS",
+                "h4,UTG,ZZ QS",
+                "h5,CO,AS AS",
+            ]
+        ),
+        encoding="utf-8",
+    )
     reports = tmp_path / "reports"
     reports.mkdir()
     (reports / "dataset_audit.json").write_text(
@@ -73,6 +88,18 @@ def test_hole_card_data_quality_keeps_limitation_open_with_routed_mitigation(tmp
     payload = build_hole_card_data_quality(tmp_path)
 
     assert payload["overall_status"] == "PASS"
+    direct_audit = payload["coverage_snapshot"]["direct_players_csv_audit"]
+    assert payload["coverage_snapshot"]["coverage_source"] == "direct_players_csv"
+    assert direct_audit["status"] == "PASS"
+    assert direct_audit["rows_scanned"] == 5
+    assert direct_audit["missing_rows"] == 1
+    assert direct_audit["partial_rows"] == 2
+    assert direct_audit["complete_rows"] == 2
+    assert direct_audit["reliable_two_card_rows"] == 1
+    assert direct_audit["invalid_card_rows"] == 1
+    assert direct_audit["duplicate_card_rows"] == 1
+    assert direct_audit["reliable_two_card_rate"] == 0.2
+    assert direct_audit["risk_status"] == "HIGH_RISK"
     assert payload["mitigation_boundary"]["mitigation_status"] == "MITIGATED_BY_ROUTED_POLICY_BUNDLE"
     assert payload["mitigation_boundary"]["mitigation_scope"] == "RUNTIME_RISK_REDUCTION_NOT_DATA_REPAIR"
     assert payload["mitigation_boundary"]["requires_slice_specific_monitoring"] is True
@@ -85,6 +112,9 @@ def test_hole_card_data_quality_keeps_limitation_open_with_routed_mitigation(tmp
     assert payload["upstream_data_quality_boundary"]["limitation_status"] == "OPEN_DATA_QUALITY_LIMITATION"
     assert payload["upstream_data_quality_boundary"]["upstream_data_quality_issue_resolved"] is False
     assert payload["upstream_data_quality_boundary"]["production_blocker_for_current_deployment"] is False
+    assert payload["promotion_boundary"]["standalone_policy_promotion_allowed"] is False
+    assert payload["promotion_boundary"]["model_promotion_blocker"] is True
+    assert payload["promotion_boundary"]["current_deployment_blocker"] is False
 
 
 def test_hole_card_data_quality_blocks_false_resolution_claim() -> None:
@@ -115,6 +145,14 @@ def test_hole_card_data_quality_blocks_false_resolution_claim() -> None:
             "requires_larger_reviewed_card_labels": False,
             "production_blocker_for_current_deployment": False,
             "component_risk": False,
+        },
+        "promotion_boundary": {
+            "standalone_policy_promotion_allowed": False,
+            "model_promotion_blocker": True,
+            "current_deployment_blocker": False,
+            "requires_reliable_two_card_rate": 0.80,
+            "requires_invalid_card_rate_below": 0.02,
+            "requires_reviewed_card_label_set": True,
         },
     }
 
@@ -154,6 +192,14 @@ def test_hole_card_data_quality_blocks_false_strength_signal_reliability() -> No
             "production_blocker_for_current_deployment": False,
             "component_risk": True,
         },
+        "promotion_boundary": {
+            "standalone_policy_promotion_allowed": False,
+            "model_promotion_blocker": True,
+            "current_deployment_blocker": False,
+            "requires_reliable_two_card_rate": 0.80,
+            "requires_invalid_card_rate_below": 0.02,
+            "requires_reviewed_card_label_set": True,
+        },
     }
 
     invariants = validate_hole_card_data_quality(payload)
@@ -163,6 +209,62 @@ def test_hole_card_data_quality_blocks_false_strength_signal_reliability() -> No
     assert "high_strength_proxy_zero_rate_must_degrade_strength_signal" in invariants["violations"]
     assert "degraded_strength_signal_cannot_be_standalone_reliable" in invariants["violations"]
     assert "strength_proxy_audit_finding_must_remain_visible" in invariants["violations"]
+
+
+def test_hole_card_data_quality_blocks_false_standalone_promotion() -> None:
+    payload = {
+        "coverage_snapshot": {
+            "missing_hole_card_rate": 0.77,
+            "complete_hole_card_rate": 0.14,
+            "audit_finding": {"issue": "Hole-card coverage is too low."},
+            "direct_players_csv_audit": {
+                "status": "PASS",
+                "rows_scanned": 100,
+                "missing_hole_card_rate": 0.77,
+                "reliable_two_card_rate": 0.14,
+                "invalid_card_rate": 0.03,
+                "malformed_examples": [{"row_number": 5, "cards": "ZZ QQ"}],
+            },
+        },
+        "strength_signal_impact": {
+            "status": "DEGRADED_BY_MISSING_HOLE_CARDS",
+            "strength_proxy_zero_rate": 0.91,
+            "primary_hand_strength_signal_reliable_for_standalone_policy": False,
+            "strength_proxy_audit_finding": {"issue": "strength_proxy is zero for most rows."},
+        },
+        "mitigation_boundary": {
+            "mitigation_status": "MITIGATED_BY_ROUTED_POLICY_BUNDLE",
+            "routed_policy_bundle_handles_missingness": True,
+            "mitigation_scope": "RUNTIME_RISK_REDUCTION_NOT_DATA_REPAIR",
+            "requires_slice_specific_monitoring": True,
+            "fully_solves_upstream_data_quality_issue": False,
+        },
+        "upstream_data_quality_boundary": {
+            "limitation_status": "OPEN_DATA_QUALITY_LIMITATION",
+            "upstream_status": "UPSTREAM_NOT_RESOLVED",
+            "upstream_data_quality_issue_resolved": False,
+            "requires_ocr_or_parser_improvement": True,
+            "requires_larger_reviewed_card_labels": True,
+            "production_blocker_for_current_deployment": False,
+            "component_risk": True,
+        },
+        "promotion_boundary": {
+            "standalone_policy_promotion_allowed": True,
+            "model_promotion_blocker": False,
+            "current_deployment_blocker": True,
+            "requires_reliable_two_card_rate": 0.80,
+            "requires_invalid_card_rate_below": 0.02,
+            "requires_reviewed_card_label_set": False,
+        },
+    }
+
+    invariants = validate_hole_card_data_quality(payload)
+
+    assert invariants["status"] == "FAIL"
+    assert "hole_card_risk_must_block_standalone_policy_promotion" in invariants["violations"]
+    assert "hole_card_risk_must_remain_model_promotion_blocker" in invariants["violations"]
+    assert "hole_card_risk_must_not_block_current_deployment" in invariants["violations"]
+    assert "hole_card_promotion_must_require_reviewed_card_labels" in invariants["violations"]
 
 
 def test_hole_card_data_quality_endpoint_returns_contract() -> None:

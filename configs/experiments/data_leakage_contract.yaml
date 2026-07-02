@@ -1,0 +1,19 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: routed_bundle_smoke
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: data_leakage_contract
+description: Build the outcome-field data-leakage prevention contract.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_data_leakage_contract.py
+  args:
+    project_root: .
+    out: ${logging.reports_dir}/data_leakage_contract.json
+    markdown_out: ${logging.reports_dir}/data_leakage_contract.md
+    max_examples: 5000

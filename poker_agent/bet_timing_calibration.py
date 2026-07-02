@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,8 @@ BET_TIMING_CALIBRATION_VERSION = "2026-06-28"
 IMPLEMENTED_AND_MEASURED = "IMPLEMENTED_AND_MEASURED"
 CALIBRATION_RECOMMENDED_FOR_HIGHER_REALISM = "CALIBRATION_RECOMMENDED_FOR_HIGHER_REALISM"
 LABELS_INSUFFICIENT_FOR_FINAL_HIGH_REALISM = "LABELS_INSUFFICIENT_FOR_FINAL_HIGH_REALISM"
+TIMING_LABEL_QUALITY_UNCERTAIN = "TIMING_LABEL_QUALITY_UNCERTAIN"
+TIMING_POLICY_HEURISTIC_CALIBRATED = "HEURISTIC_OR_TABLE_TEMPO_CALIBRATED"
 CURRENT_VALIDATION_SCOPE = "current_delivery_validation_scope"
 HIGHER_REALISM_SCOPE = "larger_real_player_behavior_labels"
 REQUIRED_RESPONSE_FIELDS = ("bet_size", "wait_time_ms", "sizing_method", "timing_method")
@@ -63,6 +66,10 @@ def build_bet_timing_calibration(project_root: Path) -> dict[str, Any]:
                 "reports/policy_acceptance.json",
                 "reports/behavioral_revalidation.json",
             ],
+            "timing_policy_type": TIMING_POLICY_HEURISTIC_CALIBRATED,
+            "real_human_timing_label_quality": TIMING_LABEL_QUALITY_UNCERTAIN,
+            "real_human_timing_labels_available": False,
+            "timing_human_likeness_final_proof_allowed": False,
         },
         "calibration_boundary": {
             "status": CALIBRATION_RECOMMENDED_FOR_HIGHER_REALISM,
@@ -79,6 +86,20 @@ def build_bet_timing_calibration(project_root: Path) -> dict[str, Any]:
                 "The service emits and measures bet-size and timing behavior for the current delivery scope. "
                 "Higher realism requires calibration against larger reviewed player-behavior labels, especially "
                 "for bet-size distributions, decision timing, table tempo, stack depth, street, and opponent slices."
+            ),
+        },
+        "timing_label_quality_boundary": {
+            "status": TIMING_LABEL_QUALITY_UNCERTAIN,
+            "timing_feature_available": "wait_time_ms" in response_fields and "timing_method" in response_fields,
+            "timing_policy_type": TIMING_POLICY_HEURISTIC_CALIBRATED,
+            "real_human_timing_labels_available": False,
+            "final_production_human_likeness_proof_allowed": False,
+            "current_delivery_blocker": False,
+            "model_quality_risk": True,
+            "reason": (
+                "The agent returns a bounded wait_time_ms value, but without reviewed real human timing labels "
+                "the timing behavior is calibrated heuristically and cannot be used as final production "
+                "human-likeness evidence."
             ),
         },
         "calibration_dataset_requirements": [
@@ -107,9 +128,14 @@ def build_bet_timing_calibration(project_root: Path) -> dict[str, Any]:
             "Bet-sizing and timing are fully calibrated to real player behavior across all production conditions.",
             "Higher-realism calibration is complete without larger reviewed real-player behavior labels.",
             "Current timing and bet-size measurements are a substitute for production-scale behavioral calibration.",
+            "Heuristic/table-tempo timing is final proof of human timing likeness without reviewed timing labels.",
         ],
     }
+    payload["proof_cases"] = build_bet_timing_calibration_proof_cases(payload)
     payload["invariants"] = validate_bet_timing_calibration(payload)
+    if not all(case["passed"] for case in payload["proof_cases"]):
+        payload["invariants"]["status"] = "FAIL"
+        payload["invariants"]["violations"].append("bet_timing_calibration_proof_cases_must_pass")
     payload["overall_status"] = "PASS" if payload["invariants"]["status"] == "PASS" else "FAIL"
     return payload
 
@@ -118,6 +144,7 @@ def validate_bet_timing_calibration(payload: dict[str, Any]) -> dict[str, Any]:
     violations: list[str] = []
     current = payload.get("current_delivery_scope") or {}
     boundary = payload.get("calibration_boundary") or {}
+    timing_boundary = payload.get("timing_label_quality_boundary") or {}
     response_fields = set(current.get("api_response_fields") or [])
     metrics = [str(metric).lower() for metric in payload.get("metrics_to_revalidate") or []]
 
@@ -132,6 +159,14 @@ def validate_bet_timing_calibration(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("bet_timing_behavior_must_be_measured")
     if current.get("timing_and_bet_size_status") != "PASS":
         violations.append("current_scope_timing_and_bet_size_status_must_pass")
+    if current.get("timing_policy_type") != TIMING_POLICY_HEURISTIC_CALIBRATED:
+        violations.append("timing_policy_type_must_remain_heuristic_or_table_tempo_calibrated")
+    if current.get("real_human_timing_label_quality") != TIMING_LABEL_QUALITY_UNCERTAIN:
+        violations.append("real_human_timing_label_quality_must_remain_uncertain")
+    if current.get("real_human_timing_labels_available") is not False:
+        violations.append("real_human_timing_labels_must_not_be_claimed_available")
+    if current.get("timing_human_likeness_final_proof_allowed") is not False:
+        violations.append("timing_human_likeness_final_proof_must_be_blocked")
     if boundary.get("status") != CALIBRATION_RECOMMENDED_FOR_HIGHER_REALISM:
         violations.append("higher_realism_calibration_recommendation_must_remain_visible")
     if boundary.get("requires_more_real_player_behavior_labels") is not True:
@@ -148,12 +183,68 @@ def validate_bet_timing_calibration(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("calibration_gap_must_not_block_current_delivery")
     if boundary.get("label_gap_status") != LABELS_INSUFFICIENT_FOR_FINAL_HIGH_REALISM:
         violations.append("label_gap_status_must_remain_insufficient_for_final_high_realism")
+    if timing_boundary.get("status") != TIMING_LABEL_QUALITY_UNCERTAIN:
+        violations.append("timing_label_quality_status_must_remain_uncertain")
+    if timing_boundary.get("timing_feature_available") is not True:
+        violations.append("timing_feature_must_remain_available")
+    if timing_boundary.get("timing_policy_type") != TIMING_POLICY_HEURISTIC_CALIBRATED:
+        violations.append("timing_boundary_policy_type_must_remain_heuristic_or_table_tempo_calibrated")
+    if timing_boundary.get("real_human_timing_labels_available") is not False:
+        violations.append("timing_boundary_must_not_claim_real_human_timing_labels_available")
+    if timing_boundary.get("final_production_human_likeness_proof_allowed") is not False:
+        violations.append("timing_final_production_human_likeness_proof_must_remain_blocked")
+    if timing_boundary.get("current_delivery_blocker") is not False:
+        violations.append("timing_label_gap_must_not_block_current_delivery")
+    if timing_boundary.get("model_quality_risk") is not True:
+        violations.append("timing_label_gap_must_remain_model_quality_risk")
     if not any("bet-size" in metric or "bet size" in metric for metric in metrics):
         violations.append("bet_size_distribution_metric_must_be_revalidated")
     if not any("timing" in metric or "decision-time" in metric or "decision time" in metric for metric in metrics):
         violations.append("timing_distribution_metric_must_be_revalidated")
 
     return {"status": "FAIL" if violations else "PASS", "violations": violations}
+
+
+def build_bet_timing_calibration_proof_cases(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    cases: list[dict[str, Any]] = [
+        _bet_timing_proof_case("base_contract_is_valid", payload, "PASS"),
+    ]
+
+    mutated = deepcopy(payload)
+    mutated["current_delivery_scope"]["timing_human_likeness_final_proof_allowed"] = True
+    mutated["timing_label_quality_boundary"]["final_production_human_likeness_proof_allowed"] = True
+    cases.append(_bet_timing_proof_case("blocks_final_timing_human_likeness_claim", mutated, "FAIL"))
+
+    mutated = deepcopy(payload)
+    mutated["current_delivery_scope"]["real_human_timing_labels_available"] = True
+    mutated["timing_label_quality_boundary"]["real_human_timing_labels_available"] = True
+    cases.append(_bet_timing_proof_case("blocks_unreviewed_timing_label_availability_claim", mutated, "FAIL"))
+
+    mutated = deepcopy(payload)
+    mutated["current_delivery_scope"]["timing_policy_type"] = "LEARNED_FROM_REVIEWED_HUMAN_TIMING_LABELS"
+    mutated["timing_label_quality_boundary"]["timing_policy_type"] = "LEARNED_FROM_REVIEWED_HUMAN_TIMING_LABELS"
+    cases.append(_bet_timing_proof_case("blocks_heuristic_timing_relabel_as_supervised", mutated, "FAIL"))
+
+    mutated = deepcopy(payload)
+    mutated["timing_label_quality_boundary"]["current_delivery_blocker"] = True
+    cases.append(_bet_timing_proof_case("blocks_delivery_blocker_reclassification", mutated, "FAIL"))
+
+    mutated = deepcopy(payload)
+    mutated["timing_label_quality_boundary"]["model_quality_risk"] = False
+    cases.append(_bet_timing_proof_case("blocks_model_quality_risk_removal", mutated, "FAIL"))
+
+    return cases
+
+
+def _bet_timing_proof_case(name: str, candidate: dict[str, Any], expected_status: str) -> dict[str, Any]:
+    observed = validate_bet_timing_calibration(candidate)
+    return {
+        "name": name,
+        "expected_status": expected_status,
+        "observed_status": observed["status"],
+        "passed": observed["status"] == expected_status,
+        "violations": observed["violations"],
+    }
 
 
 def write_bet_timing_calibration(
@@ -173,6 +264,7 @@ def write_bet_timing_calibration(
 def render_bet_timing_calibration_markdown(payload: dict[str, Any]) -> str:
     current = payload["current_delivery_scope"]
     boundary = payload["calibration_boundary"]
+    timing_boundary = payload["timing_label_quality_boundary"]
     lines = [
         "# Bet-Sizing and Timing Calibration Contract",
         "",
@@ -198,12 +290,28 @@ def render_bet_timing_calibration_markdown(payload: dict[str, Any]) -> str:
         f"- Final high-realism claim allowed: `{boundary['final_high_realism_claim_allowed']}`",
         f"- Production blocker for current delivery: `{boundary['production_blocker_for_current_delivery']}`",
         "",
+        "## Timing Label Quality Boundary",
+        "",
+        f"- Status: `{timing_boundary['status']}`",
+        f"- Timing feature available: `{timing_boundary['timing_feature_available']}`",
+        f"- Timing policy type: `{timing_boundary['timing_policy_type']}`",
+        f"- Real human timing labels available: `{timing_boundary['real_human_timing_labels_available']}`",
+        f"- Final production human-likeness proof allowed: `{timing_boundary['final_production_human_likeness_proof_allowed']}`",
+        f"- Current delivery blocker: `{timing_boundary['current_delivery_blocker']}`",
+        f"- Model quality risk: `{timing_boundary['model_quality_risk']}`",
+        "",
         "## Calibration Dataset Requirements",
         "",
     ]
     lines.extend(f"- {item}" for item in payload["calibration_dataset_requirements"])
     lines.extend(["", "## Not Allowed Claims", ""])
     lines.extend(f"- {claim}" for claim in payload["not_allowed_claims"])
+    lines.extend(["", "## Executable Proof Cases", ""])
+    for case in payload.get("proof_cases") or []:
+        lines.append(
+            f"- `{case['name']}`: expected `{case['expected_status']}`, "
+            f"observed `{case['observed_status']}`, passed `{case['passed']}`"
+        )
     lines.extend(["", f"Invariant status: `{payload['invariants']['status']}`", ""])
     return "\n".join(lines)
 

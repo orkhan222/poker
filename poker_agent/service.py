@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse
 
 from poker_agent.agents import MLPolicyAgent, RuleBasedAgent
 from poker_agent.api_contract import api_contract
+from poker_agent.actions_context_quality import build_actions_context_quality
 from poker_agent.behavioral_revalidation import build_behavioral_revalidation
 from poker_agent.behavioral_revalidation_proof import build_behavioral_revalidation_proof
 from poker_agent.bet_timing_calibration import build_bet_timing_calibration
@@ -20,6 +21,7 @@ from poker_agent.autonomous_agent import AgentLifecycleError, AutonomousPokerAge
 from poker_agent.client_handoff import build_client_handoff
 from poker_agent.client_gpu_training_response import build_client_gpu_training_response
 from poker_agent.challenger_strategy_quality import build_challenger_strategy_quality
+from poker_agent.data_leakage_contract import build_data_leakage_contract
 from poker_agent.delivery_readiness import summarize_delivery_readiness
 from poker_agent.final_delivery_acceptance import build_final_delivery_acceptance
 from poker_agent.final_strategy_quality_status import build_final_strategy_quality_status
@@ -35,6 +37,7 @@ from poker_agent.qlora_next_stage import build_qlora_next_stage
 from poker_agent.raw_model_status import build_raw_model_status
 from poker_agent.schemas import PredictionRequest
 from poker_agent.scope_contract import build_scope_contract
+from poker_agent.stack_event_context_quality import build_stack_event_context_quality
 from poker_agent.strategy_readiness import load_combined_strategy_readiness
 from poker_agent.strategy_stack_maturity import build_strategy_stack_maturity
 from poker_agent.training_cluster import DEFAULT_RUN_PROFILE, build_training_cluster_requirements
@@ -83,6 +86,9 @@ STRATEGY_STACK_MATURITY_PATH = PROJECT_ROOT / "reports" / "strategy_stack_maturi
 BEHAVIORAL_REVALIDATION_PATH = PROJECT_ROOT / "reports" / "behavioral_revalidation.json"
 BEHAVIORAL_REVALIDATION_PROOF_PATH = PROJECT_ROOT / "reports" / "behavioral_revalidation_proof.json"
 HOLE_CARD_DATA_QUALITY_PATH = PROJECT_ROOT / "reports" / "hole_card_data_quality.json"
+DATA_LEAKAGE_CONTRACT_PATH = PROJECT_ROOT / "reports" / "data_leakage_contract.json"
+ACTION_CONTEXT_QUALITY_PATH = PROJECT_ROOT / "reports" / "actions_context_quality.json"
+STACK_EVENT_CONTEXT_QUALITY_PATH = PROJECT_ROOT / "reports" / "stack_event_context_quality.json"
 BET_TIMING_CALIBRATION_PATH = PROJECT_ROOT / "reports" / "bet_timing_calibration.json"
 FINAL_DELIVERY_ACCEPTANCE_PATH = PROJECT_ROOT / "reports" / "final_delivery_acceptance.json"
 FINAL_STRATEGY_QUALITY_STATUS_PATH = PROJECT_ROOT / "reports" / "final_strategy_quality_status.json"
@@ -1018,6 +1024,27 @@ def hole_card_data_quality_json() -> dict[str, Any]:
     if HOLE_CARD_DATA_QUALITY_PATH.exists():
         return json.loads(HOLE_CARD_DATA_QUALITY_PATH.read_text(encoding="utf-8"))
     return build_hole_card_data_quality(PROJECT_ROOT)
+
+
+@app.get("/data-leakage-contract.json", tags=["System"], summary="Outcome-field data-leakage boundary")
+def data_leakage_contract_json() -> dict[str, Any]:
+    if DATA_LEAKAGE_CONTRACT_PATH.exists():
+        return json.loads(DATA_LEAKAGE_CONTRACT_PATH.read_text(encoding="utf-8"))
+    return build_data_leakage_contract(PROJECT_ROOT)
+
+
+@app.get("/actions-context-quality.json", tags=["System"], summary="actions.csv betting-context boundary")
+def actions_context_quality_json() -> dict[str, Any]:
+    if ACTION_CONTEXT_QUALITY_PATH.exists():
+        return json.loads(ACTION_CONTEXT_QUALITY_PATH.read_text(encoding="utf-8"))
+    return build_actions_context_quality(PROJECT_ROOT)
+
+
+@app.get("/stack-event-context-quality.json", tags=["System"], summary="stack_events.csv decision-context boundary")
+def stack_event_context_quality_json() -> dict[str, Any]:
+    if STACK_EVENT_CONTEXT_QUALITY_PATH.exists():
+        return json.loads(STACK_EVENT_CONTEXT_QUALITY_PATH.read_text(encoding="utf-8"))
+    return build_stack_event_context_quality(PROJECT_ROOT)
 
 
 @app.get("/strategy-stack-maturity.json", tags=["System"], summary="Strategy stack maturity boundary")

@@ -15,6 +15,8 @@ LLM_BOUNDARY = "CONTROLLED_LAYER_NOT_AUTONOMOUS_LLM_AGENT"
 QLORA_BOUNDARY = "NEXT_STAGE_IMPROVEMENT_NOT_CURRENT_DELIVERY_BLOCKER"
 RUNTIME_MONITORING_BOUNDARY = "REAL_TRAFFIC_REQUIRES_MONITORING_ROLLBACK_AND_DRIFT_TRACKING"
 CHALLENGER_STRATEGY_QUALITY_BOUNDARY = "FINAL_STRATEGY_QUALITY_REQUIRES_PASSING_CHALLENGER"
+ACTIONS_CONTEXT_BOUNDARY = "DERIVED_BETTING_CONTEXT_NOT_FULL_EXPLICIT_ACTION_CONTEXT"
+STACK_EVENT_CONTEXT_BOUNDARY = "RAW_STACK_EVENTS_REQUIRE_DERIVED_DECISION_CONTEXT"
 
 
 def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
@@ -25,6 +27,8 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
     llm_role = _read_optional_json(reports / "llm_role_boundary.json")
     bet_timing = _read_optional_json(reports / "bet_timing_calibration.json")
     hole_card = _read_optional_json(reports / "hole_card_data_quality.json")
+    actions_context = _read_optional_json(reports / "actions_context_quality.json")
+    stack_event_context = _read_optional_json(reports / "stack_event_context_quality.json")
     behavioral = _read_optional_json(reports / "behavioral_revalidation.json")
     strategy_maturity = _read_optional_json(reports / "strategy_stack_maturity.json")
     multi_agent = _read_optional_json(reports / "multi_agent_training_status.json")
@@ -39,6 +43,10 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
     llm_current = llm_role.get("current_llm_role") or {}
     bet_boundary = bet_timing.get("calibration_boundary") or {}
     hole_boundary = hole_card.get("upstream_data_quality_boundary") or {}
+    actions_schema = actions_context.get("actions_csv_schema_audit") or {}
+    actions_mitigation = actions_context.get("derived_context_mitigation") or {}
+    stack_raw_boundary = stack_event_context.get("raw_stack_event_boundary") or {}
+    stack_mitigation = stack_event_context.get("derived_context_mitigation") or {}
     behavioral_boundary = behavioral.get("revalidation_boundary") or {}
     maturity_current = strategy_maturity.get("current_strategy_stack") or {}
     training_boundary = multi_agent.get("training_boundary") or {}
@@ -166,11 +174,65 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
                 "component_risk": hole_boundary.get("component_risk"),
                 "production_blocker": hole_boundary.get("production_blocker_for_current_deployment"),
             },
+            "actions_context_quality": {
+                "boundary": ACTIONS_CONTEXT_BOUNDARY,
+                "explicit_context_status": actions_schema.get("explicit_context_status"),
+                "missing_explicit_context_fields": actions_schema.get("missing_explicit_context_fields") or [],
+                "limitation_status": actions_schema.get("limitation_status"),
+                "derived_context_status": actions_mitigation.get("status"),
+                "uses_target_action_amount_as_feature": actions_mitigation.get("uses_target_action_amount_as_feature"),
+                "uses_future_outcome_fields": actions_mitigation.get("uses_future_outcome_fields"),
+                "does_not_fully_replace_explicit_context": actions_mitigation.get(
+                    "does_not_fully_replace_explicit_context"
+                ),
+                "current_delivery_blocker": actions_mitigation.get("current_delivery_blocker"),
+                "model_quality_risk": actions_mitigation.get("model_quality_risk"),
+            },
+            "stack_event_context_quality": {
+                "boundary": STACK_EVENT_CONTEXT_BOUNDARY,
+                "raw_stack_event_status": stack_raw_boundary.get("status"),
+                "raw_stack_events_are_direct_policy_features": stack_raw_boundary.get(
+                    "raw_stack_events_are_direct_policy_features"
+                ),
+                "decision_time_derivation_required": stack_raw_boundary.get(
+                    "decision_time_derivation_required"
+                ),
+                "target_action_stack_delta_allowed_as_feature": stack_raw_boundary.get(
+                    "target_action_stack_delta_allowed_as_feature"
+                ),
+                "post_hand_stack_outcome_allowed_as_feature": stack_raw_boundary.get(
+                    "post_hand_stack_outcome_allowed_as_feature"
+                ),
+                "derived_context_status": stack_mitigation.get("status"),
+                "uses_target_action_stack_delta_as_feature": stack_mitigation.get(
+                    "uses_target_action_stack_delta_as_feature"
+                ),
+                "uses_post_hand_outcome_fields": stack_mitigation.get("uses_post_hand_outcome_fields"),
+                "current_delivery_blocker": stack_mitigation.get("current_delivery_blocker"),
+                "model_quality_risk": stack_mitigation.get("model_quality_risk"),
+            },
             "bet_timing_calibration": {
                 "implementation_status": (bet_timing.get("current_delivery_scope") or {}).get("implementation_status"),
                 "timing_and_bet_size_status": (bet_timing.get("current_delivery_scope") or {}).get("timing_and_bet_size_status"),
+                "timing_policy_type": (bet_timing.get("current_delivery_scope") or {}).get("timing_policy_type"),
+                "real_human_timing_label_quality": (bet_timing.get("current_delivery_scope") or {}).get(
+                    "real_human_timing_label_quality"
+                ),
+                "real_human_timing_labels_available": (bet_timing.get("current_delivery_scope") or {}).get(
+                    "real_human_timing_labels_available"
+                ),
+                "timing_human_likeness_final_proof_allowed": (bet_timing.get("current_delivery_scope") or {}).get(
+                    "timing_human_likeness_final_proof_allowed"
+                ),
                 "requires_more_real_player_behavior_labels": bet_boundary.get("requires_more_real_player_behavior_labels"),
                 "final_high_realism_claim_allowed": bet_boundary.get("final_high_realism_claim_allowed"),
+                "timing_label_quality_status": (bet_timing.get("timing_label_quality_boundary") or {}).get("status"),
+                "timing_label_current_delivery_blocker": (bet_timing.get("timing_label_quality_boundary") or {}).get(
+                    "current_delivery_blocker"
+                ),
+                "timing_label_model_quality_risk": (bet_timing.get("timing_label_quality_boundary") or {}).get(
+                    "model_quality_risk"
+                ),
                 "production_blocker": bet_boundary.get("production_blocker_for_current_delivery"),
             },
             "behavioral_revalidation": {
@@ -206,6 +268,10 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "The service is approved for real traffic without monitoring, rollback, live drift tracking, prediction-distribution tracking, and model-confidence monitoring.",
             "Real production traffic is approved before observability is enabled.",
             "Hole-card data quality is fully solved upstream.",
+            "actions.csv is a complete explicit betting-context dataset.",
+            "Derived betting context fully replaces amount, to_call, pot_before_action, min_raise, legal_actions, and action_order labels.",
+            "Raw stack events are sufficient policy features without decision-time pot/effective-stack/SPR derivation.",
+            "Target action stack deltas can be used as features for predicting that same action.",
             "Bet-sizing and timing are fully calibrated for all production-realism conditions.",
             "Full production-scale multi-agent training has been completed by the current acceptance run.",
             "Current validation replaces larger clean real-gameplay revalidation.",
@@ -217,6 +283,8 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "llm_role_boundary": "reports/llm_role_boundary.json",
             "bet_timing_calibration": "reports/bet_timing_calibration.json",
             "hole_card_data_quality": "reports/hole_card_data_quality.json",
+            "actions_context_quality": "reports/actions_context_quality.json",
+            "stack_event_context_quality": "reports/stack_event_context_quality.json",
             "behavioral_revalidation": "reports/behavioral_revalidation.json",
             "strategy_stack_maturity": "reports/strategy_stack_maturity.json",
             "multi_agent_training_status": "reports/multi_agent_training_status.json",
@@ -230,6 +298,8 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "Run QLoRA or larger-LLM fine-tuning as a separate next-stage milestone for noisy OCR/dealer-log normalization, structured extraction, candidate ranking, and JSON/schema compliance improvement.",
             "Enable external production telemetry storage, alerting, rollback procedures, and live drift tracking before real-traffic rollout.",
             "Collect larger reviewed real gameplay labels for timing, bet size, hole-card visibility, and action distribution slices.",
+            "Instrument actions.csv with explicit amount, to_call, pot_before_action, min_raise, legal_actions, and action_order fields.",
+            "Persist explicit pre-action pot, effective_stack, SPR, current_bet_size, and min_raise labels alongside stack event logs.",
             "Run a separate full production-scale multi-agent training cycle under an approved A100/H100 cluster profile.",
             "Only promote an autonomous LLM policy if stakeholders approve a separate LLM-agent milestone and it passes independent simulation and safety gates.",
         ],
@@ -250,6 +320,8 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
     runtime_observability = risks.get("production_runtime_monitoring") or {}
     challenger = risks.get("challenger_strategy_quality") or {}
     hole = risks.get("hole_card_data_quality") or {}
+    actions_context = risks.get("actions_context_quality") or {}
+    stack_event_context = risks.get("stack_event_context_quality") or {}
     bet = risks.get("bet_timing_calibration") or {}
     behavioral = risks.get("behavioral_revalidation") or {}
     multi = risks.get("multi_agent_training") or {}
@@ -348,12 +420,73 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
         violations.append("hole_card_upstream_issue_must_not_be_marked_resolved")
     if hole.get("component_risk") is not True or hole.get("production_blocker") is not False:
         violations.append("hole_card_issue_must_remain_component_risk_not_blocker")
+    if actions_context.get("explicit_context_status") != "INCOMPLETE_EXPLICIT_BETTING_CONTEXT":
+        violations.append("actions_context_must_remain_marked_incomplete")
+    required_action_fields = {
+        "amount",
+        "to_call",
+        "pot_before_action",
+        "min_raise",
+        "legal_actions",
+        "action_order",
+    }
+    missing_action_fields = set(actions_context.get("missing_explicit_context_fields") or [])
+    if not required_action_fields.issubset(missing_action_fields):
+        violations.append("actions_context_must_list_missing_explicit_fields")
+    if actions_context.get("limitation_status") != "OPEN_DATASET_LIMITATION":
+        violations.append("actions_context_limitation_must_remain_open")
+    if actions_context.get("derived_context_status") != "IMPLEMENTED_FROM_PRE_ACTION_EVENT_STREAM":
+        violations.append("actions_context_derived_mitigation_must_be_implemented")
+    if actions_context.get("uses_target_action_amount_as_feature") is not False:
+        violations.append("actions_context_must_not_use_target_action_amount_as_feature")
+    if actions_context.get("uses_future_outcome_fields") is not False:
+        violations.append("actions_context_must_not_use_future_outcome_fields")
+    if actions_context.get("does_not_fully_replace_explicit_context") is not True:
+        violations.append("actions_context_must_not_claim_full_replacement")
+    if actions_context.get("current_delivery_blocker") is not False:
+        violations.append("actions_context_gap_must_not_block_current_delivery")
+    if actions_context.get("model_quality_risk") is not True:
+        violations.append("actions_context_gap_must_remain_model_quality_risk")
+    if stack_event_context.get("raw_stack_event_status") != "RAW_EVENTS_REQUIRE_DECISION_CONTEXT_DERIVATION":
+        violations.append("stack_events_must_remain_marked_as_raw_context_requiring_derivation")
+    if stack_event_context.get("raw_stack_events_are_direct_policy_features") is not False:
+        violations.append("raw_stack_events_must_not_be_marked_direct_policy_features")
+    if stack_event_context.get("decision_time_derivation_required") is not True:
+        violations.append("stack_events_must_require_decision_time_derivation")
+    if stack_event_context.get("target_action_stack_delta_allowed_as_feature") is not False:
+        violations.append("target_action_stack_delta_must_not_be_allowed_as_feature")
+    if stack_event_context.get("post_hand_stack_outcome_allowed_as_feature") is not False:
+        violations.append("post_hand_stack_outcome_must_not_be_allowed_as_feature")
+    if stack_event_context.get("derived_context_status") != "IMPLEMENTED_FROM_PRE_ACTION_STACK_DELTAS":
+        violations.append("stack_event_derived_context_must_be_implemented")
+    if stack_event_context.get("uses_target_action_stack_delta_as_feature") is not False:
+        violations.append("stack_event_context_must_not_use_target_action_delta")
+    if stack_event_context.get("uses_post_hand_outcome_fields") is not False:
+        violations.append("stack_event_context_must_not_use_post_hand_outcomes")
+    if stack_event_context.get("current_delivery_blocker") is not False:
+        violations.append("stack_event_context_gap_must_not_block_current_delivery")
+    if stack_event_context.get("model_quality_risk") is not True:
+        violations.append("stack_event_context_gap_must_remain_model_quality_risk")
     if bet.get("implementation_status") != "IMPLEMENTED_AND_MEASURED":
         violations.append("bet_timing_must_be_implemented_and_measured")
+    if bet.get("timing_policy_type") != "HEURISTIC_OR_TABLE_TEMPO_CALIBRATED":
+        violations.append("timing_policy_must_remain_heuristic_or_table_tempo_calibrated")
+    if bet.get("real_human_timing_label_quality") != "TIMING_LABEL_QUALITY_UNCERTAIN":
+        violations.append("timing_label_quality_must_remain_uncertain")
+    if bet.get("real_human_timing_labels_available") is not False:
+        violations.append("real_human_timing_labels_must_not_be_claimed_available")
+    if bet.get("timing_human_likeness_final_proof_allowed") is not False:
+        violations.append("timing_human_likeness_final_proof_must_be_blocked")
     if bet.get("requires_more_real_player_behavior_labels") is not True:
         violations.append("bet_timing_must_require_more_real_player_labels_for_higher_realism")
     if bet.get("final_high_realism_claim_allowed") is not False:
         violations.append("final_high_realism_bet_timing_claim_must_be_blocked")
+    if bet.get("timing_label_quality_status") != "TIMING_LABEL_QUALITY_UNCERTAIN":
+        violations.append("timing_label_quality_boundary_must_remain_uncertain")
+    if bet.get("timing_label_current_delivery_blocker") is not False:
+        violations.append("timing_label_quality_gap_must_not_block_current_delivery")
+    if bet.get("timing_label_model_quality_risk") is not True:
+        violations.append("timing_label_quality_gap_must_remain_model_quality_risk")
     if behavioral.get("larger_clean_real_gameplay_revalidation_required") is not True:
         violations.append("larger_clean_real_gameplay_revalidation_must_remain_required")
     if behavioral.get("generalized_human_likeness_claim_allowed") is not False:
@@ -407,7 +540,14 @@ def render_final_delivery_acceptance_markdown(payload: dict[str, Any]) -> str:
         f"- Challenger strategy quality: `{risks['challenger_strategy_quality']['boundary']}`",
         f"- Final strategy-quality claim allowed: `{risks['challenger_strategy_quality']['final_production_strategy_quality_claim_allowed']}`",
         f"- Hole-card upstream resolved: `{risks['hole_card_data_quality']['upstream_resolved']}`",
+        f"- actions.csv explicit context: `{risks['actions_context_quality']['explicit_context_status']}`",
+        f"- actions.csv model-quality risk: `{risks['actions_context_quality']['model_quality_risk']}`",
+        f"- stack_events decision context: `{risks['stack_event_context_quality']['derived_context_status']}`",
+        f"- stack_events model-quality risk: `{risks['stack_event_context_quality']['model_quality_risk']}`",
         f"- Bet/timing implementation: `{risks['bet_timing_calibration']['implementation_status']}`",
+        f"- Timing policy type: `{risks['bet_timing_calibration']['timing_policy_type']}`",
+        f"- Timing label quality: `{risks['bet_timing_calibration']['real_human_timing_label_quality']}`",
+        f"- Timing final human-likeness proof allowed: `{risks['bet_timing_calibration']['timing_human_likeness_final_proof_allowed']}`",
         f"- Larger gameplay revalidation required: `{risks['behavioral_revalidation']['larger_clean_real_gameplay_revalidation_required']}`",
         f"- Full production-scale multi-agent training: `{risks['multi_agent_training']['full_production_scale_multi_agent_training_status']}`",
         "",

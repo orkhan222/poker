@@ -87,6 +87,9 @@ def require_files(root: Path) -> str:
         "configs/experiments/behavioral_revalidation_proof.yaml",
         "configs/experiments/bet_timing_calibration.yaml",
         "configs/experiments/hole_card_data_quality.yaml",
+        "configs/experiments/data_leakage_contract.yaml",
+        "configs/experiments/actions_context_quality.yaml",
+        "configs/experiments/stack_event_context_quality.yaml",
         "configs/experiments/train_routed_bundle_smoke.yaml",
         "configs/experiments/llm_event_extraction_smoke.yaml",
         "configs/experiments/llm_event_benchmark.yaml",
@@ -191,6 +194,12 @@ def require_files(root: Path) -> str:
         "reports/hole_card_data_quality.md",
         "reports/hole_card_data_quality.json",
         "reports/hole_card_data_quality.md",
+        "reports/data_leakage_contract.json",
+        "reports/data_leakage_contract.md",
+        "reports/actions_context_quality.json",
+        "reports/actions_context_quality.md",
+        "reports/stack_event_context_quality.json",
+        "reports/stack_event_context_quality.md",
         "reports/raw_model_status.json",
         "reports/raw_model_status.md",
         "reports/raw_model_challenger.json",
@@ -223,6 +232,9 @@ def require_files(root: Path) -> str:
         "scripts/build_behavioral_revalidation_proof.py",
         "scripts/build_bet_timing_calibration.py",
         "scripts/build_hole_card_data_quality.py",
+        "scripts/build_data_leakage_contract.py",
+        "scripts/build_actions_context_quality.py",
+        "scripts/build_stack_event_context_quality.py",
         "scripts/build_raw_model_status.py",
         "scripts/train_raw_model_challenger.py",
         "scripts/build_challenger_strategy_quality.py",
@@ -273,6 +285,9 @@ def require_files(root: Path) -> str:
         "poker_agent/behavioral_revalidation_proof.py",
         "poker_agent/bet_timing_calibration.py",
         "poker_agent/hole_card_data_quality.py",
+        "poker_agent/data_leakage_contract.py",
+        "poker_agent/actions_context_quality.py",
+        "poker_agent/stack_event_context_quality.py",
         "poker_agent/raw_model_status.py",
         "poker_agent/raw_model_challenger.py",
         "poker_agent/challenger_strategy_quality.py",
@@ -324,10 +339,16 @@ def require_files(root: Path) -> str:
         "tests/test_behavioral_revalidation_proof.py",
         "tests/test_bet_timing_calibration.py",
         "tests/test_hole_card_data_quality.py",
+        "tests/test_data_leakage_contract.py",
+        "tests/test_actions_context_quality.py",
+        "tests/test_stack_event_context_quality.py",
         "tests/test_raw_model_status.py",
         "tests/test_raw_model_challenger.py",
         "tests/test_challenger_strategy_quality.py",
         "tests/test_hole_card_data_quality.py",
+        "tests/test_data_leakage_contract.py",
+        "tests/test_actions_context_quality.py",
+        "tests/test_stack_event_context_quality.py",
     ]
     missing = [path for path in required if not (root / path).exists()]
     if missing:
@@ -353,6 +374,9 @@ def compile_sources(root: Path) -> str:
         "poker_agent/behavioral_revalidation.py",
         "poker_agent/behavioral_revalidation_proof.py",
         "poker_agent/hole_card_data_quality.py",
+        "poker_agent/data_leakage_contract.py",
+        "poker_agent/actions_context_quality.py",
+        "poker_agent/stack_event_context_quality.py",
         "poker_agent/raw_model_status.py",
         "poker_agent/raw_model_challenger.py",
         "poker_agent/challenger_strategy_quality.py",
@@ -382,6 +406,9 @@ def compile_sources(root: Path) -> str:
         "scripts/build_behavioral_revalidation.py",
         "scripts/build_behavioral_revalidation_proof.py",
         "scripts/build_hole_card_data_quality.py",
+        "scripts/build_data_leakage_contract.py",
+        "scripts/build_actions_context_quality.py",
+        "scripts/build_stack_event_context_quality.py",
         "scripts/build_raw_model_status.py",
         "scripts/train_raw_model_challenger.py",
         "scripts/build_challenger_strategy_quality.py",
@@ -596,6 +623,9 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     behavioral_revalidation_proof = _read_json(reports / "behavioral_revalidation_proof.json")
     bet_timing_calibration = _read_json(reports / "bet_timing_calibration.json")
     hole_card_data_quality = _read_json(reports / "hole_card_data_quality.json")
+    data_leakage_contract = _read_json(reports / "data_leakage_contract.json")
+    actions_context_quality = _read_json(reports / "actions_context_quality.json")
+    stack_event_context_quality = _read_json(reports / "stack_event_context_quality.json")
     raw_model_status = _read_json(reports / "raw_model_status.json")
     raw_model_challenger = _read_json(reports / "raw_model_challenger.json")
     challenger_strategy_quality = _read_json(reports / "challenger_strategy_quality.json")
@@ -703,7 +733,9 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
 
     bet_timing_current = bet_timing_calibration.get("current_delivery_scope") or {}
     bet_timing_boundary = bet_timing_calibration.get("calibration_boundary") or {}
+    bet_timing_label_boundary = bet_timing_calibration.get("timing_label_quality_boundary") or {}
     bet_timing_fields = set(bet_timing_current.get("api_response_fields") or [])
+    bet_timing_proof_cases = {case.get("name"): case for case in bet_timing_calibration.get("proof_cases") or []}
     for required_field in ("bet_size", "wait_time_ms", "sizing_method", "timing_method"):
         if required_field not in bet_timing_fields:
             raise AssertionError(f"Bet/timing calibration contract missing response field: {required_field}")
@@ -713,6 +745,14 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Bet-sizing and timing must remain implemented and measured")
     if bet_timing_current.get("timing_and_bet_size_status") != "PASS":
         raise AssertionError("Timing and bet-size measurement must pass for the current scope")
+    if bet_timing_current.get("timing_policy_type") != "HEURISTIC_OR_TABLE_TEMPO_CALIBRATED":
+        raise AssertionError("Timing policy must remain marked as heuristic/table-tempo calibrated")
+    if bet_timing_current.get("real_human_timing_label_quality") != "TIMING_LABEL_QUALITY_UNCERTAIN":
+        raise AssertionError("Real human timing label quality must remain marked uncertain")
+    if bet_timing_current.get("real_human_timing_labels_available") is not False:
+        raise AssertionError("Real human timing labels must not be claimed available without reviewed labels")
+    if bet_timing_current.get("timing_human_likeness_final_proof_allowed") is not False:
+        raise AssertionError("Timing human-likeness final proof must remain blocked")
     if bet_timing_boundary.get("requires_more_real_player_behavior_labels") is not True:
         raise AssertionError("Higher-realism bet/timing calibration must require more real player labels")
     if bet_timing_boundary.get("requires_bet_size_labels") is not True:
@@ -723,16 +763,61 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Final high-realism bet/timing claim must remain blocked")
     if bet_timing_boundary.get("production_blocker_for_current_delivery") is not False:
         raise AssertionError("Bet/timing calibration gap must not block current delivery")
+    if bet_timing_label_boundary.get("status") != "TIMING_LABEL_QUALITY_UNCERTAIN":
+        raise AssertionError("Timing label-quality boundary must remain uncertain")
+    if bet_timing_label_boundary.get("timing_feature_available") is not True:
+        raise AssertionError("Timing feature must remain available")
+    if bet_timing_label_boundary.get("timing_policy_type") != "HEURISTIC_OR_TABLE_TEMPO_CALIBRATED":
+        raise AssertionError("Timing boundary must remain heuristic/table-tempo calibrated")
+    if bet_timing_label_boundary.get("real_human_timing_labels_available") is not False:
+        raise AssertionError("Timing boundary must not claim real human labels are available")
+    if bet_timing_label_boundary.get("final_production_human_likeness_proof_allowed") is not False:
+        raise AssertionError("Timing final production human-likeness proof must remain blocked")
+    if bet_timing_label_boundary.get("current_delivery_blocker") is not False:
+        raise AssertionError("Timing label-quality gap must not block current delivery")
+    if bet_timing_label_boundary.get("model_quality_risk") is not True:
+        raise AssertionError("Timing label-quality gap must remain a model-quality risk")
     if (bet_timing_calibration.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError(f"Bet/timing calibration invariants failed: {bet_timing_calibration.get('invariants')}")
+    for required_case in (
+        "base_contract_is_valid",
+        "blocks_final_timing_human_likeness_claim",
+        "blocks_unreviewed_timing_label_availability_claim",
+        "blocks_heuristic_timing_relabel_as_supervised",
+        "blocks_delivery_blocker_reclassification",
+        "blocks_model_quality_risk_removal",
+    ):
+        if (bet_timing_proof_cases.get(required_case) or {}).get("passed") is not True:
+            raise AssertionError(f"Bet/timing proof case did not pass: {required_case}")
+    if (bet_timing_proof_cases.get("base_contract_is_valid") or {}).get("observed_status") != "PASS":
+        raise AssertionError("Bet/timing base proof case must observe PASS")
+    for blocked_case in (
+        "blocks_final_timing_human_likeness_claim",
+        "blocks_unreviewed_timing_label_availability_claim",
+        "blocks_heuristic_timing_relabel_as_supervised",
+        "blocks_delivery_blocker_reclassification",
+        "blocks_model_quality_risk_removal",
+    ):
+        if (bet_timing_proof_cases.get(blocked_case) or {}).get("observed_status") != "FAIL":
+            raise AssertionError(f"Bet/timing blocked proof case must observe FAIL: {blocked_case}")
 
     hole_cov = hole_card_data_quality.get("coverage_snapshot") or {}
     hole_mitigation = hole_card_data_quality.get("mitigation_boundary") or {}
     hole_upstream = hole_card_data_quality.get("upstream_data_quality_boundary") or {}
+    hole_direct_audit = hole_cov.get("direct_players_csv_audit") or {}
+    hole_promotion = hole_card_data_quality.get("promotion_boundary") or {}
     if hole_card_data_quality.get("overall_status") != "PASS":
         raise AssertionError(f"Hole-card data-quality contract did not pass: {hole_card_data_quality.get('overall_status')}")
     if float(hole_cov.get("missing_hole_card_rate", 0.0)) <= float(hole_cov.get("complete_hole_card_rate", 1.0)):
         raise AssertionError("Hole-card audit must preserve missing-card dominance over complete-card coverage")
+    if hole_direct_audit.get("status") != "PASS":
+        raise AssertionError("Hole-card contract must include a passing direct players.csv audit")
+    if int(hole_direct_audit.get("rows_scanned") or 0) <= 0:
+        raise AssertionError("Direct players.csv hole-card audit must scan at least one row")
+    if hole_direct_audit.get("reliable_two_card_rate") is None:
+        raise AssertionError("Direct players.csv audit must expose reliable_two_card_rate")
+    if hole_direct_audit.get("invalid_card_rate") is None:
+        raise AssertionError("Direct players.csv audit must expose invalid_card_rate")
     if hole_mitigation.get("mitigation_status") != "MITIGATED_BY_ROUTED_POLICY_BUNDLE":
         raise AssertionError("Routed policy bundle mitigation must remain active for hole-card missingness")
     if hole_mitigation.get("routed_policy_bundle_handles_missingness") is not True:
@@ -751,8 +836,153 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Hole-card limitation must remain a component risk, not a current deployment blocker")
     if hole_upstream.get("component_risk") is not True:
         raise AssertionError("Hole-card limitation must remain visible as a component risk")
+    if hole_promotion.get("standalone_policy_promotion_allowed") is not False:
+        raise AssertionError("Hole-card risk must block standalone policy promotion")
+    if hole_promotion.get("model_promotion_blocker") is not True:
+        raise AssertionError("Hole-card risk must remain a model promotion blocker")
+    if hole_promotion.get("current_deployment_blocker") is not False:
+        raise AssertionError("Hole-card risk must not block the current monitored deployment")
+    if hole_promotion.get("requires_reviewed_card_label_set") is not True:
+        raise AssertionError("Hole-card policy promotion must require reviewed card labels")
     if (hole_card_data_quality.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError(f"Hole-card data-quality invariants failed: {hole_card_data_quality.get('invariants')}")
+    leakage_boundary = data_leakage_contract.get("leakage_boundary") or {}
+    leakage_features = data_leakage_contract.get("feature_name_audit") or {}
+    leakage_request = data_leakage_contract.get("prediction_request_audit") or {}
+    leakage_models = data_leakage_contract.get("model_artifact_audit") or {}
+    leakage_sources = data_leakage_contract.get("source_usage_audit") or {}
+    if data_leakage_contract.get("overall_status") != "PASS":
+        raise AssertionError(f"Data-leakage contract did not pass: {data_leakage_contract.get('overall_status')}")
+    if leakage_boundary.get("training_feature_use_allowed") is not False:
+        raise AssertionError("Outcome-only fields must not be allowed as training features")
+    if leakage_boundary.get("prediction_request_use_allowed") is not False:
+        raise AssertionError("Outcome-only fields must not be allowed in prediction requests")
+    if leakage_boundary.get("model_artifact_feature_use_allowed") is not False:
+        raise AssertionError("Outcome-only fields must not be allowed in model artifact features")
+    if leakage_boundary.get("dataset_schema_presence_allowed") is not True:
+        raise AssertionError("Outcome-only fields may remain in raw dataset schema for audit/reporting")
+    if leakage_boundary.get("production_blocker_if_detected") is not True:
+        raise AssertionError("Detected outcome-field leakage must remain a production blocker")
+    if int(leakage_features.get("examples_scanned") or 0) <= 0:
+        raise AssertionError("Data-leakage feature audit must scan training examples")
+    if leakage_features.get("forbidden_feature_names_detected"):
+        raise AssertionError(f"Forbidden training features detected: {leakage_features.get('forbidden_feature_names_detected')}")
+    if leakage_request.get("forbidden_feature_names_detected"):
+        raise AssertionError(f"Forbidden prediction request features detected: {leakage_request.get('forbidden_feature_names_detected')}")
+    if leakage_models.get("forbidden_model_features_detected"):
+        raise AssertionError(f"Forbidden model artifact features detected: {leakage_models.get('forbidden_model_features_detected')}")
+    if leakage_sources.get("forbidden_source_usages"):
+        raise AssertionError(f"Forbidden outcome-field source usage detected: {leakage_sources.get('forbidden_source_usages')}")
+    if (data_leakage_contract.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Data-leakage invariants failed: {data_leakage_contract.get('invariants')}")
+    actions_schema = actions_context_quality.get("actions_csv_schema_audit") or {}
+    actions_mitigation = actions_context_quality.get("derived_context_mitigation") or {}
+    actions_features = actions_context_quality.get("training_feature_audit") or {}
+    missing_action_fields = set(actions_schema.get("missing_explicit_context_fields") or [])
+    required_action_fields = {
+        "amount",
+        "to_call",
+        "pot_before_action",
+        "min_raise",
+        "legal_actions",
+        "action_order",
+    }
+    if actions_context_quality.get("overall_status") != "PASS":
+        raise AssertionError(f"Actions-context quality contract did not pass: {actions_context_quality.get('overall_status')}")
+    if actions_schema.get("explicit_context_status") != "INCOMPLETE_EXPLICIT_BETTING_CONTEXT":
+        raise AssertionError("actions.csv explicit betting context must remain marked incomplete")
+    if not required_action_fields.issubset(missing_action_fields):
+        raise AssertionError("actions.csv contract must expose all missing explicit betting-context fields")
+    if actions_schema.get("limitation_status") != "OPEN_DATASET_LIMITATION":
+        raise AssertionError("actions.csv betting-context limitation must remain open")
+    if actions_mitigation.get("status") != "IMPLEMENTED_FROM_PRE_ACTION_EVENT_STREAM":
+        raise AssertionError("Derived actions-context mitigation must remain implemented")
+    if actions_mitigation.get("uses_target_action_amount_as_feature") is not False:
+        raise AssertionError("Target action amount must not be used as a decision feature")
+    if actions_mitigation.get("uses_future_outcome_fields") is not False:
+        raise AssertionError("Actions-context mitigation must not use future outcome fields")
+    if actions_mitigation.get("does_not_fully_replace_explicit_context") is not True:
+        raise AssertionError("Derived context must not claim to fully replace explicit action-context labels")
+    if actions_mitigation.get("current_delivery_blocker") is not False:
+        raise AssertionError("actions.csv context limitation must not block current delivery")
+    if actions_mitigation.get("model_quality_risk") is not True:
+        raise AssertionError("actions.csv context limitation must remain a model-quality risk")
+    if actions_features.get("status") != "PASS":
+        raise AssertionError("Training features must include leakage-safe derived betting-context features")
+    if int(actions_features.get("examples_scanned") or 0) <= 0:
+        raise AssertionError("Actions-context feature audit must scan examples")
+    if actions_features.get("missing_required_derived_features"):
+        raise AssertionError(f"Missing required derived betting-context features: {actions_features.get('missing_required_derived_features')}")
+    if (actions_context_quality.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Actions-context invariants failed: {actions_context_quality.get('invariants')}")
+    stack_schema = stack_event_context_quality.get("stack_events_schema_audit") or {}
+    stack_raw_boundary = stack_event_context_quality.get("raw_stack_event_boundary") or {}
+    stack_mitigation = stack_event_context_quality.get("derived_context_mitigation") or {}
+    stack_features = stack_event_context_quality.get("training_feature_audit") or {}
+    stack_sample_features = stack_features.get("sample_stack_context_feature_values") or {}
+    stack_proof_cases = {case.get("name"): case for case in stack_event_context_quality.get("proof_cases") or []}
+    if stack_event_context_quality.get("overall_status") != "PASS":
+        raise AssertionError(f"Stack-event context quality contract did not pass: {stack_event_context_quality.get('overall_status')}")
+    if stack_schema.get("status") != "PASS":
+        raise AssertionError("stack_events.csv audit must pass")
+    if int(stack_schema.get("rows_scanned") or 0) <= 0:
+        raise AssertionError("stack_events.csv audit must scan rows")
+    if int(stack_schema.get("negative_diff_rows") or 0) <= 0:
+        raise AssertionError("stack_events.csv must expose negative contribution rows for betting reconstruction")
+    if stack_raw_boundary.get("status") != "RAW_EVENTS_REQUIRE_DECISION_CONTEXT_DERIVATION":
+        raise AssertionError("Raw stack events must remain marked as requiring decision-context derivation")
+    if stack_raw_boundary.get("raw_stack_events_are_direct_policy_features") is not False:
+        raise AssertionError("Raw stack events must not be direct policy features")
+    if stack_raw_boundary.get("decision_time_derivation_required") is not True:
+        raise AssertionError("Stack events must require decision-time derivation")
+    if stack_raw_boundary.get("target_action_stack_delta_allowed_as_feature") is not False:
+        raise AssertionError("Target action stack deltas must not be decision features")
+    if stack_raw_boundary.get("post_hand_stack_outcome_allowed_as_feature") is not False:
+        raise AssertionError("Post-hand stack outcomes must not be decision features")
+    if stack_raw_boundary.get("current_delivery_blocker") is not False:
+        raise AssertionError("Stack-event context gap must not block current delivery")
+    if stack_raw_boundary.get("model_quality_risk") is not True:
+        raise AssertionError("Stack-event context gap must remain model-quality risk")
+    if stack_mitigation.get("status") != "IMPLEMENTED_FROM_PRE_ACTION_STACK_DELTAS":
+        raise AssertionError("Derived stack-event context mitigation must remain implemented")
+    if stack_mitigation.get("uses_target_action_stack_delta_as_feature") is not False:
+        raise AssertionError("Derived stack context must not use target action stack delta")
+    if stack_mitigation.get("uses_post_hand_outcome_fields") is not False:
+        raise AssertionError("Derived stack context must not use post-hand outcome fields")
+    if stack_features.get("status") != "PASS":
+        raise AssertionError("Training features must include derived stack-event context features")
+    if float(stack_sample_features.get("stack_event_target_bet_size_used_as_feature", 0.0) or 0.0) != 0.0:
+        raise AssertionError("Target action stack delta leakage guard must remain zero")
+    for required_feature in (
+        "reconstructed_effective_stack",
+        "reconstructed_spr_after_call",
+        "reconstructed_current_street_bet_size",
+        "reconstructed_call_pressure",
+        "reconstructed_raise_pressure",
+    ):
+        if required_feature not in set(stack_features.get("required_stack_context_features_present") or []):
+            raise AssertionError(f"Missing derived stack-event feature: {required_feature}")
+    if (stack_event_context_quality.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Stack-event context invariants failed: {stack_event_context_quality.get('invariants')}")
+    for required_case in (
+        "base_contract_is_valid",
+        "blocks_raw_stack_events_as_direct_features",
+        "blocks_target_action_stack_delta_feature_leakage",
+        "blocks_delivery_blocker_reclassification",
+        "blocks_model_quality_risk_removal",
+    ):
+        if (stack_proof_cases.get(required_case) or {}).get("passed") is not True:
+            raise AssertionError(f"Stack-event proof case did not pass: {required_case}")
+    if (stack_proof_cases.get("base_contract_is_valid") or {}).get("observed_status") != "PASS":
+        raise AssertionError("Stack-event base proof case must observe PASS")
+    for blocked_case in (
+        "blocks_raw_stack_events_as_direct_features",
+        "blocks_target_action_stack_delta_feature_leakage",
+        "blocks_delivery_blocker_reclassification",
+        "blocks_model_quality_risk_removal",
+    ):
+        if (stack_proof_cases.get(blocked_case) or {}).get("observed_status") != "FAIL":
+            raise AssertionError(f"Stack-event blocked proof case must observe FAIL: {blocked_case}")
     raw_contract = raw_model_status.get("raw_supervised_model") or {}
     raw_boundary = raw_model_status.get("release_boundary") or {}
     if raw_contract.get("runtime_status") != "LOADABLE":
@@ -1149,6 +1379,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     final_runtime_monitoring = final_acceptance_risks.get("production_runtime_monitoring") or {}
     final_challenger = final_acceptance_risks.get("challenger_strategy_quality") or {}
     final_hole = final_acceptance_risks.get("hole_card_data_quality") or {}
+    final_actions_context = final_acceptance_risks.get("actions_context_quality") or {}
+    final_stack_context = final_acceptance_risks.get("stack_event_context_quality") or {}
     final_bet = final_acceptance_risks.get("bet_timing_calibration") or {}
     final_behavioral = final_acceptance_risks.get("behavioral_revalidation") or {}
     final_multi = final_acceptance_risks.get("multi_agent_training") or {}
@@ -1227,6 +1459,34 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Final acceptance must not let challenger gap affect deployed stack approval")
     if final_hole.get("upstream_resolved") is not False:
         raise AssertionError("Final acceptance must not mark upstream hole-card quality as resolved")
+    if final_actions_context.get("explicit_context_status") != "INCOMPLETE_EXPLICIT_BETTING_CONTEXT":
+        raise AssertionError("Final acceptance must keep actions.csv explicit context marked incomplete")
+    final_missing_actions_context = set(final_actions_context.get("missing_explicit_context_fields") or [])
+    for required_field in ("amount", "to_call", "pot_before_action", "min_raise", "legal_actions", "action_order"):
+        if required_field not in final_missing_actions_context:
+            raise AssertionError(f"Final acceptance must expose missing actions.csv context field: {required_field}")
+    if final_actions_context.get("does_not_fully_replace_explicit_context") is not True:
+        raise AssertionError("Final acceptance must not claim derived context fully replaces explicit action-context labels")
+    if final_actions_context.get("current_delivery_blocker") is not False:
+        raise AssertionError("Final acceptance must not make actions.csv context limitation a delivery blocker")
+    if final_actions_context.get("model_quality_risk") is not True:
+        raise AssertionError("Final acceptance must keep actions.csv context limitation as model-quality risk")
+    if final_stack_context.get("raw_stack_event_status") != "RAW_EVENTS_REQUIRE_DECISION_CONTEXT_DERIVATION":
+        raise AssertionError("Final acceptance must keep raw stack events marked as requiring decision-context derivation")
+    if final_stack_context.get("raw_stack_events_are_direct_policy_features") is not False:
+        raise AssertionError("Final acceptance must not mark raw stack events as direct policy features")
+    if final_stack_context.get("decision_time_derivation_required") is not True:
+        raise AssertionError("Final acceptance must require decision-time derivation for stack events")
+    if final_stack_context.get("target_action_stack_delta_allowed_as_feature") is not False:
+        raise AssertionError("Final acceptance must block target action stack deltas as features")
+    if final_stack_context.get("post_hand_stack_outcome_allowed_as_feature") is not False:
+        raise AssertionError("Final acceptance must block post-hand stack outcomes as features")
+    if final_stack_context.get("derived_context_status") != "IMPLEMENTED_FROM_PRE_ACTION_STACK_DELTAS":
+        raise AssertionError("Final acceptance must keep derived stack context implemented")
+    if final_stack_context.get("current_delivery_blocker") is not False:
+        raise AssertionError("Final acceptance must not make stack-event context gap a delivery blocker")
+    if final_stack_context.get("model_quality_risk") is not True:
+        raise AssertionError("Final acceptance must keep stack-event context gap as model-quality risk")
     if final_bet.get("final_high_realism_claim_allowed") is not False:
         raise AssertionError("Final acceptance must block final high-realism bet/timing claims")
     if final_behavioral.get("larger_clean_real_gameplay_revalidation_required") is not True:
@@ -1285,6 +1545,9 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/experiments/behavioral_revalidation.yaml",
         "configs/experiments/behavioral_revalidation_proof.yaml",
         "configs/experiments/hole_card_data_quality.yaml",
+        "configs/experiments/data_leakage_contract.yaml",
+        "configs/experiments/actions_context_quality.yaml",
+        "configs/experiments/stack_event_context_quality.yaml",
         "configs/experiments/production_gate.yaml",
         "configs/experiments/challenger_strategy_quality.yaml",
         "configs/experiments/final_strategy_quality_status.yaml",
@@ -1329,6 +1592,9 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "configs/experiments/challenger_strategy_quality.yaml",
         "configs/experiments/final_strategy_quality_status.yaml",
         "configs/experiments/phase3_open_spiel_arena.yaml",
+        "configs/experiments/data_leakage_contract.yaml",
+        "configs/experiments/actions_context_quality.yaml",
+        "configs/experiments/stack_event_context_quality.yaml",
         "evaluation/decision_context_smoke.jsonl",
         "evaluation/decision_context_human_holdout.jsonl",
         "configs/experiments/project_completion.yaml",
@@ -1396,6 +1662,12 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/multi_agent_training_status.md",
         "reports/phase3_open_spiel_arena.json",
         "reports/phase3_open_spiel_arena.md",
+        "reports/data_leakage_contract.json",
+        "reports/data_leakage_contract.md",
+        "reports/actions_context_quality.json",
+        "reports/actions_context_quality.md",
+        "reports/stack_event_context_quality.json",
+        "reports/stack_event_context_quality.md",
         "poker_agent/autonomous_agent.py",
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
@@ -1410,6 +1682,9 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/client_gpu_training_response.py",
         "poker_agent/multi_agent_training_status.py",
         "poker_agent/open_spiel_llm_arena.py",
+        "poker_agent/data_leakage_contract.py",
+        "poker_agent/actions_context_quality.py",
+        "poker_agent/stack_event_context_quality.py",
         "poker_agent/strategy_stack_maturity.py",
         "poker_agent/approval_boundary.py",
         "poker_agent/llm_decision_context.py",
@@ -1437,6 +1712,9 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/build_client_gpu_training_response.py",
         "scripts/build_multi_agent_training_status.py",
         "scripts/build_phase3_open_spiel_arena.py",
+        "scripts/build_data_leakage_contract.py",
+        "scripts/build_actions_context_quality.py",
+        "scripts/build_stack_event_context_quality.py",
         "scripts/build_strategy_stack_maturity.py",
         "scripts/build_llm_decision_context.py",
         "scripts/llm_decision_context_eval.py",
@@ -1456,6 +1734,9 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "tests/test_client_gpu_training_response.py",
         "tests/test_multi_agent_training_status.py",
         "tests/test_open_spiel_llm_arena.py",
+        "tests/test_data_leakage_contract.py",
+        "tests/test_actions_context_quality.py",
+        "tests/test_stack_event_context_quality.py",
         "tests/test_challenger_strategy_quality.py",
         "tests/test_final_strategy_quality_status.py",
         "tests/test_strategy_stack_maturity.py",

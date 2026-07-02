@@ -368,14 +368,35 @@ def betting_context_features(
     min_raise: float,
     last_aggressor_position: str,
     hero_position: str,
+    hand_action_count: int = 0,
+    street_action_index: int | None = None,
+    explicit_amount_available: bool = False,
+    explicit_to_call_available: bool = False,
+    explicit_pot_before_action_available: bool = False,
+    explicit_min_raise_available: bool = False,
+    explicit_legal_actions_available: bool = False,
 ) -> dict[str, float]:
     pot_base = max(running_pot, highest_commit, 1.0)
     stack_base = max(stack + hero_commit, 1.0)
+    effective_stack = max(stack, 0.0)
+    pot_after_call = max(running_pot + to_call, pot_base, 1.0)
     raise_pressure = min(min_raise / max(stack, 1.0), 1.0) if stack > 0 else 0.0
+    call_pressure = min(to_call / pot_base, 1.0) if pot_base > 0 else 0.0
+    pot_pressure = min(pot_base / max(pot_base + effective_stack, 1.0), 1.0)
+    spr_after_call = (
+        max(effective_stack - to_call, 0.0) / pot_after_call
+        if pot_after_call > 0
+        else 0.0
+    )
     last_aggressor_group = normalize_position_group(last_aggressor_position) if last_aggressor_position else "none"
+    street_order = action_count if street_action_index is None else street_action_index
 
     return {
         "street_action_count": float(action_count),
+        "hand_action_order": float(hand_action_count),
+        "street_action_order": float(street_order),
+        "hand_action_order_norm": min(hand_action_count / 80.0, 1.0),
+        "street_action_order_norm": min(street_order / 20.0, 1.0),
         "street_aggressive_count": float(aggressive_count),
         "street_call_count": float(call_count),
         "street_check_count": float(check_count),
@@ -387,7 +408,25 @@ def betting_context_features(
         "facing_bet_or_raise": 1.0 if to_call > 0 else 0.0,
         "call_price_ratio": min(to_call / max(stack, 1.0), 1.0) if stack > 0 else 0.0,
         "raise_pressure": raise_pressure,
+        "stack_event_context_reconstructed": 1.0,
+        "stack_event_target_bet_size_used_as_feature": 0.0,
+        "reconstructed_effective_stack": effective_stack,
+        "reconstructed_effective_stack_to_pot": min(effective_stack / pot_base, 100.0),
+        "reconstructed_spr_after_call": min(spr_after_call, 100.0),
+        "reconstructed_current_street_bet_size": highest_commit,
+        "reconstructed_current_street_bet_to_pot": min(highest_commit / pot_base, 1.0),
+        "reconstructed_pot_pressure": pot_pressure,
+        "reconstructed_call_pressure": call_pressure,
+        "reconstructed_raise_pressure": raise_pressure,
         "last_aggressor_is_hero": 1.0 if last_aggressor_position and last_aggressor_position == hero_position else 0.0,
+        "explicit_action_amount_available": 1.0 if explicit_amount_available else 0.0,
+        "explicit_to_call_available": 1.0 if explicit_to_call_available else 0.0,
+        "explicit_pot_before_action_available": 1.0 if explicit_pot_before_action_available else 0.0,
+        "explicit_min_raise_available": 1.0 if explicit_min_raise_available else 0.0,
+        "explicit_legal_actions_available": 1.0 if explicit_legal_actions_available else 0.0,
+        "betting_context_reconstructed": 1.0,
+        "action_order_derived": 1.0,
+        "legal_actions_derived": 1.0 if not explicit_legal_actions_available else 0.0,
         f"last_aggressor_group={last_aggressor_group}": 1.0,
     }
 
@@ -574,7 +613,7 @@ def load_training_examples(
                 hand_id = row.get("hand_id", "")
                 position = row.get("position", "")
                 players_by_hand_pos[(hand_id, position)] = row
-                if safe_float(row.get("starting_stack")) > 0 or safe_float(row.get("ending_stack")) > 0:
+                if hand_id and position:
                     player_counts_by_hand[hand_id] += 1
 
     hands_by_id: dict[str, dict[str, str]] = {}
@@ -597,6 +636,7 @@ def load_training_examples(
         last_raise_size = estimate_big_blind(action_rows, stack_contributions)
         big_blind = last_raise_size
         running_pot = 0.0
+        hand_action_count = 0
         street_action_count = 0
         street_aggressive_count = 0
         street_call_count = 0
@@ -639,8 +679,6 @@ def load_training_examples(
                 if missing_mode != "drop" or not hole_cards_missing:
                     pot = max(running_pot, sum(committed_by_street.values()), big_blind, 0.0)
                     stack = safe_float(player.get("starting_stack"))
-                    if stack <= 0:
-                        stack = safe_float(player.get("ending_stack"))
                     effective_stack = max(stack - player_commit, 0.0) if stack > 0 else 0.0
 
                     request = PredictionRequest(
@@ -673,6 +711,13 @@ def load_training_examples(
                             min_raise=min_raise,
                             last_aggressor_position=last_aggressor_position,
                             hero_position=position,
+                            hand_action_count=hand_action_count,
+                            street_action_index=street_action_count,
+                            explicit_amount_available=bool(str(row.get("amount", "")).strip()),
+                            explicit_to_call_available=bool(str(row.get("to_call", "")).strip()),
+                            explicit_pot_before_action_available=bool(str(row.get("pot_before_action", "")).strip()),
+                            explicit_min_raise_available=bool(str(row.get("min_raise", "")).strip()),
+                            explicit_legal_actions_available=bool(str(row.get("legal_actions", "")).strip()),
                         )
                     )
                     features["hole_cards_missing"] = 1.0 if hole_cards_missing else 0.0
@@ -697,6 +742,7 @@ def load_training_examples(
                 running_pot += amount
 
             if action in VALID_ACTIONS:
+                hand_action_count += 1
                 street_action_count += 1
                 players_acted.add(position)
                 if action in {"bet", "raise", "all_in"}:

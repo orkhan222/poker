@@ -37,8 +37,14 @@ FEATURE_SPACE = [
     {
         "name": "stacks_and_pot_dynamics",
         "status": "IMPLEMENTED",
-        "evidence": "poker_agent/features.py",
-        "description": "Stack, pot, stack-to-pot ratio, to-call, min-raise, and historical stack deltas are part of the feature contract.",
+        "evidence": "poker_agent/features.py + reports/actions_context_quality.json + reports/stack_event_context_quality.json",
+        "description": (
+            "Decision-time stack, pot, stack-to-pot ratio, to-call, min-raise, and observable "
+            "pre-decision commitment pressure are part of the feature contract. Current actions.csv "
+            "does not fully expose explicit betting-context columns, and raw stack events require "
+            "decision-context derivation before policy use. Both are tracked as mitigations and "
+            "model-quality risks."
+        ),
     },
 ]
 
