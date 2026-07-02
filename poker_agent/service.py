@@ -27,6 +27,7 @@ from poker_agent.llm_decision_context import build_decision_context_report
 from poker_agent.llm_role_boundary import build_llm_role_boundary
 from poker_agent.model_risk_register import build_model_risk_register
 from poker_agent.multi_agent_training_status import build_multi_agent_training_status
+from poker_agent.open_spiel_llm_arena import build_phase3_open_spiel_arena_report
 from poker_agent.production_approval import build_production_approval
 from poker_agent.project_completion import build_project_completion
 from poker_agent.production_runtime_monitoring import build_production_runtime_monitoring, runtime_monitoring_state
@@ -74,6 +75,7 @@ QLORA_NEXT_STAGE_PATH = PROJECT_ROOT / "reports" / "qlora_next_stage.json"
 TODAY_ACCEPTANCE_TRAINING_REPORT_PATH = PROJECT_ROOT / "reports" / "today_acceptance_training.json"
 CLIENT_GPU_TRAINING_RESPONSE_PATH = PROJECT_ROOT / "reports" / "client_gpu_training_response.json"
 MULTI_AGENT_TRAINING_STATUS_PATH = PROJECT_ROOT / "reports" / "multi_agent_training_status.json"
+PHASE3_OPEN_SPIEL_ARENA_PATH = PROJECT_ROOT / "reports" / "phase3_open_spiel_arena.json"
 RAW_MODEL_STATUS_PATH = PROJECT_ROOT / "reports" / "raw_model_status.json"
 RAW_MODEL_CHALLENGER_PATH = PROJECT_ROOT / "reports" / "raw_model_challenger.json"
 CHALLENGER_STRATEGY_QUALITY_PATH = PROJECT_ROOT / "reports" / "challenger_strategy_quality.json"
@@ -825,6 +827,17 @@ def multi_agent_training_status_json() -> dict[str, Any]:
     if MULTI_AGENT_TRAINING_STATUS_PATH.exists():
         return json.loads(MULTI_AGENT_TRAINING_STATUS_PATH.read_text(encoding="utf-8"))
     return build_multi_agent_training_status(PROJECT_ROOT)
+
+
+@app.get(
+    "/phase3-open-spiel-arena.json",
+    tags=["System"],
+    summary="Phase 3 OpenSpiel agent-only arena",
+)
+def phase3_open_spiel_arena_json() -> dict[str, Any]:
+    if PHASE3_OPEN_SPIEL_ARENA_PATH.exists():
+        return json.loads(PHASE3_OPEN_SPIEL_ARENA_PATH.read_text(encoding="utf-8"))
+    return build_phase3_open_spiel_arena_report(PROJECT_ROOT)
 
 
 @app.get("/llm-decision-context.json", tags=["System"], summary="LLM decision context contract")

@@ -82,6 +82,7 @@ Machine-readable status endpoints:
 /client-gpu-training-response.json
 /project-completion.json
 /qlora-next-stage.json
+/phase3-open-spiel-arena.json
 ```
 
 The important distinction is intentional: `deployed_strategy_gate=PASS` approves the stack that is actually deployed, while `raw_production_gate=FAIL` means the raw supervised artifact still needs a stronger challenger model before it can be marketed as a standalone production policy.
@@ -111,6 +112,26 @@ Full production-scale multi-agent training has not been completed yet. The curre
 The formal status contract is generated at `reports\multi_agent_training_status.json`, rendered at `reports\multi_agent_training_status.md`, and exposed through `GET /multi-agent-training-status.json`. The verifier blocks any false claim that the current acceptance run completed full production-scale multi-agent training.
 
 The current self-play evidence is delivery validation, not training completion. The separate production-hardening plan requires a `full_multi_agent_training` profile, a single dedicated NVIDIA A100 or H100, at least five independent training seeds, materially larger paired-hand simulation volume than acceptance validation, and an estimated five-day dedicated training cycle.
+
+## Phase 3 OpenSpiel Agent Arena
+
+Phase 3 is implemented as an agent-only OpenSpiel arena. The intended table has exactly two seats for the first full run: `phase1_llm_agent_a` and `phase1_llm_agent_b`. There are no human players and no fixed scripted opponents in the primary evaluation loop.
+
+The arena adapter is implemented in `poker_agent\open_spiel_llm_arena.py`, the report builder is `scripts\build_phase3_open_spiel_arena.py`, and the status endpoint is `GET /phase3-open-spiel-arena.json`. The report is written to `reports\phase3_open_spiel_arena.json` and `reports\phase3_open_spiel_arena.md`.
+
+Run the contract report:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\build_phase3_open_spiel_arena.py
+```
+
+Run measured OpenSpiel episodes when `pyspiel` and the Phase 1 LLM policy adapters are available:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\build_phase3_open_spiel_arena.py --run-if-available --game-name kuhn_poker --episodes 10000 --seed 42
+```
+
+The report deliberately does not claim measured OpenSpiel performance until it is executed in an environment with the OpenSpiel runtime and the two trained Phase 1 policy artifacts wired into the adapter. Once executed, the tracked metrics are mean return, win rate, action distribution, episode count, and sample trajectories.
 
 ## Today Acceptance Training
 

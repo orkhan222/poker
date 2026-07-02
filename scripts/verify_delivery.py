@@ -111,6 +111,7 @@ def require_files(root: Path) -> str:
         "configs/experiments/today_acceptance_training.yaml",
         "configs/experiments/client_gpu_training_response.yaml",
         "configs/experiments/multi_agent_training_status.yaml",
+        "configs/experiments/phase3_open_spiel_arena.yaml",
         "configs/experiments/strategy_stack_maturity.yaml",
         "configs/experiments/behavioral_revalidation.yaml",
         "configs/experiments/behavioral_revalidation_proof.yaml",
@@ -209,6 +210,8 @@ def require_files(root: Path) -> str:
         "reports/client_gpu_training_response.md",
         "reports/multi_agent_training_status.json",
         "reports/multi_agent_training_status.md",
+        "reports/phase3_open_spiel_arena.json",
+        "reports/phase3_open_spiel_arena.md",
         "evaluation/event_extraction_gold.jsonl",
         "evaluation/decision_context_smoke.jsonl",
         "evaluation/decision_context_human_holdout.jsonl",
@@ -229,6 +232,7 @@ def require_files(root: Path) -> str:
         "scripts/run_today_acceptance_training.py",
         "scripts/build_client_gpu_training_response.py",
         "scripts/build_multi_agent_training_status.py",
+        "scripts/build_phase3_open_spiel_arena.py",
         "scripts/build_strategy_stack_maturity.py",
         "scripts/build_llm_decision_context.py",
         "scripts/llm_decision_context_eval.py",
@@ -278,6 +282,7 @@ def require_files(root: Path) -> str:
         "poker_agent/today_training.py",
         "poker_agent/client_gpu_training_response.py",
         "poker_agent/multi_agent_training_status.py",
+        "poker_agent/open_spiel_llm_arena.py",
         "poker_agent/strategy_stack_maturity.py",
         "poker_agent/llm_decision_context.py",
         "poker_agent/llm_decision_benchmark.py",
@@ -303,6 +308,7 @@ def require_files(root: Path) -> str:
         "tests/test_bet_timing_calibration.py",
         "tests/test_final_delivery_acceptance.py",
         "tests/test_multi_agent_training_status.py",
+        "tests/test_open_spiel_llm_arena.py",
         "tests/test_strategy_stack_maturity.py",
         "tests/test_llm_decision_benchmark.py",
         "tests/test_llm_decision_gate.py",
@@ -355,6 +361,7 @@ def compile_sources(root: Path) -> str:
         "poker_agent/today_training.py",
         "poker_agent/client_gpu_training_response.py",
         "poker_agent/multi_agent_training_status.py",
+        "poker_agent/open_spiel_llm_arena.py",
         "poker_agent/strategy_stack_maturity.py",
         "poker_agent/llm_decision_context.py",
         "poker_agent/llm_decision_benchmark.py",
@@ -383,6 +390,7 @@ def compile_sources(root: Path) -> str:
         "scripts/run_today_acceptance_training.py",
         "scripts/build_client_gpu_training_response.py",
         "scripts/build_multi_agent_training_status.py",
+        "scripts/build_phase3_open_spiel_arena.py",
         "scripts/build_strategy_stack_maturity.py",
         "scripts/build_llm_decision_context.py",
         "scripts/build_llm_role_boundary.py",
@@ -596,6 +604,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     today_training = _read_json(reports / "today_acceptance_training.json")
     client_gpu_response = _read_json(reports / "client_gpu_training_response.json")
     multi_agent_training_status = _read_json(reports / "multi_agent_training_status.json")
+    phase3_open_spiel_arena = _read_json(reports / "phase3_open_spiel_arena.json")
     approval_boundary_payload = build_approval_boundary(root)
     approval_boundary = approval_boundary_payload.get("boundary", {})
 
@@ -903,6 +912,26 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Full multi-agent training claims must remain blocked")
     if (multi_agent_training_status.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError(f"Multi-agent training status invariants failed: {multi_agent_training_status.get('invariants')}")
+    phase3_contract = phase3_open_spiel_arena.get("arena_contract") or {}
+    phase3_quality = phase3_open_spiel_arena.get("quality_boundary") or {}
+    if phase3_contract.get("arena_type") != "AGENT_ONLY_OPEN_SPIEL_ARENA":
+        raise AssertionError("Phase 3 OpenSpiel arena must be marked as agent-only")
+    if phase3_contract.get("agent_only_table") is not True:
+        raise AssertionError("Phase 3 OpenSpiel arena must use only agent-controlled seats")
+    if phase3_contract.get("all_seats_controlled_by_agents") is not True:
+        raise AssertionError("Phase 3 OpenSpiel arena must have one agent policy per seat")
+    if phase3_contract.get("human_players_present") is not False:
+        raise AssertionError("Phase 3 OpenSpiel arena must not include human players")
+    if phase3_contract.get("fixed_scripted_opponents_present") is not False:
+        raise AssertionError("Phase 3 OpenSpiel arena must not use fixed scripted opponents")
+    if phase3_quality.get("is_reinforcement_learning_stage") is not True:
+        raise AssertionError("Phase 3 OpenSpiel arena must be classified as the RL/self-play stage")
+    if phase3_open_spiel_arena.get("status") == "READY_PENDING_OPEN_SPIEL_RUNTIME":
+        runtime_boundary = phase3_open_spiel_arena.get("runtime_boundary") or {}
+        if runtime_boundary.get("run_if_available_required_for_metrics") is not True:
+            raise AssertionError("Pending Phase 3 OpenSpiel arena report must require a measured runtime run for metrics")
+        if phase3_quality.get("metrics_claim_allowed") is not False:
+            raise AssertionError("Pending Phase 3 OpenSpiel arena report must not allow metric claims")
     if risk_payload.get("raw_supervised_model_status") == "NOT_STANDALONE_APPROVED":
         summary = risk_payload.get("risk_summary", {})
         if summary.get("component_risks", 0) < 1:
@@ -1243,6 +1272,7 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/experiments/today_acceptance_training.yaml",
         "configs/experiments/client_gpu_training_response.yaml",
         "configs/experiments/multi_agent_training_status.yaml",
+        "configs/experiments/phase3_open_spiel_arena.yaml",
         "configs/experiments/strategy_stack_maturity.yaml",
         "configs/experiments/behavioral_revalidation.yaml",
         "configs/experiments/behavioral_revalidation_proof.yaml",
@@ -1290,6 +1320,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "configs/experiments/llm_architecture_comparison.yaml",
         "configs/experiments/challenger_strategy_quality.yaml",
         "configs/experiments/final_strategy_quality_status.yaml",
+        "configs/experiments/phase3_open_spiel_arena.yaml",
         "evaluation/decision_context_smoke.jsonl",
         "evaluation/decision_context_human_holdout.jsonl",
         "configs/experiments/project_completion.yaml",
@@ -1355,6 +1386,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/client_gpu_training_response.md",
         "reports/multi_agent_training_status.json",
         "reports/multi_agent_training_status.md",
+        "reports/phase3_open_spiel_arena.json",
+        "reports/phase3_open_spiel_arena.md",
         "poker_agent/autonomous_agent.py",
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
@@ -1368,6 +1401,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/today_training.py",
         "poker_agent/client_gpu_training_response.py",
         "poker_agent/multi_agent_training_status.py",
+        "poker_agent/open_spiel_llm_arena.py",
         "poker_agent/strategy_stack_maturity.py",
         "poker_agent/approval_boundary.py",
         "poker_agent/llm_decision_context.py",
@@ -1394,6 +1428,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/run_today_acceptance_training.py",
         "scripts/build_client_gpu_training_response.py",
         "scripts/build_multi_agent_training_status.py",
+        "scripts/build_phase3_open_spiel_arena.py",
         "scripts/build_strategy_stack_maturity.py",
         "scripts/build_llm_decision_context.py",
         "scripts/llm_decision_context_eval.py",
@@ -1412,6 +1447,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "tests/test_today_acceptance_training.py",
         "tests/test_client_gpu_training_response.py",
         "tests/test_multi_agent_training_status.py",
+        "tests/test_open_spiel_llm_arena.py",
         "tests/test_challenger_strategy_quality.py",
         "tests/test_final_strategy_quality_status.py",
         "tests/test_strategy_stack_maturity.py",
