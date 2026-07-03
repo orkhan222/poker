@@ -42,6 +42,33 @@ def _write_reports(reports: Path) -> None:
                     "event_normalization_layer": {"implemented": True},
                     "decision_context_layer": {"implemented": True},
                 },
+                "term_boundary": {
+                    "status": "LLM_BASED_AGENT_IS_UMBRELLA_TERM",
+                    "requires_role_specific_qualification": True,
+                    "must_not_imply_fully_autonomous_policy": True,
+                },
+                "role_taxonomy": {
+                    "event_normalization": {
+                        "status": "CONTROLLED_COMPONENT",
+                        "implemented": True,
+                        "production_policy_approved": False,
+                    },
+                    "decision_context": {
+                        "status": "CONTROLLED_COMPONENT",
+                        "implemented": True,
+                        "production_policy_approved": False,
+                    },
+                    "candidate_ranking": {
+                        "status": "RESEARCH_BASELINE_COMPONENT",
+                        "implemented": True,
+                        "production_policy_approved": False,
+                    },
+                    "real_policy_agent": {
+                        "status": "NOT_CURRENT_DELIVERY_SCOPE",
+                        "implemented": False,
+                        "production_policy_approved": False,
+                    },
+                },
                 "autonomous_llm_agent_boundary": {
                     "fully_autonomous_poker_playing_llm_agent_present": False,
                     "fully_autonomous_llm_agent_claim_allowed": False,
@@ -250,6 +277,96 @@ def _write_reports(reports: Path) -> None:
         ),
         encoding="utf-8",
     )
+    (reports / "phase3_open_spiel_arena.json").write_text(
+        json.dumps(
+            {
+                "overall_status": "PASS",
+                "status": "READY_PENDING_OPEN_SPIEL_RUNTIME",
+                "rl_training_proof_boundary": {
+                    "status": "TRAINING_PROOF_NOT_COMPLETED",
+                    "real_open_spiel_runtime_required": True,
+                    "real_open_spiel_runtime_available": False,
+                    "phase1_trained_policy_artifacts_required": True,
+                    "phase1_trained_policy_artifacts_attached": False,
+                    "seed_stability_required": True,
+                    "seed_stability_evaluated": False,
+                    "long_run_required": True,
+                    "long_run_completed": False,
+                    "policy_update_training_required": True,
+                    "policy_update_training_completed": False,
+                    "measured_win_rate_claim_allowed": False,
+                    "current_delivery_blocker": False,
+                    "model_quality_risk": True,
+                    "missing_requirements": [
+                        "real_open_spiel_runtime",
+                        "two_phase1_trained_policy_artifacts",
+                        "seed_stability",
+                        "long_run_training_volume",
+                        "policy_update_training",
+                    ],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (reports / "evaluation_metric_contract.json").write_text(
+        json.dumps(
+            {
+                "boundary": "ACCURACY_ALONE_NOT_SUFFICIENT",
+                "accuracy_alone_sufficient": False,
+                "required_metric_families": [
+                    "action_classification",
+                    "calibration",
+                    "action_distribution",
+                    "bet_sizing",
+                    "simulation_return",
+                    "seed_stability",
+                ],
+                "final_metric_bundle_passed": False,
+                "final_strategy_quality_claim_allowed": False,
+                "current_delivery_blocker": False,
+                "model_quality_risk": True,
+                "metric_families": {
+                    "action_classification": {
+                        "required": True,
+                        "metrics": {"accuracy": 0.72, "macro_f1": 0.49, "balanced_accuracy": 0.51},
+                    },
+                    "calibration": {"required": True, "metrics": {"ece_10": 0.18}},
+                    "action_distribution": {"required": True, "metrics": {"js_divergence": 0.0026}},
+                    "bet_sizing": {"required": True, "metrics": {"bet_size_mae": None}},
+                    "simulation_return": {
+                        "required": True,
+                        "metrics": {"win_rate": 0.577, "expected_value_delta_vs_baseline": 0.82},
+                    },
+                    "seed_stability": {
+                        "required": True,
+                        "metrics": {"full_training_seed_stability_required": True},
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (reports / "test_execution_contract.json").write_text(
+        json.dumps(
+            {
+                "boundary": "FULL_PYTEST_TIMEOUT_IS_NOT_DELIVERY_APPROVAL",
+                "full_pytest": {
+                    "status": "TIMEOUT",
+                    "used_as_delivery_approval": False,
+                },
+                "critical_validation": {
+                    "status": "PASS",
+                    "passed_tests": 16,
+                },
+                "delivery_verifier": {
+                    "status": "PASS",
+                },
+                "current_delivery_blocker": False,
+            }
+        ),
+        encoding="utf-8",
+    )
     (reports / "raw_model_status.json").write_text(
         json.dumps(
             {
@@ -271,6 +388,17 @@ def test_final_delivery_acceptance_passes_with_tracked_risks(tmp_path: Path) -> 
     assert payload["acceptance_summary"]["service_delivery"] == "READY"
     assert payload["acceptance_summary"]["deployed_strategy_stack"] == "APPROVED"
     assert payload["tracked_component_risks"]["llm_work"]["fully_autonomous_llm_agent_claim_allowed"] is False
+    assert payload["tracked_component_risks"]["llm_work"]["term_status"] == "LLM_BASED_AGENT_IS_UMBRELLA_TERM"
+    assert payload["tracked_component_risks"]["llm_work"]["term_must_not_imply_fully_autonomous_policy"] is True
+    assert (
+        payload["tracked_component_risks"]["llm_work"]["role_taxonomy"]["candidate_ranking"]["status"]
+        == "RESEARCH_BASELINE_COMPONENT"
+    )
+    assert (
+        payload["tracked_component_risks"]["llm_work"]["role_taxonomy"]["real_policy_agent"]["status"]
+        == "NOT_CURRENT_DELIVERY_SCOPE"
+    )
+    assert payload["tracked_component_risks"]["llm_work"]["role_taxonomy"]["real_policy_agent"]["implemented"] is False
     assert payload["tracked_component_risks"]["qlora_larger_llm_fine_tuning"]["stage_status"] == "NEXT_STAGE_IMPROVEMENT"
     assert payload["tracked_component_risks"]["qlora_larger_llm_fine_tuning"]["milestone_type"] == "RESEARCH_QUALITY_IMPROVEMENT_MILESTONE"
     assert payload["tracked_component_risks"]["qlora_larger_llm_fine_tuning"]["production_approved"] is False
@@ -302,12 +430,30 @@ def test_final_delivery_acceptance_passes_with_tracked_risks(tmp_path: Path) -> 
     assert payload["tracked_component_risks"]["stack_event_context_quality"]["decision_time_derivation_required"] is True
     assert payload["tracked_component_risks"]["stack_event_context_quality"]["current_delivery_blocker"] is False
     assert payload["tracked_component_risks"]["stack_event_context_quality"]["model_quality_risk"] is True
+    assert payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["status"] == "TRAINING_PROOF_NOT_COMPLETED"
+    assert payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["measured_win_rate_claim_allowed"] is False
+    assert payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["current_delivery_blocker"] is False
+    assert payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["model_quality_risk"] is True
+    assert payload["tracked_component_risks"]["evaluation_metric_coverage"]["boundary"] == "ACCURACY_ALONE_NOT_SUFFICIENT"
+    assert payload["tracked_component_risks"]["evaluation_metric_coverage"]["accuracy_alone_sufficient"] is False
+    assert payload["tracked_component_risks"]["evaluation_metric_coverage"]["final_metric_bundle_passed"] is False
+    assert payload["tracked_component_risks"]["evaluation_metric_coverage"]["final_strategy_quality_claim_allowed"] is False
+    assert payload["tracked_component_risks"]["evaluation_metric_coverage"]["model_quality_risk"] is True
+    assert payload["tracked_component_risks"]["test_execution_coverage"]["full_pytest_status"] == "TIMEOUT"
+    assert payload["tracked_component_risks"]["test_execution_coverage"]["full_pytest_used_as_delivery_approval"] is False
+    assert payload["tracked_component_risks"]["test_execution_coverage"]["critical_validation_status"] == "PASS"
+    assert payload["tracked_component_risks"]["test_execution_coverage"]["delivery_verifier_status"] == "PASS"
 
 
 def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     _write_reports(tmp_path / "reports")
     payload = build_final_delivery_acceptance(tmp_path)
     payload["tracked_component_risks"]["llm_work"]["fully_autonomous_llm_agent_present"] = True
+    payload["tracked_component_risks"]["llm_work"]["term_status"] = "AUTONOMOUS_POLICY_AGENT"
+    payload["tracked_component_risks"]["llm_work"]["term_must_not_imply_fully_autonomous_policy"] = False
+    payload["tracked_component_risks"]["llm_work"]["role_taxonomy"]["candidate_ranking"]["production_policy_approved"] = True
+    payload["tracked_component_risks"]["llm_work"]["role_taxonomy"]["real_policy_agent"]["status"] = "CURRENT_DELIVERY_SCOPE"
+    payload["tracked_component_risks"]["llm_work"]["role_taxonomy"]["real_policy_agent"]["implemented"] = True
     payload["tracked_component_risks"]["raw_supervised_model"]["standalone_status"] = "STANDALONE_APPROVED"
     payload["tracked_component_risks"]["qlora_larger_llm_fine_tuning"]["production_approved"] = True
     payload["tracked_component_risks"]["qlora_larger_llm_fine_tuning"]["delivery_blocker"] = True
@@ -325,12 +471,27 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     payload["tracked_component_risks"]["stack_event_context_quality"]["decision_time_derivation_required"] = False
     payload["tracked_component_risks"]["stack_event_context_quality"]["target_action_stack_delta_allowed_as_feature"] = True
     payload["tracked_component_risks"]["stack_event_context_quality"]["model_quality_risk"] = False
+    payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["status"] = "TRAINING_PROOF_COMPLETED"
+    payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["measured_win_rate_claim_allowed"] = True
+    payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["model_quality_risk"] = False
+    payload["tracked_component_risks"]["evaluation_metric_coverage"]["accuracy_alone_sufficient"] = True
+    payload["tracked_component_risks"]["evaluation_metric_coverage"]["final_metric_bundle_passed"] = True
+    payload["tracked_component_risks"]["evaluation_metric_coverage"]["final_strategy_quality_claim_allowed"] = True
+    payload["tracked_component_risks"]["evaluation_metric_coverage"]["model_quality_risk"] = False
+    payload["tracked_component_risks"]["test_execution_coverage"]["full_pytest_used_as_delivery_approval"] = True
+    payload["tracked_component_risks"]["test_execution_coverage"]["critical_validation_status"] = "FAIL"
+    payload["tracked_component_risks"]["test_execution_coverage"]["delivery_verifier_status"] = "FAIL"
+    payload["tracked_component_risks"]["test_execution_coverage"]["current_delivery_blocker"] = True
     payload.pop("overall_status", None)
 
     invariants = validate_final_delivery_acceptance(payload)
 
     assert invariants["status"] == "FAIL"
     assert "fully_autonomous_llm_agent_must_not_be_present" in invariants["violations"]
+    assert "llm_based_agent_term_must_remain_umbrella" in invariants["violations"]
+    assert "llm_based_agent_term_must_not_imply_autonomous_policy" in invariants["violations"]
+    assert "llm_role_must_not_be_production_policy:candidate_ranking" in invariants["violations"]
+    assert "llm_real_policy_agent_must_remain_out_of_current_scope" in invariants["violations"]
     assert "raw_model_must_not_be_standalone_approved" in invariants["violations"]
     assert "qlora_must_not_be_marked_production_approved" in invariants["violations"]
     assert "qlora_delivery_blocker_must_be_false" in invariants["violations"]
@@ -344,6 +505,17 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     assert "stack_events_must_require_decision_time_derivation" in invariants["violations"]
     assert "target_action_stack_delta_must_not_be_allowed_as_feature" in invariants["violations"]
     assert "stack_event_context_gap_must_remain_model_quality_risk" in invariants["violations"]
+    assert "phase3_open_spiel_rl_training_proof_must_remain_not_completed" in invariants["violations"]
+    assert "phase3_rl_win_rate_claim_must_remain_blocked_until_training_proof" in invariants["violations"]
+    assert "phase3_rl_training_gap_must_remain_model_quality_risk" in invariants["violations"]
+    assert "accuracy_alone_must_not_be_sufficient_for_final_acceptance" in invariants["violations"]
+    assert "final_metric_bundle_must_not_be_marked_passed" in invariants["violations"]
+    assert "final_strategy_quality_claim_must_remain_blocked_until_metric_bundle_passes" in invariants["violations"]
+    assert "evaluation_metric_gap_must_remain_model_quality_risk" in invariants["violations"]
+    assert "timed_out_full_pytest_must_not_be_delivery_approval" in invariants["violations"]
+    assert "critical_validation_must_pass_for_delivery" in invariants["violations"]
+    assert "delivery_verifier_must_pass_for_delivery" in invariants["violations"]
+    assert "test_execution_gap_must_not_block_current_delivery" in invariants["violations"]
     assert "model_confidence_monitoring_must_be_required_for_real_traffic" in invariants["violations"]
     assert "real_production_traffic_must_not_be_approved_before_observability" in invariants["violations"]
     assert "real_production_traffic_status_must_require_observability" in invariants["violations"]

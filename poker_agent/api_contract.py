@@ -191,6 +191,25 @@ def api_contract() -> dict[str, Any]:
             "final_production_human_likeness_proof_allowed": False,
             "boundary": "wait_time_ms is produced and measured for delivery scope, but reviewed real human timing labels are still required for final high-realism timing claims.",
         },
+        "llm_role_boundary": {
+            "endpoint": "/llm-role-boundary.json",
+            "description": "Separates the ambiguous LLM-based agent phrase into explicit implementation roles.",
+            "term_status": "LLM_BASED_AGENT_IS_UMBRELLA_TERM",
+            "role_taxonomy": [
+                "event_normalization",
+                "decision_context",
+                "candidate_ranking",
+                "real_policy_agent",
+            ],
+            "current_delivery_roles": [
+                "event_normalization",
+                "decision_context",
+                "candidate_ranking_research_baseline",
+            ],
+            "not_current_delivery_role": "real_policy_agent",
+            "autonomous_llm_policy_claim_allowed": False,
+            "boundary": "LLM-based agent must be qualified by role; the delivered LLM work is not a fully autonomous poker-playing policy agent.",
+        },
         "llm_decision_context": {
             "endpoint": "/llm-decision-context.json",
             "description": "Defines the in-context learning contract for out-of-box LLM poker decision experiments.",
@@ -243,6 +262,65 @@ def api_contract() -> dict[str, Any]:
             "execution_boundary": (
                 "Simulation and API orchestration are implemented. Direct real-money client "
                 "automation requires a separately approved environment adapter."
+            ),
+        },
+        "phase3_open_spiel_arena": {
+            "endpoint": "/phase3-open-spiel-arena.json",
+            "arena_type": "agent_only_open_spiel_arena",
+            "description": (
+                "Tracks the Phase 3 LLM-vs-LLM OpenSpiel arena and separates executable arena "
+                "readiness from real RL training proof."
+            ),
+            "rl_training_proof_required": True,
+            "win_rate_claim_requires": [
+                "real pyspiel runtime",
+                "two trained Phase 1 policy artifacts",
+                "agent-only table",
+                "seed stability across at least five independent seeds",
+                "long-run volume of at least 5000 episodes",
+                "policy-update training completion",
+            ],
+            "current_claim_boundary": (
+                "The arena code can be delivered as ready for measured execution. RL win-rate or "
+                "production strategy-quality claims remain blocked until the full proof boundary passes."
+            ),
+        },
+        "evaluation_metric_contract": {
+            "endpoint": "/evaluation-metric-contract.json",
+            "description": (
+                "Defines the metric bundle required for strategy-quality claims. Accuracy alone is "
+                "explicitly insufficient."
+            ),
+            "required_metric_families": [
+                "action classification: accuracy, macro F1, balanced accuracy",
+                "calibration: ECE, probability quality",
+                "behavioral distribution: action-distribution divergence",
+                "bet sizing: bet-size MAE or reviewed bet-size labels",
+                "simulation return: win-rate and expected-value delta",
+                "stability: seed-stability and long-run evidence",
+            ],
+            "claim_boundary": (
+                "Final strategy-quality approval is blocked until the complete metric bundle passes. "
+                "Current delivery is not blocked by this hardening boundary."
+            ),
+        },
+        "test_execution_contract": {
+            "endpoint": "/test-execution-contract.json",
+            "description": (
+                "Records validation execution status and keeps full-suite timeout transparency separate "
+                "from delivery approval evidence."
+            ),
+            "approval_evidence": [
+                "critical metric and delivery-boundary tests",
+                "full delivery verifier",
+                "ZIP contract",
+            ],
+            "not_approval_evidence": [
+                "a timed-out full pytest run",
+            ],
+            "claim_boundary": (
+                "A timed-out full pytest run must not be described as a passing full suite. Current "
+                "delivery remains supported by critical tests and the full delivery verifier."
             ),
         },
         "project_completion": {

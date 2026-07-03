@@ -115,6 +115,8 @@ def require_files(root: Path) -> str:
         "configs/experiments/client_gpu_training_response.yaml",
         "configs/experiments/multi_agent_training_status.yaml",
         "configs/experiments/phase3_open_spiel_arena.yaml",
+        "configs/experiments/evaluation_metric_contract.yaml",
+        "configs/experiments/test_execution_contract.yaml",
         "configs/experiments/strategy_stack_maturity.yaml",
         "configs/experiments/behavioral_revalidation.yaml",
         "configs/experiments/behavioral_revalidation_proof.yaml",
@@ -221,6 +223,10 @@ def require_files(root: Path) -> str:
         "reports/multi_agent_training_status.md",
         "reports/phase3_open_spiel_arena.json",
         "reports/phase3_open_spiel_arena.md",
+        "reports/evaluation_metric_contract.json",
+        "reports/evaluation_metric_contract.md",
+        "reports/test_execution_contract.json",
+        "reports/test_execution_contract.md",
         "evaluation/event_extraction_gold.jsonl",
         "evaluation/decision_context_smoke.jsonl",
         "evaluation/decision_context_human_holdout.jsonl",
@@ -245,6 +251,8 @@ def require_files(root: Path) -> str:
         "scripts/build_client_gpu_training_response.py",
         "scripts/build_multi_agent_training_status.py",
         "scripts/build_phase3_open_spiel_arena.py",
+        "scripts/build_evaluation_metric_contract.py",
+        "scripts/build_test_execution_contract.py",
         "scripts/build_strategy_stack_maturity.py",
         "scripts/build_llm_decision_context.py",
         "scripts/llm_decision_context_eval.py",
@@ -298,6 +306,8 @@ def require_files(root: Path) -> str:
         "poker_agent/client_gpu_training_response.py",
         "poker_agent/multi_agent_training_status.py",
         "poker_agent/open_spiel_llm_arena.py",
+        "poker_agent/evaluation_metric_contract.py",
+        "poker_agent/test_execution_contract.py",
         "poker_agent/strategy_stack_maturity.py",
         "poker_agent/llm_decision_context.py",
         "poker_agent/llm_decision_benchmark.py",
@@ -324,6 +334,8 @@ def require_files(root: Path) -> str:
         "tests/test_final_delivery_acceptance.py",
         "tests/test_multi_agent_training_status.py",
         "tests/test_open_spiel_llm_arena.py",
+        "tests/test_evaluation_metric_contract.py",
+        "tests/test_test_execution_contract.py",
         "tests/test_strategy_stack_maturity.py",
         "tests/test_llm_decision_benchmark.py",
         "tests/test_llm_decision_gate.py",
@@ -418,6 +430,7 @@ def compile_sources(root: Path) -> str:
         "scripts/build_client_gpu_training_response.py",
         "scripts/build_multi_agent_training_status.py",
         "scripts/build_phase3_open_spiel_arena.py",
+        "scripts/build_evaluation_metric_contract.py",
         "scripts/build_strategy_stack_maturity.py",
         "scripts/build_llm_decision_context.py",
         "scripts/build_llm_role_boundary.py",
@@ -635,6 +648,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     client_gpu_response = _read_json(reports / "client_gpu_training_response.json")
     multi_agent_training_status = _read_json(reports / "multi_agent_training_status.json")
     phase3_open_spiel_arena = _read_json(reports / "phase3_open_spiel_arena.json")
+    evaluation_metric_contract = _read_json(reports / "evaluation_metric_contract.json")
+    test_execution_contract = _read_json(reports / "test_execution_contract.json")
     approval_boundary_payload = build_approval_boundary(root)
     approval_boundary = approval_boundary_payload.get("boundary", {})
 
@@ -1160,6 +1175,46 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Phase 3 OpenSpiel arena must not use fixed scripted opponents")
     if phase3_quality.get("is_reinforcement_learning_stage") is not True:
         raise AssertionError("Phase 3 OpenSpiel arena must be classified as the RL/self-play stage")
+    phase3_rl_proof = phase3_open_spiel_arena.get("rl_training_proof_boundary") or {}
+    if phase3_rl_proof.get("status") != "TRAINING_PROOF_NOT_COMPLETED":
+        raise AssertionError("Phase 3 OpenSpiel RL training proof must remain not completed until a real training run is executed")
+    if phase3_rl_proof.get("real_open_spiel_runtime_required") is not True:
+        raise AssertionError("Phase 3 OpenSpiel RL proof must require real pyspiel runtime")
+    if phase3_rl_proof.get("phase1_trained_policy_artifacts_required") is not True:
+        raise AssertionError("Phase 3 OpenSpiel RL proof must require two trained Phase 1 policy artifacts")
+    if phase3_rl_proof.get("seed_stability_required") is not True:
+        raise AssertionError("Phase 3 OpenSpiel RL proof must require seed stability")
+    if int(phase3_rl_proof.get("minimum_independent_seeds") or 0) < 5:
+        raise AssertionError("Phase 3 OpenSpiel RL proof must require at least five independent seeds")
+    if phase3_rl_proof.get("long_run_required") is not True:
+        raise AssertionError("Phase 3 OpenSpiel RL proof must require a long run")
+    if int(phase3_rl_proof.get("minimum_long_run_episodes") or 0) < 5000:
+        raise AssertionError("Phase 3 OpenSpiel RL proof must require at least 5000 episodes")
+    if phase3_rl_proof.get("policy_update_training_required") is not True:
+        raise AssertionError("Phase 3 OpenSpiel RL proof must require policy-update training")
+    if phase3_rl_proof.get("measured_win_rate_claim_allowed") is not False:
+        raise AssertionError("Phase 3 OpenSpiel RL win-rate claims must remain blocked without full training proof")
+    if phase3_rl_proof.get("current_delivery_blocker") is not False:
+        raise AssertionError("Phase 3 OpenSpiel RL training gap must not block current service delivery")
+    if phase3_rl_proof.get("model_quality_risk") is not True:
+        raise AssertionError("Phase 3 OpenSpiel RL training gap must remain a model-quality risk")
+    phase3_proof_cases = phase3_open_spiel_arena.get("proof_cases") or []
+    if not phase3_proof_cases:
+        raise AssertionError("Phase 3 OpenSpiel report must include proof cases")
+    for case in phase3_proof_cases:
+        if case.get("result") != "PASS":
+            raise AssertionError(f"Phase 3 OpenSpiel proof case failed: {case}")
+    blocked_case_names = {
+        "blocks_win_rate_claim_without_real_open_spiel_runtime",
+        "blocks_win_rate_claim_without_two_phase1_artifacts",
+        "blocks_win_rate_claim_without_seed_stability",
+        "blocks_win_rate_claim_without_long_run",
+        "blocks_win_rate_claim_without_policy_update_training",
+        "blocks_win_rate_claim_without_agent_only_table",
+    }
+    observed_blocked_cases = {case.get("name") for case in phase3_proof_cases if case.get("observed_status") == "FAIL"}
+    if not blocked_case_names.issubset(observed_blocked_cases):
+        raise AssertionError("Phase 3 OpenSpiel proof cases must demonstrate blocked false RL win-rate claims")
     if phase3_open_spiel_arena.get("status") == "READY_PENDING_OPEN_SPIEL_RUNTIME":
         runtime_boundary = phase3_open_spiel_arena.get("runtime_boundary") or {}
         if runtime_boundary.get("run_if_available_required_for_metrics") is not True:
@@ -1170,6 +1225,98 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
             raise AssertionError("Pending Phase 3 OpenSpiel arena report must not allow metric claims")
         if "metrics" in phase3_open_spiel_arena:
             raise AssertionError("Pending Phase 3 OpenSpiel arena report must not include measured metrics")
+    if evaluation_metric_contract.get("overall_status") != "PASS":
+        raise AssertionError(f"Evaluation metric contract did not pass: {evaluation_metric_contract.get('overall_status')}")
+    if (evaluation_metric_contract.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Evaluation metric contract invariants failed: {evaluation_metric_contract.get('invariants')}")
+    if evaluation_metric_contract.get("boundary") != "ACCURACY_ALONE_NOT_SUFFICIENT":
+        raise AssertionError("Evaluation contract must block accuracy-only approval")
+    if evaluation_metric_contract.get("accuracy_alone_sufficient") is not False:
+        raise AssertionError("Accuracy alone must not be sufficient for strategy-quality approval")
+    required_metric_families = {
+        "action_classification",
+        "calibration",
+        "action_distribution",
+        "bet_sizing",
+        "simulation_return",
+        "seed_stability",
+    }
+    if set(evaluation_metric_contract.get("required_metric_families") or []) != required_metric_families:
+        raise AssertionError("Evaluation contract must require the full metric family set")
+    metric_families = evaluation_metric_contract.get("metric_families") or {}
+    for family_name in required_metric_families:
+        if (metric_families.get(family_name) or {}).get("required") is not True:
+            raise AssertionError(f"Evaluation metric family must be required: {family_name}")
+    action_metrics = ((metric_families.get("action_classification") or {}).get("metrics") or {})
+    for metric_name in ("accuracy", "macro_f1", "balanced_accuracy"):
+        if action_metrics.get(metric_name) is None:
+            raise AssertionError(f"Evaluation contract missing action-classification metric: {metric_name}")
+    calibration_metrics = ((metric_families.get("calibration") or {}).get("metrics") or {})
+    if calibration_metrics.get("ece_10") is None:
+        raise AssertionError("Evaluation contract must include calibration ECE")
+    distribution_metrics = ((metric_families.get("action_distribution") or {}).get("metrics") or {})
+    if distribution_metrics.get("js_divergence") is None:
+        raise AssertionError("Evaluation contract must include action-distribution divergence")
+    bet_family = metric_families.get("bet_sizing") or {}
+    if bet_family.get("bet_size_mae_required_for_final_high_realism") is not True:
+        raise AssertionError("Evaluation contract must require bet-size MAE or reviewed bet-size labels for final realism")
+    simulation_metrics = ((metric_families.get("simulation_return") or {}).get("metrics") or {})
+    for metric_name in ("win_rate", "expected_value_delta_vs_baseline"):
+        if simulation_metrics.get(metric_name) is None:
+            raise AssertionError(f"Evaluation contract missing simulation-return metric: {metric_name}")
+    seed_metrics = ((metric_families.get("seed_stability") or {}).get("metrics") or {})
+    if seed_metrics.get("full_training_seed_stability_required") is not True:
+        raise AssertionError("Evaluation contract must require full-training seed stability")
+    if seed_metrics.get("phase3_seed_stability_required") is not True:
+        raise AssertionError("Evaluation contract must require Phase 3 seed stability")
+    if evaluation_metric_contract.get("final_strategy_quality_claim_allowed") is not False:
+        raise AssertionError("Evaluation contract must block final strategy-quality claims until the full metric bundle passes")
+    if evaluation_metric_contract.get("current_delivery_blocker") is not False:
+        raise AssertionError("Evaluation metric gap must not block current service delivery")
+    if evaluation_metric_contract.get("model_quality_risk") is not True:
+        raise AssertionError("Incomplete evaluation metric bundle must remain a model-quality risk")
+    proof_cases = evaluation_metric_contract.get("proof_cases") or []
+    if not proof_cases:
+        raise AssertionError("Evaluation metric contract must include proof cases")
+    for case in proof_cases:
+        if case.get("result") != "PASS":
+            raise AssertionError(f"Evaluation metric proof case failed: {case}")
+    if test_execution_contract.get("overall_status") != "PASS":
+        raise AssertionError(f"Test execution contract did not pass: {test_execution_contract.get('overall_status')}")
+    if (test_execution_contract.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Test execution contract invariants failed: {test_execution_contract.get('invariants')}")
+    if test_execution_contract.get("boundary") != "FULL_PYTEST_TIMEOUT_IS_NOT_DELIVERY_APPROVAL":
+        raise AssertionError("Test execution contract must preserve the full-pytest timeout boundary")
+    full_pytest = test_execution_contract.get("full_pytest") or {}
+    if full_pytest.get("status") == "TIMEOUT" and full_pytest.get("used_as_delivery_approval") is not False:
+        raise AssertionError("Timed-out full pytest run must not be used as delivery approval")
+    if full_pytest.get("completion_required_for_final_release_hardening") is not True:
+        raise AssertionError("Full pytest completion must remain a release-hardening requirement")
+    critical_validation = test_execution_contract.get("critical_validation") or {}
+    if critical_validation.get("status") != "PASS":
+        raise AssertionError("Critical validation suite must pass")
+    if critical_validation.get("passed_tests", 0) < 1:
+        raise AssertionError("Critical validation suite must report passed tests")
+    if critical_validation.get("used_as_delivery_approval") is not True:
+        raise AssertionError("Critical validation suite must be delivery approval evidence")
+    delivery_verifier = test_execution_contract.get("delivery_verifier") or {}
+    if delivery_verifier.get("status") != "PASS":
+        raise AssertionError("Delivery verifier must pass in the test execution contract")
+    if delivery_verifier.get("used_as_delivery_approval") is not True:
+        raise AssertionError("Delivery verifier must be delivery approval evidence")
+    test_metric = test_execution_contract.get("metric_contract") or {}
+    if test_metric.get("accuracy_alone_sufficient") is not False:
+        raise AssertionError("Test execution contract must preserve the accuracy-only rejection")
+    if test_metric.get("final_strategy_quality_claim_allowed") is not False:
+        raise AssertionError("Test execution contract must preserve final strategy-quality claim block")
+    if test_execution_contract.get("current_delivery_blocker") is not False:
+        raise AssertionError("Test execution transparency boundary must not block current delivery")
+    test_proof_cases = test_execution_contract.get("proof_cases") or []
+    if not test_proof_cases:
+        raise AssertionError("Test execution contract must include proof cases")
+    for case in test_proof_cases:
+        if case.get("result") != "PASS":
+            raise AssertionError(f"Test execution proof case failed: {case}")
     if risk_payload.get("raw_supervised_model_status") == "NOT_STANDALONE_APPROVED":
         summary = risk_payload.get("risk_summary", {})
         if summary.get("component_risks", 0) < 1:
@@ -1238,11 +1385,44 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     llm_role = llm_role_boundary.get("current_llm_role") or {}
     llm_event_layer = llm_role.get("event_normalization_layer") or {}
     llm_context_layer = llm_role.get("decision_context_layer") or {}
+    llm_term_boundary = llm_role_boundary.get("term_boundary") or {}
+    llm_role_taxonomy = llm_role_boundary.get("role_taxonomy") or {}
     llm_autonomous_boundary = llm_role_boundary.get("autonomous_llm_agent_boundary") or {}
+    llm_proof_cases = {case.get("name"): case for case in llm_role_boundary.get("proof_cases") or []}
     if llm_role_boundary.get("overall_status") != "PASS":
         raise AssertionError(f"LLM role boundary did not pass: {llm_role_boundary.get('overall_status')}")
     if llm_role.get("status") != "CONTROLLED_DECISION_CONTEXT_AND_EVENT_NORMALIZATION_LAYER":
         raise AssertionError("LLM work must remain a controlled decision/context and event-normalization layer")
+    if llm_term_boundary.get("status") != "LLM_BASED_AGENT_IS_UMBRELLA_TERM":
+        raise AssertionError("LLM-based agent term must remain an umbrella term")
+    if llm_term_boundary.get("requires_role_specific_qualification") is not True:
+        raise AssertionError("LLM-based agent term must require role-specific qualification")
+    if llm_term_boundary.get("must_not_imply_fully_autonomous_policy") is not True:
+        raise AssertionError("LLM-based agent term must not imply autonomous poker policy")
+    required_llm_roles = {
+        "event_normalization",
+        "decision_context",
+        "candidate_ranking",
+        "real_policy_agent",
+    }
+    if set(llm_role_taxonomy) != required_llm_roles:
+        raise AssertionError("LLM role taxonomy must explicitly separate event normalization, decision context, candidate ranking, and real policy agent")
+    if (llm_role_taxonomy.get("event_normalization") or {}).get("status") != "CONTROLLED_COMPONENT":
+        raise AssertionError("LLM event-normalization role must remain a controlled component")
+    if (llm_role_taxonomy.get("event_normalization") or {}).get("can_emit_policy_action") is not False:
+        raise AssertionError("LLM event-normalization role must not be a policy-action emitter")
+    if (llm_role_taxonomy.get("decision_context") or {}).get("status") != "CONTROLLED_COMPONENT":
+        raise AssertionError("LLM decision-context role must remain a controlled component")
+    if (llm_role_taxonomy.get("candidate_ranking") or {}).get("status") != "RESEARCH_BASELINE_COMPONENT":
+        raise AssertionError("LLM candidate-ranking role must remain a research baseline component")
+    if (llm_role_taxonomy.get("candidate_ranking") or {}).get("production_policy_approved") is not False:
+        raise AssertionError("LLM candidate ranking must not be marked production-approved as a policy")
+    if (llm_role_taxonomy.get("real_policy_agent") or {}).get("status") != "NOT_CURRENT_DELIVERY_SCOPE":
+        raise AssertionError("Real LLM policy agent must remain outside current delivery scope")
+    if (llm_role_taxonomy.get("real_policy_agent") or {}).get("implemented") is not False:
+        raise AssertionError("Real LLM policy agent must not be marked implemented")
+    if (llm_role_taxonomy.get("real_policy_agent") or {}).get("production_policy_approved") is not False:
+        raise AssertionError("Real LLM policy agent must not be marked production-approved")
     if llm_event_layer.get("implemented") is not True:
         raise AssertionError("LLM role boundary must preserve event-normalization layer evidence")
     if llm_context_layer.get("implemented") is not True:
@@ -1261,6 +1441,27 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("LLM role boundary must not block current delivery")
     if (llm_role_boundary.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError(f"LLM role boundary invariants failed: {llm_role_boundary.get('invariants')}")
+    for required_case in (
+        "base_contract_is_valid",
+        "blocks_llm_based_agent_as_autonomous_policy",
+        "blocks_event_normalization_as_policy_agent",
+        "blocks_candidate_ranking_as_deployed_policy",
+        "blocks_real_policy_agent_current_scope_claim",
+        "blocks_missing_role_taxonomy",
+    ):
+        if (llm_proof_cases.get(required_case) or {}).get("passed") is not True:
+            raise AssertionError(f"LLM role proof case did not pass: {required_case}")
+    if (llm_proof_cases.get("base_contract_is_valid") or {}).get("observed_status") != "PASS":
+        raise AssertionError("LLM role base proof case must observe PASS")
+    for blocked_case in (
+        "blocks_llm_based_agent_as_autonomous_policy",
+        "blocks_event_normalization_as_policy_agent",
+        "blocks_candidate_ranking_as_deployed_policy",
+        "blocks_real_policy_agent_current_scope_claim",
+        "blocks_missing_role_taxonomy",
+    ):
+        if (llm_proof_cases.get(blocked_case) or {}).get("observed_status") != "FAIL":
+            raise AssertionError(f"LLM role blocked proof case must observe FAIL: {blocked_case}")
 
     qlora_boundary = qlora_next_stage.get("stage_boundary") or {}
     qlora_targets = qlora_next_stage.get("target_use_cases") or {}
@@ -1541,6 +1742,8 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/experiments/client_gpu_training_response.yaml",
         "configs/experiments/multi_agent_training_status.yaml",
         "configs/experiments/phase3_open_spiel_arena.yaml",
+        "configs/experiments/evaluation_metric_contract.yaml",
+        "configs/experiments/test_execution_contract.yaml",
         "configs/experiments/strategy_stack_maturity.yaml",
         "configs/experiments/behavioral_revalidation.yaml",
         "configs/experiments/behavioral_revalidation_proof.yaml",
@@ -1592,6 +1795,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "configs/experiments/challenger_strategy_quality.yaml",
         "configs/experiments/final_strategy_quality_status.yaml",
         "configs/experiments/phase3_open_spiel_arena.yaml",
+        "configs/experiments/evaluation_metric_contract.yaml",
+        "configs/experiments/test_execution_contract.yaml",
         "configs/experiments/data_leakage_contract.yaml",
         "configs/experiments/actions_context_quality.yaml",
         "configs/experiments/stack_event_context_quality.yaml",
@@ -1662,6 +1867,10 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/multi_agent_training_status.md",
         "reports/phase3_open_spiel_arena.json",
         "reports/phase3_open_spiel_arena.md",
+        "reports/evaluation_metric_contract.json",
+        "reports/evaluation_metric_contract.md",
+        "reports/test_execution_contract.json",
+        "reports/test_execution_contract.md",
         "reports/data_leakage_contract.json",
         "reports/data_leakage_contract.md",
         "reports/actions_context_quality.json",
@@ -1682,6 +1891,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/client_gpu_training_response.py",
         "poker_agent/multi_agent_training_status.py",
         "poker_agent/open_spiel_llm_arena.py",
+        "poker_agent/evaluation_metric_contract.py",
+        "poker_agent/test_execution_contract.py",
         "poker_agent/data_leakage_contract.py",
         "poker_agent/actions_context_quality.py",
         "poker_agent/stack_event_context_quality.py",
@@ -1712,6 +1923,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/build_client_gpu_training_response.py",
         "scripts/build_multi_agent_training_status.py",
         "scripts/build_phase3_open_spiel_arena.py",
+        "scripts/build_evaluation_metric_contract.py",
+        "scripts/build_test_execution_contract.py",
         "scripts/build_data_leakage_contract.py",
         "scripts/build_actions_context_quality.py",
         "scripts/build_stack_event_context_quality.py",
@@ -1734,6 +1947,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "tests/test_client_gpu_training_response.py",
         "tests/test_multi_agent_training_status.py",
         "tests/test_open_spiel_llm_arena.py",
+        "tests/test_evaluation_metric_contract.py",
+        "tests/test_test_execution_contract.py",
         "tests/test_data_leakage_contract.py",
         "tests/test_actions_context_quality.py",
         "tests/test_stack_event_context_quality.py",

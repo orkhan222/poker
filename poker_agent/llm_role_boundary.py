@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,10 @@ LLM_ROLE_BOUNDARY_VERSION = "2026-06-28"
 CONTROLLED_LAYER = "CONTROLLED_DECISION_CONTEXT_AND_EVENT_NORMALIZATION_LAYER"
 NOT_AUTONOMOUS_LLM_AGENT = "NOT_FULLY_AUTONOMOUS_POKER_PLAYING_LLM_AGENT"
 RESEARCH_BASELINE = "RESEARCH_BASELINE_NOT_PRODUCTION_POLICY"
+LLM_BASED_AGENT_TERM = "LLM_BASED_AGENT_IS_UMBRELLA_TERM"
+CONTROLLED_COMPONENT = "CONTROLLED_COMPONENT"
+RESEARCH_COMPONENT = "RESEARCH_BASELINE_COMPONENT"
+NOT_CURRENT_SCOPE = "NOT_CURRENT_DELIVERY_SCOPE"
 
 
 def build_llm_role_boundary(project_root: Path) -> dict[str, Any]:
@@ -29,6 +34,7 @@ def build_llm_role_boundary(project_root: Path) -> dict[str, Any]:
     decision_gate_boundary = decision_gate.get("production_boundary") or {}
     candidate_gate_boundary = candidate_gate.get("production_boundary") or {}
     architecture_boundary = architecture.get("approval_boundary") or {}
+    candidate_ranker = _read_optional_json(reports / "llm_decision_candidate_ranker_qwen25.json")
 
     event_layer_available = bool(strict_event) and _as_float(strict_event_type.get("macro_f1"), 0.0) > 0.0
     decision_context_available = "full_in_context" in context_modes and bool(required_controls)
@@ -44,6 +50,52 @@ def build_llm_role_boundary(project_root: Path) -> dict[str, Any]:
             "The LLM work is currently strongest as a controlled decision/context and event-normalization layer. "
             "It should not be presented as a fully autonomous poker-playing LLM agent."
         ),
+        "term_boundary": {
+            "document_term": "LLM-based agent",
+            "status": LLM_BASED_AGENT_TERM,
+            "requires_role_specific_qualification": True,
+            "must_not_imply_fully_autonomous_policy": True,
+            "reason": (
+                "The project documents an LLM-based agent baseline, but the term is ambiguous unless the "
+                "implementation role is specified. In this delivery it means controlled LLM components, not "
+                "a standalone autonomous poker policy."
+            ),
+        },
+        "role_taxonomy": {
+            "event_normalization": {
+                "status": CONTROLLED_COMPONENT,
+                "implemented": event_layer_available,
+                "purpose": "Normalize noisy OCR/dealer-log records into validated event JSON.",
+                "can_emit_policy_action": False,
+                "production_policy_approved": False,
+                "requires_schema_validation": True,
+            },
+            "decision_context": {
+                "status": CONTROLLED_COMPONENT,
+                "implemented": decision_context_available,
+                "purpose": "Provide explicit poker rules, legal actions, constraints, and output schema for LLM decision experiments.",
+                "can_emit_policy_action": True,
+                "production_policy_approved": False,
+                "requires_legal_action_filtering": True,
+            },
+            "candidate_ranking": {
+                "status": RESEARCH_COMPONENT,
+                "implemented": bool(candidate_ranker) or architecture.get("recommended_architecture") == "candidate_ranker",
+                "purpose": "Rank constrained candidate actions/events instead of free-form generation.",
+                "recommended_architecture": architecture.get("recommended_architecture"),
+                "provider": candidate_ranker.get("provider"),
+                "production_policy_approved": False,
+                "deployed_strategy_stack_affected": False,
+            },
+            "real_policy_agent": {
+                "status": NOT_CURRENT_SCOPE,
+                "implemented": False,
+                "purpose": "A standalone LLM policy that controls poker play end to end.",
+                "production_policy_approved": False,
+                "requires_separate_stakeholder_approval": True,
+                "requires_independent_simulation_gate": True,
+            },
+        },
         "current_llm_role": {
             "status": CONTROLLED_LAYER,
             "event_normalization_layer": {
@@ -99,6 +151,9 @@ def build_llm_role_boundary(project_root: Path) -> dict[str, Any]:
         ],
         "not_allowed_claims": [
             "The project contains a fully autonomous poker-playing LLM agent.",
+            "The phrase LLM-based agent means a production-approved autonomous poker policy.",
+            "The event-normalization LLM component is a poker policy agent.",
+            "Candidate ranking is production-approved as the deployed poker policy.",
             "The LLM decision path is production-approved as the deployed poker policy.",
             "The LLM can make unconstrained poker decisions without legal-action filtering or schema validation.",
             "The controlled stateful policy endpoint is an autonomous LLM poker player.",
@@ -110,7 +165,11 @@ def build_llm_role_boundary(project_root: Path) -> dict[str, Any]:
             "Require explicit stakeholder approval before changing the LLM role from controlled layer to policy agent.",
         ],
     }
+    payload["proof_cases"] = build_llm_role_boundary_proof_cases(payload)
     payload["invariants"] = validate_llm_role_boundary(payload)
+    if not all(case["passed"] for case in payload["proof_cases"]):
+        payload["invariants"]["status"] = "FAIL"
+        payload["invariants"]["violations"].append("llm_role_boundary_proof_cases_must_pass")
     payload["overall_status"] = "PASS" if payload["invariants"]["status"] == "PASS" else "FAIL"
     return payload
 
@@ -118,6 +177,12 @@ def build_llm_role_boundary(project_root: Path) -> dict[str, Any]:
 def validate_llm_role_boundary(payload: dict[str, Any]) -> dict[str, Any]:
     violations: list[str] = []
     role = payload.get("current_llm_role") or {}
+    term = payload.get("term_boundary") or {}
+    taxonomy = payload.get("role_taxonomy") or {}
+    event_role = taxonomy.get("event_normalization") or {}
+    context_role = taxonomy.get("decision_context") or {}
+    candidate_role = taxonomy.get("candidate_ranking") or {}
+    policy_role = taxonomy.get("real_policy_agent") or {}
     event_layer = role.get("event_normalization_layer") or {}
     decision_context = role.get("decision_context_layer") or {}
     boundary = payload.get("autonomous_llm_agent_boundary") or {}
@@ -125,6 +190,51 @@ def validate_llm_role_boundary(payload: dict[str, Any]) -> dict[str, Any]:
 
     if role.get("status") != CONTROLLED_LAYER:
         violations.append("llm_role_must_remain_controlled_layer")
+    if term.get("status") != LLM_BASED_AGENT_TERM:
+        violations.append("llm_based_agent_term_must_remain_umbrella_term")
+    if term.get("requires_role_specific_qualification") is not True:
+        violations.append("llm_based_agent_term_must_require_role_qualification")
+    if term.get("must_not_imply_fully_autonomous_policy") is not True:
+        violations.append("llm_based_agent_term_must_not_imply_autonomous_policy")
+    for required_role in ("event_normalization", "decision_context", "candidate_ranking", "real_policy_agent"):
+        if required_role not in taxonomy:
+            violations.append(f"llm_role_taxonomy_missing:{required_role}")
+    if event_role.get("status") != CONTROLLED_COMPONENT:
+        violations.append("event_normalization_role_must_remain_controlled_component")
+    if event_role.get("implemented") is not True:
+        violations.append("event_normalization_role_must_be_implemented")
+    if event_role.get("can_emit_policy_action") is not False:
+        violations.append("event_normalization_must_not_emit_policy_action")
+    if event_role.get("production_policy_approved") is not False:
+        violations.append("event_normalization_must_not_be_policy_approved")
+    if event_role.get("requires_schema_validation") is not True:
+        violations.append("event_normalization_must_require_schema_validation")
+    if context_role.get("status") != CONTROLLED_COMPONENT:
+        violations.append("decision_context_role_must_remain_controlled_component")
+    if context_role.get("implemented") is not True:
+        violations.append("decision_context_role_must_be_implemented")
+    if context_role.get("production_policy_approved") is not False:
+        violations.append("decision_context_must_not_be_policy_approved")
+    if context_role.get("requires_legal_action_filtering") is not True:
+        violations.append("decision_context_must_require_legal_action_filtering")
+    if candidate_role.get("status") != RESEARCH_COMPONENT:
+        violations.append("candidate_ranking_must_remain_research_component")
+    if candidate_role.get("implemented") is not True:
+        violations.append("candidate_ranking_role_must_be_implemented")
+    if candidate_role.get("production_policy_approved") is not False:
+        violations.append("candidate_ranking_must_not_be_policy_approved")
+    if candidate_role.get("deployed_strategy_stack_affected") is not False:
+        violations.append("candidate_ranking_must_not_affect_deployed_strategy_stack")
+    if policy_role.get("status") != NOT_CURRENT_SCOPE:
+        violations.append("real_policy_agent_must_remain_out_of_current_scope")
+    if policy_role.get("implemented") is not False:
+        violations.append("real_policy_agent_must_not_be_marked_implemented")
+    if policy_role.get("production_policy_approved") is not False:
+        violations.append("real_policy_agent_must_not_be_policy_approved")
+    if policy_role.get("requires_separate_stakeholder_approval") is not True:
+        violations.append("real_policy_agent_must_require_separate_stakeholder_approval")
+    if policy_role.get("requires_independent_simulation_gate") is not True:
+        violations.append("real_policy_agent_must_require_independent_simulation_gate")
     if event_layer.get("implemented") is not True:
         violations.append("event_normalization_layer_must_be_implemented")
     if decision_context.get("implemented") is not True:
@@ -155,6 +265,51 @@ def validate_llm_role_boundary(payload: dict[str, Any]) -> dict[str, Any]:
     return {"status": "FAIL" if violations else "PASS", "violations": violations}
 
 
+def build_llm_role_boundary_proof_cases(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    cases: list[dict[str, Any]] = [
+        _llm_role_proof_case("base_contract_is_valid", payload, "PASS"),
+    ]
+
+    mutated = deepcopy(payload)
+    mutated["term_boundary"]["must_not_imply_fully_autonomous_policy"] = False
+    mutated["role_taxonomy"]["real_policy_agent"]["implemented"] = True
+    mutated["autonomous_llm_agent_boundary"]["fully_autonomous_llm_agent_claim_allowed"] = True
+    cases.append(_llm_role_proof_case("blocks_llm_based_agent_as_autonomous_policy", mutated, "FAIL"))
+
+    mutated = deepcopy(payload)
+    mutated["role_taxonomy"]["event_normalization"]["can_emit_policy_action"] = True
+    mutated["role_taxonomy"]["event_normalization"]["production_policy_approved"] = True
+    cases.append(_llm_role_proof_case("blocks_event_normalization_as_policy_agent", mutated, "FAIL"))
+
+    mutated = deepcopy(payload)
+    mutated["role_taxonomy"]["candidate_ranking"]["production_policy_approved"] = True
+    mutated["role_taxonomy"]["candidate_ranking"]["deployed_strategy_stack_affected"] = True
+    cases.append(_llm_role_proof_case("blocks_candidate_ranking_as_deployed_policy", mutated, "FAIL"))
+
+    mutated = deepcopy(payload)
+    mutated["role_taxonomy"]["real_policy_agent"]["status"] = "CURRENT_DELIVERY_SCOPE"
+    mutated["role_taxonomy"]["real_policy_agent"]["implemented"] = True
+    mutated["role_taxonomy"]["real_policy_agent"]["production_policy_approved"] = True
+    cases.append(_llm_role_proof_case("blocks_real_policy_agent_current_scope_claim", mutated, "FAIL"))
+
+    mutated = deepcopy(payload)
+    del mutated["role_taxonomy"]["candidate_ranking"]
+    cases.append(_llm_role_proof_case("blocks_missing_role_taxonomy", mutated, "FAIL"))
+
+    return cases
+
+
+def _llm_role_proof_case(name: str, candidate: dict[str, Any], expected_status: str) -> dict[str, Any]:
+    observed = validate_llm_role_boundary(candidate)
+    return {
+        "name": name,
+        "expected_status": expected_status,
+        "observed_status": observed["status"],
+        "passed": observed["status"] == expected_status,
+        "violations": observed["violations"],
+    }
+
+
 def write_llm_role_boundary(
     project_root: Path,
     out_path: Path,
@@ -174,6 +329,7 @@ def render_llm_role_boundary_markdown(payload: dict[str, Any]) -> str:
     event_layer = role["event_normalization_layer"]
     context_layer = role["decision_context_layer"]
     boundary = payload["autonomous_llm_agent_boundary"]
+    taxonomy = payload["role_taxonomy"]
     lines = [
         "# LLM Role Boundary Contract",
         "",
@@ -186,23 +342,49 @@ def render_llm_role_boundary_markdown(payload: dict[str, Any]) -> str:
         f"- Status: `{role['status']}`",
         f"- Production status: `{role['production_status']}`",
         f"- LLM decision path production-approved: `{role['llm_decision_path_production_approved']}`",
+        f"- Document term: `{payload['term_boundary']['document_term']}`",
+        f"- Document term status: `{payload['term_boundary']['status']}`",
         f"- Event-normalization implemented: `{event_layer['implemented']}`",
         f"- Event-normalization macro F1: `{event_layer['event_type_macro_f1']}`",
         f"- Decision-context implemented: `{context_layer['implemented']}`",
         f"- Default context mode: `{context_layer['default_context_mode']}`",
         "",
-        "## Autonomous LLM Boundary",
-        "",
-        f"- Status: `{boundary['status']}`",
-        f"- Fully autonomous poker-playing LLM present: `{boundary['fully_autonomous_poker_playing_llm_agent_present']}`",
-        f"- Fully autonomous LLM claim allowed: `{boundary['fully_autonomous_llm_agent_claim_allowed']}`",
-        f"- Deployed autonomous endpoint is LLM: `{boundary['deployed_autonomous_endpoint_is_llm']}`",
-        f"- Production blocker for current delivery: `{boundary['production_blocker_for_current_delivery']}`",
-        "",
-        "## Not Allowed Claims",
+        "## Role Taxonomy",
         "",
     ]
+    for role_name, role_payload in taxonomy.items():
+        lines.extend(
+            [
+                f"### `{role_name}`",
+                "",
+                f"- Status: `{role_payload.get('status')}`",
+                f"- Implemented: `{role_payload.get('implemented')}`",
+                f"- Production policy approved: `{role_payload.get('production_policy_approved')}`",
+                f"- Purpose: {role_payload.get('purpose')}",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "## Autonomous LLM Boundary",
+            "",
+            f"- Status: `{boundary['status']}`",
+            f"- Fully autonomous poker-playing LLM present: `{boundary['fully_autonomous_poker_playing_llm_agent_present']}`",
+            f"- Fully autonomous LLM claim allowed: `{boundary['fully_autonomous_llm_agent_claim_allowed']}`",
+            f"- Deployed autonomous endpoint is LLM: `{boundary['deployed_autonomous_endpoint_is_llm']}`",
+            f"- Production blocker for current delivery: `{boundary['production_blocker_for_current_delivery']}`",
+            "",
+            "## Not Allowed Claims",
+            "",
+        ]
+    )
     lines.extend(f"- {claim}" for claim in payload["not_allowed_claims"])
+    lines.extend(["", "## Executable Proof Cases", ""])
+    for case in payload.get("proof_cases") or []:
+        lines.append(
+            f"- `{case['name']}`: expected `{case['expected_status']}`, "
+            f"observed `{case['observed_status']}`, passed `{case['passed']}`"
+        )
     lines.extend(["", "## Next Milestone If Autonomous LLM Is Requested", ""])
     lines.extend(f"- {item}" for item in payload["next_milestone_if_autonomous_llm_is_requested"])
     lines.extend(["", f"Invariant status: `{payload['invariants']['status']}`", ""])

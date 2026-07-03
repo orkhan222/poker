@@ -97,6 +97,13 @@ def test_open_spiel_arena_runs_agent_only_table() -> None:
     assert payload["quality_boundary"]["is_reinforcement_learning_stage"] is True
     assert payload["quality_boundary"]["phase1_policy_adapters_ready"] is True
     assert payload["quality_boundary"]["metrics_claim_allowed"] is True
+    assert payload["rl_training_proof_boundary"]["status"] == "TRAINING_PROOF_NOT_COMPLETED"
+    assert payload["rl_training_proof_boundary"]["measured_win_rate_claim_allowed"] is False
+    assert payload["rl_training_proof_boundary"]["policy_update_training_completed"] is False
+    assert payload["rl_training_proof_boundary"]["seed_stability_evaluated"] is False
+    assert payload["rl_training_proof_boundary"]["long_run_completed"] is False
+    assert payload["rl_training_proof_boundary"]["model_quality_risk"] is True
+    assert all(case["result"] == "PASS" for case in payload["proof_cases"])
     assert payload["invariants"]["status"] == "PASS"
     assert payload["overall_status"] == "PASS"
     assert payload["metrics"]["per_agent"]["0"]["episodes"] == 8
@@ -128,6 +135,12 @@ def test_pending_report_does_not_claim_measured_metrics() -> None:
     assert payload["runtime_boundary"]["run_if_available_required_for_metrics"] is True
     assert payload["runtime_boundary"]["phase1_adapters_required_for_metrics"] is True
     assert payload["quality_boundary"]["metrics_claim_allowed"] is False
+    assert payload["rl_training_proof_boundary"]["measured_win_rate_claim_allowed"] is False
+    assert payload["rl_training_proof_boundary"]["real_open_spiel_runtime_available"] in {True, False}
+    assert payload["rl_training_proof_boundary"]["phase1_trained_policy_artifacts_attached"] is False
+    assert payload["rl_training_proof_boundary"]["current_delivery_blocker"] is False
+    assert payload["rl_training_proof_boundary"]["model_quality_risk"] is True
+    assert all(case["result"] == "PASS" for case in payload["proof_cases"])
     assert "metrics" not in payload
 
 
@@ -145,6 +158,23 @@ def test_pending_report_with_metrics_fails_invariant() -> None:
     assert "pending_open_spiel_report_must_not_include_measured_metrics" in validation["violations"]
 
 
+def test_phase3_blocks_rl_win_rate_claim_without_training_proof() -> None:
+    payload = build_phase3_open_spiel_arena_report(
+        project_root=__import__("pathlib").Path("."),
+        config=ArenaRunConfig(episodes=4),
+        run_if_available=False,
+    )
+    proof = payload["rl_training_proof_boundary"]
+    proof["measured_win_rate_claim_allowed"] = True
+    proof["status"] = "TRAINING_PROOF_COMPLETED"
+
+    validation = validate_phase3_open_spiel_arena_report(payload)
+
+    assert validation["status"] == "FAIL"
+    assert "rl_win_rate_claim_requires_runtime_adapters_seed_stability_long_run_and_training" in validation["violations"]
+    assert "rl_training_proof_cannot_be_completed_without_all_gates" in validation["violations"]
+
+
 def test_run_if_available_without_phase1_adapters_stays_pending() -> None:
     payload = build_phase3_open_spiel_arena_report(
         project_root=__import__("pathlib").Path("."),
@@ -154,4 +184,5 @@ def test_run_if_available_without_phase1_adapters_stays_pending() -> None:
 
     assert payload["status"] == RUNTIME_PENDING_STATUS
     assert payload["quality_boundary"]["metrics_claim_allowed"] is False
+    assert payload["rl_training_proof_boundary"]["measured_win_rate_claim_allowed"] is False
     assert payload["invariants"]["status"] == "PASS"

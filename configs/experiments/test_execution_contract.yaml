@@ -1,0 +1,12 @@
+name: test_execution_contract
+description: Build the validation execution contract for critical tests, verifier evidence, and full-suite timeout transparency.
+command:
+  module: scripts.build_test_execution_contract
+  args:
+    full_pytest_status: TIMEOUT
+    full_pytest_timeout_seconds: 124
+    critical_tests_status: PASS
+    critical_tests_passed: 16
+outputs:
+  json: reports/test_execution_contract.json
+  markdown: reports/test_execution_contract.md

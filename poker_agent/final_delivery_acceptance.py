@@ -17,6 +17,9 @@ RUNTIME_MONITORING_BOUNDARY = "REAL_TRAFFIC_REQUIRES_MONITORING_ROLLBACK_AND_DRI
 CHALLENGER_STRATEGY_QUALITY_BOUNDARY = "FINAL_STRATEGY_QUALITY_REQUIRES_PASSING_CHALLENGER"
 ACTIONS_CONTEXT_BOUNDARY = "DERIVED_BETTING_CONTEXT_NOT_FULL_EXPLICIT_ACTION_CONTEXT"
 STACK_EVENT_CONTEXT_BOUNDARY = "RAW_STACK_EVENTS_REQUIRE_DERIVED_DECISION_CONTEXT"
+PHASE3_OPEN_SPIEL_RL_BOUNDARY = "OPEN_SPIEL_RL_TRAINING_PROOF_REQUIRED"
+EVALUATION_METRIC_BOUNDARY = "ACCURACY_ALONE_NOT_SUFFICIENT"
+TEST_EXECUTION_BOUNDARY = "FULL_PYTEST_TIMEOUT_IS_NOT_DELIVERY_APPROVAL"
 
 
 def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
@@ -36,6 +39,9 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
     qlora_next_stage = _read_optional_json(reports / "qlora_next_stage.json")
     production_runtime_monitoring = _read_optional_json(reports / "production_runtime_monitoring.json")
     challenger_strategy_quality = _read_optional_json(reports / "challenger_strategy_quality.json")
+    phase3_open_spiel_arena = _read_optional_json(reports / "phase3_open_spiel_arena.json")
+    evaluation_metric_contract = _read_optional_json(reports / "evaluation_metric_contract.json")
+    test_execution_contract = _read_optional_json(reports / "test_execution_contract.json")
 
     handoff_position = client_handoff.get("technical_position") or {}
     approval_raw = production_approval.get("raw_supervised_model") or {}
@@ -59,6 +65,8 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
     runtime_monitoring = production_runtime_monitoring.get("runtime_observability_boundary") or {}
     challenger_boundary = challenger_strategy_quality.get("strategy_quality_boundary") or {}
     challenger_result = challenger_strategy_quality.get("challenger_result") or {}
+    phase3_rl_boundary = phase3_open_spiel_arena.get("rl_training_proof_boundary") or {}
+    evaluation_metric_families = evaluation_metric_contract.get("metric_families") or {}
 
     payload: dict[str, Any] = {
         "version": FINAL_DELIVERY_ACCEPTANCE_VERSION,
@@ -98,6 +106,21 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "llm_work": {
                 "boundary": LLM_BOUNDARY,
                 "role": llm_current.get("status"),
+                "term_status": (llm_role.get("term_boundary") or {}).get("status"),
+                "term_requires_role_specific_qualification": (llm_role.get("term_boundary") or {}).get(
+                    "requires_role_specific_qualification"
+                ),
+                "term_must_not_imply_fully_autonomous_policy": (llm_role.get("term_boundary") or {}).get(
+                    "must_not_imply_fully_autonomous_policy"
+                ),
+                "role_taxonomy": {
+                    name: {
+                        "status": role.get("status"),
+                        "implemented": role.get("implemented"),
+                        "production_policy_approved": role.get("production_policy_approved"),
+                    }
+                    for name, role in (llm_role.get("role_taxonomy") or {}).items()
+                },
                 "event_normalization_implemented": (llm_current.get("event_normalization_layer") or {}).get("implemented"),
                 "decision_context_implemented": (llm_current.get("decision_context_layer") or {}).get("implemented"),
                 "fully_autonomous_llm_agent_present": llm_boundary.get("fully_autonomous_poker_playing_llm_agent_present"),
@@ -248,6 +271,55 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
                 ),
                 "production_blocker": training_boundary.get("production_blocker", training_boundary.get("production_blocker_for_current_delivery", False)),
             },
+            "phase3_open_spiel_rl_training": {
+                "boundary": PHASE3_OPEN_SPIEL_RL_BOUNDARY,
+                "status": phase3_rl_boundary.get("status"),
+                "real_open_spiel_runtime_required": phase3_rl_boundary.get("real_open_spiel_runtime_required"),
+                "real_open_spiel_runtime_available": phase3_rl_boundary.get("real_open_spiel_runtime_available"),
+                "phase1_trained_policy_artifacts_required": phase3_rl_boundary.get("phase1_trained_policy_artifacts_required"),
+                "phase1_trained_policy_artifacts_attached": phase3_rl_boundary.get("phase1_trained_policy_artifacts_attached"),
+                "seed_stability_required": phase3_rl_boundary.get("seed_stability_required"),
+                "seed_stability_evaluated": phase3_rl_boundary.get("seed_stability_evaluated"),
+                "long_run_required": phase3_rl_boundary.get("long_run_required"),
+                "long_run_completed": phase3_rl_boundary.get("long_run_completed"),
+                "policy_update_training_required": phase3_rl_boundary.get("policy_update_training_required"),
+                "policy_update_training_completed": phase3_rl_boundary.get("policy_update_training_completed"),
+                "measured_win_rate_claim_allowed": phase3_rl_boundary.get("measured_win_rate_claim_allowed"),
+                "current_delivery_blocker": phase3_rl_boundary.get("current_delivery_blocker"),
+                "model_quality_risk": phase3_rl_boundary.get("model_quality_risk"),
+                "missing_requirements": phase3_rl_boundary.get("missing_requirements") or [],
+            },
+            "evaluation_metric_coverage": {
+                "boundary": EVALUATION_METRIC_BOUNDARY,
+                "accuracy_alone_sufficient": evaluation_metric_contract.get("accuracy_alone_sufficient"),
+                "required_metric_families": evaluation_metric_contract.get("required_metric_families") or [],
+                "final_metric_bundle_passed": evaluation_metric_contract.get("final_metric_bundle_passed"),
+                "final_strategy_quality_claim_allowed": evaluation_metric_contract.get(
+                    "final_strategy_quality_claim_allowed"
+                ),
+                "current_delivery_blocker": evaluation_metric_contract.get("current_delivery_blocker"),
+                "model_quality_risk": evaluation_metric_contract.get("model_quality_risk"),
+                "metric_families": {
+                    name: {
+                        "required": family.get("required"),
+                        "metrics": family.get("metrics") or {},
+                    }
+                    for name, family in evaluation_metric_families.items()
+                },
+            },
+            "test_execution_coverage": {
+                "boundary": TEST_EXECUTION_BOUNDARY,
+                "full_pytest_status": (test_execution_contract.get("full_pytest") or {}).get("status"),
+                "full_pytest_used_as_delivery_approval": (test_execution_contract.get("full_pytest") or {}).get(
+                    "used_as_delivery_approval"
+                ),
+                "critical_validation_status": (test_execution_contract.get("critical_validation") or {}).get("status"),
+                "critical_tests_passed": (test_execution_contract.get("critical_validation") or {}).get(
+                    "passed_tests"
+                ),
+                "delivery_verifier_status": (test_execution_contract.get("delivery_verifier") or {}).get("status"),
+                "current_delivery_blocker": test_execution_contract.get("current_delivery_blocker"),
+            },
         },
         "allowed_delivery_claims": [
             "The service delivery package is ready.",
@@ -274,6 +346,10 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "Target action stack deltas can be used as features for predicting that same action.",
             "Bet-sizing and timing are fully calibrated for all production-realism conditions.",
             "Full production-scale multi-agent training has been completed by the current acceptance run.",
+            "Phase 3 OpenSpiel/RL win-rate proof is complete without real pyspiel runtime, two trained Phase 1 policy artifacts, seed stability, long-run volume, and policy-update training.",
+            "Accuracy alone is sufficient for final production strategy-quality approval.",
+            "The full pytest suite completed successfully when the recorded run timed out.",
+            "A timed-out full pytest run is used as delivery approval evidence.",
             "Current validation replaces larger clean real-gameplay revalidation.",
         ],
         "evidence": {
@@ -292,6 +368,9 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "qlora_next_stage": "reports/qlora_next_stage.json",
             "production_runtime_monitoring": "reports/production_runtime_monitoring.json",
             "challenger_strategy_quality": "reports/challenger_strategy_quality.json",
+            "phase3_open_spiel_arena": "reports/phase3_open_spiel_arena.json",
+            "evaluation_metric_contract": "reports/evaluation_metric_contract.json",
+            "test_execution_contract": "reports/test_execution_contract.json",
         },
         "next_milestones": [
             "Train and promote a stronger standalone raw supervised challenger only after it beats the current raw supervised model and passes every raw gate.",
@@ -301,6 +380,8 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "Instrument actions.csv with explicit amount, to_call, pot_before_action, min_raise, legal_actions, and action_order fields.",
             "Persist explicit pre-action pot, effective_stack, SPR, current_bet_size, and min_raise labels alongside stack event logs.",
             "Run a separate full production-scale multi-agent training cycle under an approved A100/H100 cluster profile.",
+            "Execute the Phase 3 OpenSpiel RL training proof with real pyspiel runtime, two trained Phase 1 policy artifacts, at least five independent seeds, long-run volume, and policy-update training.",
+            "Close the evaluation metric bundle: macro F1, balanced accuracy, calibration/ECE, action distribution, bet-size MAE, win-rate, expected value, and seed stability.",
             "Only promote an autonomous LLM policy if stakeholders approve a separate LLM-agent milestone and it passes independent simulation and safety gates.",
         ],
     }
@@ -325,6 +406,9 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
     bet = risks.get("bet_timing_calibration") or {}
     behavioral = risks.get("behavioral_revalidation") or {}
     multi = risks.get("multi_agent_training") or {}
+    phase3_rl = risks.get("phase3_open_spiel_rl_training") or {}
+    evaluation_metrics = risks.get("evaluation_metric_coverage") or {}
+    test_execution = risks.get("test_execution_coverage") or {}
 
     if payload.get("final_status") != FINAL_STATUS:
         violations.append("final_status_must_be_ready_with_tracked_component_risks")
@@ -346,12 +430,100 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
         violations.append("raw_model_must_remain_component_risk_not_blocker")
     if llm.get("role") != "CONTROLLED_DECISION_CONTEXT_AND_EVENT_NORMALIZATION_LAYER":
         violations.append("llm_role_must_be_controlled_layer")
+    if llm.get("term_status") != "LLM_BASED_AGENT_IS_UMBRELLA_TERM":
+        violations.append("llm_based_agent_term_must_remain_umbrella")
+    if llm.get("term_requires_role_specific_qualification") is not True:
+        violations.append("llm_based_agent_term_must_require_role_specific_qualification")
+    if llm.get("term_must_not_imply_fully_autonomous_policy") is not True:
+        violations.append("llm_based_agent_term_must_not_imply_autonomous_policy")
+    llm_taxonomy = llm.get("role_taxonomy") or {}
+    required_llm_roles = {
+        "event_normalization",
+        "decision_context",
+        "candidate_ranking",
+        "real_policy_agent",
+    }
+    if set(llm_taxonomy) != required_llm_roles:
+        violations.append("llm_role_taxonomy_must_list_all_supported_roles")
+    if (llm_taxonomy.get("event_normalization") or {}).get("status") != "CONTROLLED_COMPONENT":
+        violations.append("llm_event_normalization_role_must_be_controlled_component")
+    if (llm_taxonomy.get("decision_context") or {}).get("status") != "CONTROLLED_COMPONENT":
+        violations.append("llm_decision_context_role_must_be_controlled_component")
+    if (llm_taxonomy.get("candidate_ranking") or {}).get("status") != "RESEARCH_BASELINE_COMPONENT":
+        violations.append("llm_candidate_ranking_role_must_be_research_component")
+    if (llm_taxonomy.get("real_policy_agent") or {}).get("status") != "NOT_CURRENT_DELIVERY_SCOPE":
+        violations.append("llm_real_policy_agent_must_remain_out_of_current_scope")
+    for role_name, role_payload in llm_taxonomy.items():
+        if role_payload.get("production_policy_approved") is not False:
+            violations.append(f"llm_role_must_not_be_production_policy:{role_name}")
+    if (llm_taxonomy.get("real_policy_agent") or {}).get("implemented") is not False:
+        violations.append("llm_real_policy_agent_must_not_be_implemented")
     if llm.get("fully_autonomous_llm_agent_present") is not False:
         violations.append("fully_autonomous_llm_agent_must_not_be_present")
     if llm.get("fully_autonomous_llm_agent_claim_allowed") is not False:
         violations.append("fully_autonomous_llm_agent_claim_must_be_blocked")
     if llm.get("production_blocker") is not False:
         violations.append("llm_role_boundary_must_not_block_delivery")
+    if phase3_rl.get("boundary") != PHASE3_OPEN_SPIEL_RL_BOUNDARY:
+        violations.append("phase3_open_spiel_rl_boundary_must_be_present")
+    if phase3_rl.get("status") != "TRAINING_PROOF_NOT_COMPLETED":
+        violations.append("phase3_open_spiel_rl_training_proof_must_remain_not_completed")
+    if phase3_rl.get("real_open_spiel_runtime_required") is not True:
+        violations.append("phase3_rl_must_require_real_open_spiel_runtime")
+    if phase3_rl.get("phase1_trained_policy_artifacts_required") is not True:
+        violations.append("phase3_rl_must_require_two_phase1_trained_adapters")
+    if phase3_rl.get("seed_stability_required") is not True:
+        violations.append("phase3_rl_must_require_seed_stability")
+    if phase3_rl.get("long_run_required") is not True:
+        violations.append("phase3_rl_must_require_long_run")
+    if phase3_rl.get("policy_update_training_required") is not True:
+        violations.append("phase3_rl_must_require_policy_update_training")
+    if phase3_rl.get("measured_win_rate_claim_allowed") is not False:
+        violations.append("phase3_rl_win_rate_claim_must_remain_blocked_until_training_proof")
+    if phase3_rl.get("current_delivery_blocker") is not False:
+        violations.append("phase3_rl_training_gap_must_not_block_current_delivery")
+    if phase3_rl.get("model_quality_risk") is not True:
+        violations.append("phase3_rl_training_gap_must_remain_model_quality_risk")
+    if evaluation_metrics.get("boundary") != EVALUATION_METRIC_BOUNDARY:
+        violations.append("evaluation_metric_boundary_must_block_accuracy_only_approval")
+    if evaluation_metrics.get("accuracy_alone_sufficient") is not False:
+        violations.append("accuracy_alone_must_not_be_sufficient_for_final_acceptance")
+    required_metric_families = {
+        "action_classification",
+        "calibration",
+        "action_distribution",
+        "bet_sizing",
+        "simulation_return",
+        "seed_stability",
+    }
+    if set(evaluation_metrics.get("required_metric_families") or []) != required_metric_families:
+        violations.append("evaluation_metric_families_must_be_complete")
+    metric_families = evaluation_metrics.get("metric_families") or {}
+    for family_name in required_metric_families:
+        if (metric_families.get(family_name) or {}).get("required") is not True:
+            violations.append(f"evaluation_metric_family_must_be_required:{family_name}")
+    if evaluation_metrics.get("final_metric_bundle_passed") is not False:
+        violations.append("final_metric_bundle_must_not_be_marked_passed")
+    if evaluation_metrics.get("final_strategy_quality_claim_allowed") is not False:
+        violations.append("final_strategy_quality_claim_must_remain_blocked_until_metric_bundle_passes")
+    if evaluation_metrics.get("current_delivery_blocker") is not False:
+        violations.append("evaluation_metric_gap_must_not_block_current_delivery")
+    if evaluation_metrics.get("model_quality_risk") is not True:
+        violations.append("evaluation_metric_gap_must_remain_model_quality_risk")
+    if test_execution.get("boundary") != TEST_EXECUTION_BOUNDARY:
+        violations.append("test_execution_boundary_must_be_present")
+    if test_execution.get("full_pytest_status") == "TIMEOUT" and (
+        test_execution.get("full_pytest_used_as_delivery_approval") is not False
+    ):
+        violations.append("timed_out_full_pytest_must_not_be_delivery_approval")
+    if test_execution.get("critical_validation_status") != "PASS":
+        violations.append("critical_validation_must_pass_for_delivery")
+    if (test_execution.get("critical_tests_passed") or 0) < 1:
+        violations.append("critical_validation_must_report_passed_tests")
+    if test_execution.get("delivery_verifier_status") != "PASS":
+        violations.append("delivery_verifier_must_pass_for_delivery")
+    if test_execution.get("current_delivery_blocker") is not False:
+        violations.append("test_execution_gap_must_not_block_current_delivery")
     if qlora.get("stage_status") != "NEXT_STAGE_IMPROVEMENT":
         violations.append("qlora_must_remain_next_stage_improvement")
     if qlora.get("milestone_type") != "RESEARCH_QUALITY_IMPROVEMENT_MILESTONE":
@@ -550,6 +722,15 @@ def render_final_delivery_acceptance_markdown(payload: dict[str, Any]) -> str:
         f"- Timing final human-likeness proof allowed: `{risks['bet_timing_calibration']['timing_human_likeness_final_proof_allowed']}`",
         f"- Larger gameplay revalidation required: `{risks['behavioral_revalidation']['larger_clean_real_gameplay_revalidation_required']}`",
         f"- Full production-scale multi-agent training: `{risks['multi_agent_training']['full_production_scale_multi_agent_training_status']}`",
+        f"- Phase 3 OpenSpiel RL proof: `{risks['phase3_open_spiel_rl_training']['status']}`",
+        f"- Phase 3 measured win-rate claim allowed: `{risks['phase3_open_spiel_rl_training']['measured_win_rate_claim_allowed']}`",
+        f"- Evaluation metric boundary: `{risks['evaluation_metric_coverage']['boundary']}`",
+        f"- Accuracy alone sufficient: `{risks['evaluation_metric_coverage']['accuracy_alone_sufficient']}`",
+        f"- Final metric bundle passed: `{risks['evaluation_metric_coverage']['final_metric_bundle_passed']}`",
+        f"- Full pytest status: `{risks['test_execution_coverage']['full_pytest_status']}`",
+        f"- Full pytest used as approval: `{risks['test_execution_coverage']['full_pytest_used_as_delivery_approval']}`",
+        f"- Critical validation status: `{risks['test_execution_coverage']['critical_validation_status']}`",
+        f"- Delivery verifier status: `{risks['test_execution_coverage']['delivery_verifier_status']}`",
         "",
         "## Blocked Claims",
         "",

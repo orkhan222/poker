@@ -125,7 +125,7 @@ Run the contract report:
 .\.venv\Scripts\python.exe scripts\build_phase3_open_spiel_arena.py
 ```
 
-Run measured OpenSpiel episodes when `pyspiel` and the Phase 1 LLM policy adapters are available:
+Run measured OpenSpiel episodes when `pyspiel` and the Phase 1 policy artifacts are available:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\build_phase3_open_spiel_arena.py --run-if-available --game-name kuhn_poker --episodes 10000 --seed 42

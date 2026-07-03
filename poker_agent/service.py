@@ -23,6 +23,7 @@ from poker_agent.client_gpu_training_response import build_client_gpu_training_r
 from poker_agent.challenger_strategy_quality import build_challenger_strategy_quality
 from poker_agent.data_leakage_contract import build_data_leakage_contract
 from poker_agent.delivery_readiness import summarize_delivery_readiness
+from poker_agent.evaluation_metric_contract import build_evaluation_metric_contract
 from poker_agent.final_delivery_acceptance import build_final_delivery_acceptance
 from poker_agent.final_strategy_quality_status import build_final_strategy_quality_status
 from poker_agent.llm_decision_context import build_decision_context_report
@@ -40,6 +41,7 @@ from poker_agent.scope_contract import build_scope_contract
 from poker_agent.stack_event_context_quality import build_stack_event_context_quality
 from poker_agent.strategy_readiness import load_combined_strategy_readiness
 from poker_agent.strategy_stack_maturity import build_strategy_stack_maturity
+from poker_agent.test_execution_contract import build_test_execution_contract
 from poker_agent.training_cluster import DEFAULT_RUN_PROFILE, build_training_cluster_requirements
 
 
@@ -93,6 +95,8 @@ BET_TIMING_CALIBRATION_PATH = PROJECT_ROOT / "reports" / "bet_timing_calibration
 FINAL_DELIVERY_ACCEPTANCE_PATH = PROJECT_ROOT / "reports" / "final_delivery_acceptance.json"
 FINAL_STRATEGY_QUALITY_STATUS_PATH = PROJECT_ROOT / "reports" / "final_strategy_quality_status.json"
 PRODUCTION_RUNTIME_MONITORING_PATH = PROJECT_ROOT / "reports" / "production_runtime_monitoring.json"
+EVALUATION_METRIC_CONTRACT_PATH = PROJECT_ROOT / "reports" / "evaluation_metric_contract.json"
+TEST_EXECUTION_CONTRACT_PATH = PROJECT_ROOT / "reports" / "test_execution_contract.json"
 
 
 APP_HTML = """
@@ -844,6 +848,28 @@ def phase3_open_spiel_arena_json() -> dict[str, Any]:
     if PHASE3_OPEN_SPIEL_ARENA_PATH.exists():
         return json.loads(PHASE3_OPEN_SPIEL_ARENA_PATH.read_text(encoding="utf-8"))
     return build_phase3_open_spiel_arena_report(PROJECT_ROOT)
+
+
+@app.get(
+    "/evaluation-metric-contract.json",
+    tags=["System"],
+    summary="Evaluation metric coverage contract",
+)
+def evaluation_metric_contract_json() -> dict[str, Any]:
+    if EVALUATION_METRIC_CONTRACT_PATH.exists():
+        return json.loads(EVALUATION_METRIC_CONTRACT_PATH.read_text(encoding="utf-8"))
+    return build_evaluation_metric_contract(PROJECT_ROOT)
+
+
+@app.get(
+    "/test-execution-contract.json",
+    tags=["System"],
+    summary="Test execution transparency contract",
+)
+def test_execution_contract_json() -> dict[str, Any]:
+    if TEST_EXECUTION_CONTRACT_PATH.exists():
+        return json.loads(TEST_EXECUTION_CONTRACT_PATH.read_text(encoding="utf-8"))
+    return build_test_execution_contract(PROJECT_ROOT)
 
 
 @app.get("/llm-decision-context.json", tags=["System"], summary="LLM decision context contract")

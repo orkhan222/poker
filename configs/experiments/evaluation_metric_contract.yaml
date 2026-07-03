@@ -1,0 +1,18 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: hist_gradient_boosting
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: evaluation_metric_contract
+description: Enforce the production evaluation metric bundle and block accuracy-only strategy-quality claims.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_evaluation_metric_contract.py
+  args:
+    project_root: .
+    out: ${logging.reports_dir}/evaluation_metric_contract.json
+    markdown_out: ${logging.reports_dir}/evaluation_metric_contract.md

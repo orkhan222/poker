@@ -20,6 +20,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--game-name", default="kuhn_poker")
     parser.add_argument("--episodes", default=256, type=int)
     parser.add_argument("--seed", default=42, type=int)
+    parser.add_argument("--independent-seed-count", default=1, type=int)
     parser.add_argument("--max-steps-per-episode", default=256, type=int)
     parser.add_argument("--agent-a-name", default="phase1_llm_agent_a")
     parser.add_argument("--agent-b-name", default="phase1_llm_agent_b")
@@ -40,6 +41,14 @@ def parse_args() -> argparse.Namespace:
             "--phase1-adapters-ready with both adapter paths is supplied."
         ),
     )
+    parser.add_argument(
+        "--policy-update-training-completed",
+        action="store_true",
+        help=(
+            "Mark the report as policy-update training only after a real RL training loop "
+            "has been executed and reviewed. This is not enabled by smoke runs."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -49,6 +58,7 @@ def main() -> None:
         game_name=args.game_name,
         episodes=args.episodes,
         seed=args.seed,
+        independent_seed_count=args.independent_seed_count,
         max_steps_per_episode=args.max_steps_per_episode,
         agent_a_name=args.agent_a_name,
         agent_b_name=args.agent_b_name,
@@ -57,6 +67,7 @@ def main() -> None:
         agent_a_model_path=args.agent_a_model_path,
         agent_b_model_path=args.agent_b_model_path,
         phase1_adapters_ready=args.phase1_adapters_ready,
+        policy_update_training_completed=args.policy_update_training_completed,
     )
     payload = write_phase3_open_spiel_arena_report(
         args.project_root,
@@ -71,6 +82,8 @@ def main() -> None:
                 "status": payload["status"],
                 "agent_only_table": payload["arena_contract"]["agent_only_table"],
                 "game_name": payload["environment"]["game_name"],
+                "rl_training_proof": payload["rl_training_proof_boundary"]["status"],
+                "win_rate_claim_allowed": payload["rl_training_proof_boundary"]["measured_win_rate_claim_allowed"],
                 "out": str(args.out),
             },
             sort_keys=True,
