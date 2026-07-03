@@ -1,0 +1,8 @@
+name: human_likeness_evidence
+description: Build the human-likeness evidence contract for action distribution, bet sizing, timing, position behavior, and street strategy.
+command:
+  module: scripts.build_human_likeness_evidence
+  args: {}
+outputs:
+  json: reports/human_likeness_evidence.json
+  markdown: reports/human_likeness_evidence.md

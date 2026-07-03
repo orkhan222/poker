@@ -26,6 +26,8 @@ from poker_agent.delivery_readiness import summarize_delivery_readiness
 from poker_agent.evaluation_metric_contract import build_evaluation_metric_contract
 from poker_agent.final_delivery_acceptance import build_final_delivery_acceptance
 from poker_agent.final_strategy_quality_status import build_final_strategy_quality_status
+from poker_agent.human_likeness_claim_gate import build_human_likeness_claim_gate
+from poker_agent.human_likeness_evidence import build_human_likeness_evidence
 from poker_agent.llm_decision_context import build_decision_context_report
 from poker_agent.llm_role_boundary import build_llm_role_boundary
 from poker_agent.model_risk_register import build_model_risk_register
@@ -97,6 +99,8 @@ FINAL_STRATEGY_QUALITY_STATUS_PATH = PROJECT_ROOT / "reports" / "final_strategy_
 PRODUCTION_RUNTIME_MONITORING_PATH = PROJECT_ROOT / "reports" / "production_runtime_monitoring.json"
 EVALUATION_METRIC_CONTRACT_PATH = PROJECT_ROOT / "reports" / "evaluation_metric_contract.json"
 TEST_EXECUTION_CONTRACT_PATH = PROJECT_ROOT / "reports" / "test_execution_contract.json"
+HUMAN_LIKENESS_EVIDENCE_PATH = PROJECT_ROOT / "reports" / "human_likeness_evidence.json"
+HUMAN_LIKENESS_CLAIM_GATE_PATH = PROJECT_ROOT / "reports" / "human_likeness_claim_gate.json"
 
 
 APP_HTML = """
@@ -1028,6 +1032,20 @@ def behavioral_revalidation_json() -> dict[str, Any]:
     if BEHAVIORAL_REVALIDATION_PATH.exists():
         return json.loads(BEHAVIORAL_REVALIDATION_PATH.read_text(encoding="utf-8"))
     return build_behavioral_revalidation(PROJECT_ROOT)
+
+
+@app.get("/human-likeness-evidence.json", tags=["System"], summary="Human-likeness evidence boundary")
+def human_likeness_evidence_json() -> dict[str, Any]:
+    if HUMAN_LIKENESS_EVIDENCE_PATH.exists():
+        return json.loads(HUMAN_LIKENESS_EVIDENCE_PATH.read_text(encoding="utf-8"))
+    return build_human_likeness_evidence(PROJECT_ROOT)
+
+
+@app.get("/human-likeness-claim-gate.json", tags=["System"], summary="Human-likeness final-claim gate")
+def human_likeness_claim_gate_json() -> dict[str, Any]:
+    if HUMAN_LIKENESS_CLAIM_GATE_PATH.exists():
+        return json.loads(HUMAN_LIKENESS_CLAIM_GATE_PATH.read_text(encoding="utf-8"))
+    return build_human_likeness_claim_gate(PROJECT_ROOT)
 
 
 

@@ -1,0 +1,8 @@
+name: human_likeness_claim_gate
+description: Build the final human-likeness claim gate; action distribution alone cannot approve full human-likeness.
+command:
+  module: scripts.build_human_likeness_claim_gate
+  args: {}
+outputs:
+  json: reports/human_likeness_claim_gate.json
+  markdown: reports/human_likeness_claim_gate.md

@@ -161,6 +161,10 @@ $BehavioralRevalidationReport = Join-Path $ReportsDir "behavioral_revalidation.j
 $BehavioralRevalidationMarkdownReport = Join-Path $ReportsDir "behavioral_revalidation.md"
 $BehavioralRevalidationProofReport = Join-Path $ReportsDir "behavioral_revalidation_proof.json"
 $BehavioralRevalidationProofMarkdownReport = Join-Path $ReportsDir "behavioral_revalidation_proof.md"
+$HumanLikenessEvidenceReport = Join-Path $ReportsDir "human_likeness_evidence.json"
+$HumanLikenessEvidenceMarkdownReport = Join-Path $ReportsDir "human_likeness_evidence.md"
+$HumanLikenessClaimGateReport = Join-Path $ReportsDir "human_likeness_claim_gate.json"
+$HumanLikenessClaimGateMarkdownReport = Join-Path $ReportsDir "human_likeness_claim_gate.md"
 $HoleCardDataQualityReport = Join-Path $ReportsDir "hole_card_data_quality.json"
 $HoleCardDataQualityMarkdownReport = Join-Path $ReportsDir "hole_card_data_quality.md"
 $BetTimingCalibrationReport = Join-Path $ReportsDir "bet_timing_calibration.json"
@@ -452,6 +456,18 @@ Write-Host "7f-0/8 Building bet-sizing and timing calibration contract..." -Fore
     --out $BetTimingCalibrationReport `
     --markdown-out $BetTimingCalibrationMarkdownReport
 
+Write-Host "7f-0b/8 Building human-likeness evidence contract..." -ForegroundColor Green
+& $Python scripts\build_human_likeness_evidence.py `
+    --project-root $ProjectRoot `
+    --out $HumanLikenessEvidenceReport `
+    --markdown-out $HumanLikenessEvidenceMarkdownReport
+
+Write-Host "7f-0c/8 Building human-likeness final-claim gate..." -ForegroundColor Green
+& $Python scripts\build_human_likeness_claim_gate.py `
+    --project-root $ProjectRoot `
+    --out $HumanLikenessClaimGateReport `
+    --markdown-out $HumanLikenessClaimGateMarkdownReport
+
 Write-Host "7f-1/8 Building hole-card data-quality contract..." -ForegroundColor Green
 & $Python scripts\build_hole_card_data_quality.py `
     --project-root $ProjectRoot `
@@ -549,6 +565,8 @@ Write-Host "Model risk register: $ModelRiskRegisterReport"
 Write-Host "Production approval: $ProductionApprovalReport"
 Write-Host "Behavioral revalidation: $BehavioralRevalidationReport"
 Write-Host "Behavioral revalidation proof: $BehavioralRevalidationProofReport"
+Write-Host "Human-likeness evidence: $HumanLikenessEvidenceReport"
+Write-Host "Human-likeness claim gate: $HumanLikenessClaimGateReport"
 Write-Host "Bet/timing calibration: $BetTimingCalibrationReport"
 Write-Host "Hole-card data quality: $HoleCardDataQualityReport"
 Write-Host "Strategy stack maturity: $StrategyStackMaturityReport"

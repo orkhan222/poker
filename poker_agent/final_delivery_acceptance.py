@@ -20,6 +20,7 @@ STACK_EVENT_CONTEXT_BOUNDARY = "RAW_STACK_EVENTS_REQUIRE_DERIVED_DECISION_CONTEX
 PHASE3_OPEN_SPIEL_RL_BOUNDARY = "OPEN_SPIEL_RL_TRAINING_PROOF_REQUIRED"
 EVALUATION_METRIC_BOUNDARY = "ACCURACY_ALONE_NOT_SUFFICIENT"
 TEST_EXECUTION_BOUNDARY = "FULL_PYTEST_TIMEOUT_IS_NOT_DELIVERY_APPROVAL"
+HUMAN_LIKENESS_EVIDENCE_BOUNDARY = "ACTION_DISTRIBUTION_ALONE_IS_NOT_FULL_HUMAN_LIKENESS_PROOF"
 
 
 def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
@@ -42,6 +43,8 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
     phase3_open_spiel_arena = _read_optional_json(reports / "phase3_open_spiel_arena.json")
     evaluation_metric_contract = _read_optional_json(reports / "evaluation_metric_contract.json")
     test_execution_contract = _read_optional_json(reports / "test_execution_contract.json")
+    human_likeness_evidence = _read_optional_json(reports / "human_likeness_evidence.json")
+    human_likeness_claim_gate = _read_optional_json(reports / "human_likeness_claim_gate.json")
 
     handoff_position = client_handoff.get("technical_position") or {}
     approval_raw = production_approval.get("raw_supervised_model") or {}
@@ -320,6 +323,54 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
                 "delivery_verifier_status": (test_execution_contract.get("delivery_verifier") or {}).get("status"),
                 "current_delivery_blocker": test_execution_contract.get("current_delivery_blocker"),
             },
+            "human_likeness_evidence": {
+                "boundary": HUMAN_LIKENESS_EVIDENCE_BOUNDARY,
+                "status": human_likeness_evidence.get("status"),
+                "human_likeness_fully_proven": human_likeness_evidence.get("human_likeness_fully_proven"),
+                "final_human_likeness_claim_allowed": human_likeness_evidence.get(
+                    "final_human_likeness_claim_allowed"
+                ),
+                "current_scope_action_distribution_passed": human_likeness_evidence.get(
+                    "current_scope_action_distribution_passed"
+                ),
+                "current_delivery_blocker": human_likeness_evidence.get("current_delivery_blocker"),
+                "model_quality_risk": human_likeness_evidence.get("model_quality_risk"),
+                "required_behavior_dimensions": human_likeness_evidence.get("required_behavior_dimensions") or [],
+                "behavior_dimensions": {
+                    name: {
+                        "required": dimension.get("required"),
+                        "current_status": dimension.get("current_status"),
+                        "final_proof_allowed": dimension.get("final_proof_allowed"),
+                    }
+                    for name, dimension in (human_likeness_evidence.get("behavior_dimensions") or {}).items()
+                },
+            },
+            "human_likeness_claim_gate": {
+                "boundary": HUMAN_LIKENESS_EVIDENCE_BOUNDARY,
+                "claim": human_likeness_claim_gate.get("claim"),
+                "decision": human_likeness_claim_gate.get("decision"),
+                "claim_allowed": human_likeness_claim_gate.get("claim_allowed"),
+                "human_likeness_fully_proven": human_likeness_claim_gate.get("human_likeness_fully_proven"),
+                "action_distribution_only_proof_rejected": human_likeness_claim_gate.get(
+                    "action_distribution_only_proof_rejected"
+                ),
+                "current_scope_action_distribution_passed": human_likeness_claim_gate.get(
+                    "current_scope_action_distribution_passed"
+                ),
+                "current_delivery_blocker": human_likeness_claim_gate.get("current_delivery_blocker"),
+                "model_quality_risk": human_likeness_claim_gate.get("model_quality_risk"),
+                "required_evidence_dimensions": human_likeness_claim_gate.get("required_evidence_dimensions") or [],
+                "evidence_requirements": {
+                    name: {
+                        "required_for_final_claim": requirement.get("required_for_final_claim"),
+                        "current_status": requirement.get("current_status"),
+                        "currently_sufficient_for_final_claim": requirement.get(
+                            "currently_sufficient_for_final_claim"
+                        ),
+                    }
+                    for name, requirement in (human_likeness_claim_gate.get("evidence_requirements") or {}).items()
+                },
+            },
         },
         "allowed_delivery_claims": [
             "The service delivery package is ready.",
@@ -350,6 +401,8 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "Accuracy alone is sufficient for final production strategy-quality approval.",
             "The full pytest suite completed successfully when the recorded run timed out.",
             "A timed-out full pytest run is used as delivery approval evidence.",
+            "Human-likeness is fully proven by action distribution alone.",
+            "Bet sizing, timing, position behavior, and street-level strategy do not require separate validation.",
             "Current validation replaces larger clean real-gameplay revalidation.",
         ],
         "evidence": {
@@ -371,6 +424,8 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "phase3_open_spiel_arena": "reports/phase3_open_spiel_arena.json",
             "evaluation_metric_contract": "reports/evaluation_metric_contract.json",
             "test_execution_contract": "reports/test_execution_contract.json",
+            "human_likeness_evidence": "reports/human_likeness_evidence.json",
+            "human_likeness_claim_gate": "reports/human_likeness_claim_gate.json",
         },
         "next_milestones": [
             "Train and promote a stronger standalone raw supervised challenger only after it beats the current raw supervised model and passes every raw gate.",
@@ -409,6 +464,8 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
     phase3_rl = risks.get("phase3_open_spiel_rl_training") or {}
     evaluation_metrics = risks.get("evaluation_metric_coverage") or {}
     test_execution = risks.get("test_execution_coverage") or {}
+    human_likeness = risks.get("human_likeness_evidence") or {}
+    human_likeness_claim_gate = risks.get("human_likeness_claim_gate") or {}
 
     if payload.get("final_status") != FINAL_STATUS:
         violations.append("final_status_must_be_ready_with_tracked_component_risks")
@@ -524,6 +581,65 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
         violations.append("delivery_verifier_must_pass_for_delivery")
     if test_execution.get("current_delivery_blocker") is not False:
         violations.append("test_execution_gap_must_not_block_current_delivery")
+    if human_likeness.get("boundary") != HUMAN_LIKENESS_EVIDENCE_BOUNDARY:
+        violations.append("human_likeness_evidence_boundary_must_be_present")
+    if human_likeness.get("status") != "NOT_FULLY_PROVEN":
+        violations.append("human_likeness_status_must_remain_not_fully_proven")
+    if human_likeness.get("human_likeness_fully_proven") is not False:
+        violations.append("human_likeness_must_not_be_marked_fully_proven")
+    if human_likeness.get("final_human_likeness_claim_allowed") is not False:
+        violations.append("final_human_likeness_claim_must_remain_blocked")
+    if human_likeness.get("current_scope_action_distribution_passed") is not True:
+        violations.append("current_scope_action_distribution_must_pass")
+    if human_likeness.get("current_delivery_blocker") is not False:
+        violations.append("human_likeness_gap_must_not_block_current_delivery")
+    if human_likeness.get("model_quality_risk") is not True:
+        violations.append("human_likeness_gap_must_remain_model_quality_risk")
+    required_behavior_dimensions = {
+        "action_distribution",
+        "bet_sizing",
+        "timing",
+        "position_based_behavior",
+        "street_level_strategy",
+    }
+    if set(human_likeness.get("required_behavior_dimensions") or []) != required_behavior_dimensions:
+        violations.append("human_likeness_required_dimensions_must_be_complete")
+    behavior_dimensions = human_likeness.get("behavior_dimensions") or {}
+    for dimension_name in required_behavior_dimensions:
+        dimension = behavior_dimensions.get(dimension_name) or {}
+        if dimension.get("required") is not True:
+            violations.append(f"human_likeness_dimension_must_be_required:{dimension_name}")
+        if dimension.get("final_proof_allowed") is not False:
+            violations.append(f"human_likeness_dimension_final_proof_must_be_blocked:{dimension_name}")
+    if human_likeness_claim_gate.get("boundary") != HUMAN_LIKENESS_EVIDENCE_BOUNDARY:
+        violations.append("human_likeness_claim_gate_boundary_must_be_present")
+    if human_likeness_claim_gate.get("claim") != "FULL_HUMAN_LIKENESS":
+        violations.append("human_likeness_claim_gate_must_target_full_human_likeness")
+    if human_likeness_claim_gate.get("decision") != "BLOCKED":
+        violations.append("human_likeness_claim_gate_decision_must_remain_blocked")
+    if human_likeness_claim_gate.get("claim_allowed") is not False:
+        violations.append("human_likeness_claim_gate_must_not_allow_final_claim")
+    if human_likeness_claim_gate.get("human_likeness_fully_proven") is not False:
+        violations.append("human_likeness_claim_gate_must_not_mark_full_proof")
+    if human_likeness_claim_gate.get("action_distribution_only_proof_rejected") is not True:
+        violations.append("human_likeness_claim_gate_must_reject_action_distribution_only_proof")
+    if human_likeness_claim_gate.get("current_scope_action_distribution_passed") is not True:
+        violations.append("human_likeness_claim_gate_requires_current_scope_action_distribution_pass")
+    if human_likeness_claim_gate.get("current_delivery_blocker") is not False:
+        violations.append("human_likeness_claim_gate_gap_must_not_block_current_delivery")
+    if human_likeness_claim_gate.get("model_quality_risk") is not True:
+        violations.append("human_likeness_claim_gate_gap_must_remain_model_quality_risk")
+    if set(human_likeness_claim_gate.get("required_evidence_dimensions") or []) != required_behavior_dimensions:
+        violations.append("human_likeness_claim_gate_dimensions_must_be_complete")
+    claim_requirements = human_likeness_claim_gate.get("evidence_requirements") or {}
+    for dimension_name in required_behavior_dimensions:
+        requirement = claim_requirements.get(dimension_name) or {}
+        if requirement.get("required_for_final_claim") is not True:
+            violations.append(f"human_likeness_claim_gate_dimension_must_be_required:{dimension_name}")
+        if requirement.get("currently_sufficient_for_final_claim") is not False:
+            violations.append(
+                f"human_likeness_claim_gate_dimension_must_not_be_currently_sufficient:{dimension_name}"
+            )
     if qlora.get("stage_status") != "NEXT_STAGE_IMPROVEMENT":
         violations.append("qlora_must_remain_next_stage_improvement")
     if qlora.get("milestone_type") != "RESEARCH_QUALITY_IMPROVEMENT_MILESTONE":
@@ -731,6 +847,11 @@ def render_final_delivery_acceptance_markdown(payload: dict[str, Any]) -> str:
         f"- Full pytest used as approval: `{risks['test_execution_coverage']['full_pytest_used_as_delivery_approval']}`",
         f"- Critical validation status: `{risks['test_execution_coverage']['critical_validation_status']}`",
         f"- Delivery verifier status: `{risks['test_execution_coverage']['delivery_verifier_status']}`",
+        f"- Human-likeness evidence: `{risks['human_likeness_evidence']['status']}`",
+        f"- Human-likeness fully proven: `{risks['human_likeness_evidence']['human_likeness_fully_proven']}`",
+        f"- Final human-likeness claim allowed: `{risks['human_likeness_evidence']['final_human_likeness_claim_allowed']}`",
+        f"- Human-likeness claim gate: `{risks['human_likeness_claim_gate']['decision']}`",
+        f"- Action-distribution-only proof rejected: `{risks['human_likeness_claim_gate']['action_distribution_only_proof_rejected']}`",
         "",
         "## Blocked Claims",
         "",

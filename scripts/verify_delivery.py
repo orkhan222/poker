@@ -85,6 +85,8 @@ def require_files(root: Path) -> str:
         "configs/experiments/strategy_stack_maturity.yaml",
         "configs/experiments/behavioral_revalidation.yaml",
         "configs/experiments/behavioral_revalidation_proof.yaml",
+        "configs/experiments/human_likeness_evidence.yaml",
+        "configs/experiments/human_likeness_claim_gate.yaml",
         "configs/experiments/bet_timing_calibration.yaml",
         "configs/experiments/hole_card_data_quality.yaml",
         "configs/experiments/data_leakage_contract.yaml",
@@ -120,6 +122,8 @@ def require_files(root: Path) -> str:
         "configs/experiments/strategy_stack_maturity.yaml",
         "configs/experiments/behavioral_revalidation.yaml",
         "configs/experiments/behavioral_revalidation_proof.yaml",
+        "configs/experiments/human_likeness_evidence.yaml",
+        "configs/experiments/human_likeness_claim_gate.yaml",
         "configs/experiments/raw_model_status.yaml",
         "configs/experiments/raw_model_challenger.yaml",
         "configs/experiments/challenger_strategy_quality.yaml",
@@ -188,6 +192,10 @@ def require_files(root: Path) -> str:
         "reports/behavioral_revalidation.md",
         "reports/behavioral_revalidation_proof.json",
         "reports/behavioral_revalidation_proof.md",
+        "reports/human_likeness_evidence.json",
+        "reports/human_likeness_evidence.md",
+        "reports/human_likeness_claim_gate.json",
+        "reports/human_likeness_claim_gate.md",
         "reports/bet_timing_calibration.json",
         "reports/bet_timing_calibration.md",
         "reports/bet_timing_calibration.json",
@@ -236,6 +244,8 @@ def require_files(root: Path) -> str:
         "scripts/build_bet_timing_calibration.py",
         "scripts/build_behavioral_revalidation.py",
         "scripts/build_behavioral_revalidation_proof.py",
+        "scripts/build_human_likeness_evidence.py",
+        "scripts/build_human_likeness_claim_gate.py",
         "scripts/build_bet_timing_calibration.py",
         "scripts/build_hole_card_data_quality.py",
         "scripts/build_data_leakage_contract.py",
@@ -291,6 +301,9 @@ def require_files(root: Path) -> str:
         "poker_agent/bet_timing_calibration.py",
         "poker_agent/behavioral_revalidation.py",
         "poker_agent/behavioral_revalidation_proof.py",
+        "poker_agent/human_likeness_evidence.py",
+        "poker_agent/human_likeness_claim_gate.py",
+        "poker_agent/human_likeness_policy_guard.py",
         "poker_agent/bet_timing_calibration.py",
         "poker_agent/hole_card_data_quality.py",
         "poker_agent/data_leakage_contract.py",
@@ -349,6 +362,9 @@ def require_files(root: Path) -> str:
         "tests/test_strategy_stack_maturity.py",
         "tests/test_behavioral_revalidation.py",
         "tests/test_behavioral_revalidation_proof.py",
+        "tests/test_human_likeness_evidence.py",
+        "tests/test_human_likeness_claim_gate.py",
+        "tests/test_human_likeness_policy_guard.py",
         "tests/test_bet_timing_calibration.py",
         "tests/test_hole_card_data_quality.py",
         "tests/test_data_leakage_contract.py",
@@ -634,6 +650,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     strategy_stack_maturity = _read_json(reports / "strategy_stack_maturity.json")
     behavioral_revalidation = _read_json(reports / "behavioral_revalidation.json")
     behavioral_revalidation_proof = _read_json(reports / "behavioral_revalidation_proof.json")
+    human_likeness_evidence = _read_json(reports / "human_likeness_evidence.json")
+    human_likeness_claim_gate = _read_json(reports / "human_likeness_claim_gate.json")
     bet_timing_calibration = _read_json(reports / "bet_timing_calibration.json")
     hole_card_data_quality = _read_json(reports / "hole_card_data_quality.json")
     data_leakage_contract = _read_json(reports / "data_leakage_contract.json")
@@ -745,6 +763,85 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
             raise AssertionError(f"Behavioral proof did not block false claim: {blocked_case}")
     if (behavioral_revalidation_proof.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError(f"Behavioral revalidation proof invariants failed: {behavioral_revalidation_proof.get('invariants')}")
+
+    if human_likeness_evidence.get("overall_status") != "PASS":
+        raise AssertionError(f"Human-likeness evidence contract did not pass: {human_likeness_evidence.get('overall_status')}")
+    if (human_likeness_evidence.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Human-likeness evidence invariants failed: {human_likeness_evidence.get('invariants')}")
+    if human_likeness_evidence.get("boundary") != "ACTION_DISTRIBUTION_ALONE_IS_NOT_FULL_HUMAN_LIKENESS_PROOF":
+        raise AssertionError("Human-likeness evidence must block action-distribution-only proof")
+    if human_likeness_evidence.get("human_likeness_fully_proven") is not False:
+        raise AssertionError("Human-likeness must not be marked fully proven")
+    if human_likeness_evidence.get("final_human_likeness_claim_allowed") is not False:
+        raise AssertionError("Final human-likeness claim must remain blocked")
+    if human_likeness_evidence.get("current_scope_action_distribution_passed") is not True:
+        raise AssertionError("Current-scope action distribution must pass before the limited delivery claim")
+    if human_likeness_evidence.get("current_delivery_blocker") is not False:
+        raise AssertionError("Human-likeness evidence gap must not block current delivery")
+    if human_likeness_evidence.get("model_quality_risk") is not True:
+        raise AssertionError("Incomplete human-likeness evidence must remain a model-quality risk")
+    expected_behavior_dimensions = {
+        "action_distribution",
+        "bet_sizing",
+        "timing",
+        "position_based_behavior",
+        "street_level_strategy",
+    }
+    if set(human_likeness_evidence.get("required_behavior_dimensions") or []) != expected_behavior_dimensions:
+        raise AssertionError("Human-likeness evidence must require all behavior dimensions")
+    behavior_dimensions = human_likeness_evidence.get("behavior_dimensions") or {}
+    for dimension_name in expected_behavior_dimensions:
+        dimension = behavior_dimensions.get(dimension_name) or {}
+        if dimension.get("required") is not True:
+            raise AssertionError(f"Human-likeness behavior dimension must be required: {dimension_name}")
+        if dimension.get("final_proof_allowed") is not False:
+            raise AssertionError(f"Human-likeness behavior dimension final proof must remain blocked: {dimension_name}")
+    human_likeness_proof_cases = human_likeness_evidence.get("proof_cases") or []
+    if not human_likeness_proof_cases:
+        raise AssertionError("Human-likeness evidence must include proof cases")
+    for case in human_likeness_proof_cases:
+        if case.get("result") != "PASS":
+            raise AssertionError(f"Human-likeness evidence proof case failed: {case}")
+
+    if human_likeness_claim_gate.get("overall_status") != "PASS":
+        raise AssertionError(
+            f"Human-likeness claim gate did not pass: {human_likeness_claim_gate.get('overall_status')}"
+        )
+    if (human_likeness_claim_gate.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(f"Human-likeness claim gate invariants failed: {human_likeness_claim_gate.get('invariants')}")
+    if human_likeness_claim_gate.get("boundary") != "ACTION_DISTRIBUTION_ALONE_IS_NOT_FULL_HUMAN_LIKENESS_PROOF":
+        raise AssertionError("Human-likeness claim gate must reject action-distribution-only proof")
+    if human_likeness_claim_gate.get("claim") != "FULL_HUMAN_LIKENESS":
+        raise AssertionError("Human-likeness claim gate must govern the full human-likeness claim")
+    if human_likeness_claim_gate.get("decision") != "BLOCKED":
+        raise AssertionError("Full human-likeness claim gate must remain BLOCKED")
+    if human_likeness_claim_gate.get("claim_allowed") is not False:
+        raise AssertionError("Full human-likeness claim must not be allowed")
+    if human_likeness_claim_gate.get("human_likeness_fully_proven") is not False:
+        raise AssertionError("Human-likeness claim gate must not mark full proof as complete")
+    if human_likeness_claim_gate.get("action_distribution_only_proof_rejected") is not True:
+        raise AssertionError("Human-likeness claim gate must reject action-distribution-only proof")
+    if human_likeness_claim_gate.get("current_delivery_blocker") is not False:
+        raise AssertionError("Human-likeness claim gate must not block current delivery")
+    if human_likeness_claim_gate.get("model_quality_risk") is not True:
+        raise AssertionError("Human-likeness claim gate must remain a model-quality risk")
+    if set(human_likeness_claim_gate.get("required_evidence_dimensions") or []) != expected_behavior_dimensions:
+        raise AssertionError("Human-likeness claim gate must require all behavior dimensions")
+    claim_requirements = human_likeness_claim_gate.get("evidence_requirements") or {}
+    for dimension_name in expected_behavior_dimensions:
+        requirement = claim_requirements.get(dimension_name) or {}
+        if requirement.get("required_for_final_claim") is not True:
+            raise AssertionError(f"Human-likeness claim dimension must be required: {dimension_name}")
+        if requirement.get("currently_sufficient_for_final_claim") is not False:
+            raise AssertionError(
+                f"Human-likeness claim dimension must not be sufficient in current scope: {dimension_name}"
+            )
+    claim_proof_cases = human_likeness_claim_gate.get("proof_cases") or []
+    if not claim_proof_cases:
+        raise AssertionError("Human-likeness claim gate must include proof cases")
+    for case in claim_proof_cases:
+        if case.get("result") != "PASS":
+            raise AssertionError(f"Human-likeness claim gate proof case failed: {case}")
 
     bet_timing_current = bet_timing_calibration.get("current_delivery_scope") or {}
     bet_timing_boundary = bet_timing_calibration.get("calibration_boundary") or {}
@@ -1585,6 +1682,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     final_bet = final_acceptance_risks.get("bet_timing_calibration") or {}
     final_behavioral = final_acceptance_risks.get("behavioral_revalidation") or {}
     final_multi = final_acceptance_risks.get("multi_agent_training") or {}
+    final_human_likeness_claim_gate = final_acceptance_risks.get("human_likeness_claim_gate") or {}
     if final_delivery_acceptance.get("overall_status") != "PASS":
         raise AssertionError(f"Final delivery acceptance did not pass: {final_delivery_acceptance.get('overall_status')}")
     if final_delivery_acceptance.get("final_status") != "READY_WITH_TRACKED_COMPONENT_RISKS":
@@ -1694,6 +1792,18 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Final acceptance must require larger clean gameplay revalidation")
     if final_multi.get("full_production_scale_multi_agent_training_status") != "NOT_COMPLETED":
         raise AssertionError("Final acceptance must not mark full production-scale multi-agent training complete")
+    if final_human_likeness_claim_gate.get("claim") != "FULL_HUMAN_LIKENESS":
+        raise AssertionError("Final acceptance must expose the full human-likeness claim gate")
+    if final_human_likeness_claim_gate.get("decision") != "BLOCKED":
+        raise AssertionError("Final acceptance must keep the full human-likeness claim blocked")
+    if final_human_likeness_claim_gate.get("claim_allowed") is not False:
+        raise AssertionError("Final acceptance must not allow the full human-likeness claim")
+    if final_human_likeness_claim_gate.get("action_distribution_only_proof_rejected") is not True:
+        raise AssertionError("Final acceptance must reject action-distribution-only human-likeness proof")
+    if final_human_likeness_claim_gate.get("current_delivery_blocker") is not False:
+        raise AssertionError("Final acceptance must not make the human-likeness claim gate a delivery blocker")
+    if final_human_likeness_claim_gate.get("model_quality_risk") is not True:
+        raise AssertionError("Final acceptance must keep the human-likeness claim gap as model-quality risk")
     if (final_delivery_acceptance.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError(f"Final delivery acceptance invariants failed: {final_delivery_acceptance.get('invariants')}")
     return (
@@ -1747,6 +1857,8 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/experiments/strategy_stack_maturity.yaml",
         "configs/experiments/behavioral_revalidation.yaml",
         "configs/experiments/behavioral_revalidation_proof.yaml",
+        "configs/experiments/human_likeness_evidence.yaml",
+        "configs/experiments/human_likeness_claim_gate.yaml",
         "configs/experiments/hole_card_data_quality.yaml",
         "configs/experiments/data_leakage_contract.yaml",
         "configs/experiments/actions_context_quality.yaml",
@@ -1797,6 +1909,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "configs/experiments/phase3_open_spiel_arena.yaml",
         "configs/experiments/evaluation_metric_contract.yaml",
         "configs/experiments/test_execution_contract.yaml",
+        "configs/experiments/human_likeness_evidence.yaml",
+        "configs/experiments/human_likeness_claim_gate.yaml",
         "configs/experiments/data_leakage_contract.yaml",
         "configs/experiments/actions_context_quality.yaml",
         "configs/experiments/stack_event_context_quality.yaml",
@@ -1871,6 +1985,10 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/evaluation_metric_contract.md",
         "reports/test_execution_contract.json",
         "reports/test_execution_contract.md",
+        "reports/human_likeness_evidence.json",
+        "reports/human_likeness_evidence.md",
+        "reports/human_likeness_claim_gate.json",
+        "reports/human_likeness_claim_gate.md",
         "reports/data_leakage_contract.json",
         "reports/data_leakage_contract.md",
         "reports/actions_context_quality.json",
@@ -1893,6 +2011,9 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/open_spiel_llm_arena.py",
         "poker_agent/evaluation_metric_contract.py",
         "poker_agent/test_execution_contract.py",
+        "poker_agent/human_likeness_evidence.py",
+        "poker_agent/human_likeness_claim_gate.py",
+        "poker_agent/human_likeness_policy_guard.py",
         "poker_agent/data_leakage_contract.py",
         "poker_agent/actions_context_quality.py",
         "poker_agent/stack_event_context_quality.py",
@@ -1925,6 +2046,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/build_phase3_open_spiel_arena.py",
         "scripts/build_evaluation_metric_contract.py",
         "scripts/build_test_execution_contract.py",
+        "scripts/build_human_likeness_evidence.py",
+        "scripts/build_human_likeness_claim_gate.py",
         "scripts/build_data_leakage_contract.py",
         "scripts/build_actions_context_quality.py",
         "scripts/build_stack_event_context_quality.py",
@@ -1949,6 +2072,9 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "tests/test_open_spiel_llm_arena.py",
         "tests/test_evaluation_metric_contract.py",
         "tests/test_test_execution_contract.py",
+        "tests/test_human_likeness_evidence.py",
+        "tests/test_human_likeness_claim_gate.py",
+        "tests/test_human_likeness_policy_guard.py",
         "tests/test_data_leakage_contract.py",
         "tests/test_actions_context_quality.py",
         "tests/test_stack_event_context_quality.py",

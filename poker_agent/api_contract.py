@@ -323,6 +323,44 @@ def api_contract() -> dict[str, Any]:
                 "delivery remains supported by critical tests and the full delivery verifier."
             ),
         },
+        "human_likeness_evidence": {
+            "endpoint": "/human-likeness-evidence.json",
+            "description": (
+                "Separates current-scope action-distribution similarity from full human-likeness proof."
+            ),
+            "required_behavior_dimensions": [
+                "action distribution",
+                "bet sizing",
+                "timing",
+                "position-based behavior",
+                "street-level strategy",
+            ],
+            "claim_boundary": (
+                "Action distribution can pass while full human-likeness remains unproven. Final "
+                "human-likeness claims require bet-size, timing, position, and street-level validation."
+            ),
+        },
+        "human_likeness_claim_gate": {
+            "endpoint": "/human-likeness-claim-gate.json",
+            "description": (
+                "Final claim gate that blocks full human-likeness approval when only action-distribution "
+                "similarity has passed."
+            ),
+            "claim": "FULL_HUMAN_LIKENESS",
+            "decision_values": ["BLOCKED", "APPROVED"],
+            "current_decision": "BLOCKED",
+            "required_evidence_dimensions": [
+                "action distribution",
+                "bet sizing",
+                "timing",
+                "position-based behavior",
+                "street-level strategy",
+            ],
+            "claim_boundary": (
+                "The system may report current-scope action-distribution similarity, but it must not "
+                "claim full human-likeness until all required behavior dimensions have reviewed evidence."
+            ),
+        },
         "project_completion": {
             "endpoint": "/project-completion.json",
             "description": "Maps the documented project scope to implemented evidence, metrics, deployment artifacts, and known component risks.",

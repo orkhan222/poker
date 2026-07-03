@@ -367,6 +367,92 @@ def _write_reports(reports: Path) -> None:
         ),
         encoding="utf-8",
     )
+    (reports / "human_likeness_evidence.json").write_text(
+        json.dumps(
+            {
+                "boundary": "ACTION_DISTRIBUTION_ALONE_IS_NOT_FULL_HUMAN_LIKENESS_PROOF",
+                "status": "NOT_FULLY_PROVEN",
+                "human_likeness_fully_proven": False,
+                "final_human_likeness_claim_allowed": False,
+                "current_scope_action_distribution_passed": True,
+                "current_delivery_blocker": False,
+                "model_quality_risk": True,
+                "required_behavior_dimensions": [
+                    "action_distribution",
+                    "bet_sizing",
+                    "timing",
+                    "position_based_behavior",
+                    "street_level_strategy",
+                ],
+                "behavior_dimensions": {
+                    "action_distribution": {"required": True, "current_status": "PASS", "final_proof_allowed": False},
+                    "bet_sizing": {"required": True, "current_status": "PASS", "final_proof_allowed": False},
+                    "timing": {"required": True, "current_status": "PASS", "final_proof_allowed": False},
+                    "position_based_behavior": {
+                        "required": True,
+                        "current_status": "REQUIRES_SLICE_REVALIDATION",
+                        "final_proof_allowed": False,
+                    },
+                    "street_level_strategy": {
+                        "required": True,
+                        "current_status": "REQUIRES_SLICE_REVALIDATION",
+                        "final_proof_allowed": False,
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (reports / "human_likeness_claim_gate.json").write_text(
+        json.dumps(
+            {
+                "boundary": "ACTION_DISTRIBUTION_ALONE_IS_NOT_FULL_HUMAN_LIKENESS_PROOF",
+                "claim": "FULL_HUMAN_LIKENESS",
+                "decision": "BLOCKED",
+                "claim_allowed": False,
+                "human_likeness_fully_proven": False,
+                "action_distribution_only_proof_rejected": True,
+                "current_scope_action_distribution_passed": True,
+                "current_delivery_blocker": False,
+                "model_quality_risk": True,
+                "required_evidence_dimensions": [
+                    "action_distribution",
+                    "bet_sizing",
+                    "timing",
+                    "position_based_behavior",
+                    "street_level_strategy",
+                ],
+                "evidence_requirements": {
+                    "action_distribution": {
+                        "required_for_final_claim": True,
+                        "current_status": "PASS",
+                        "currently_sufficient_for_final_claim": False,
+                    },
+                    "bet_sizing": {
+                        "required_for_final_claim": True,
+                        "current_status": "PASS",
+                        "currently_sufficient_for_final_claim": False,
+                    },
+                    "timing": {
+                        "required_for_final_claim": True,
+                        "current_status": "PASS",
+                        "currently_sufficient_for_final_claim": False,
+                    },
+                    "position_based_behavior": {
+                        "required_for_final_claim": True,
+                        "current_status": "REQUIRES_SLICE_REVALIDATION",
+                        "currently_sufficient_for_final_claim": False,
+                    },
+                    "street_level_strategy": {
+                        "required_for_final_claim": True,
+                        "current_status": "REQUIRES_SLICE_REVALIDATION",
+                        "currently_sufficient_for_final_claim": False,
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     (reports / "raw_model_status.json").write_text(
         json.dumps(
             {
@@ -443,6 +529,20 @@ def test_final_delivery_acceptance_passes_with_tracked_risks(tmp_path: Path) -> 
     assert payload["tracked_component_risks"]["test_execution_coverage"]["full_pytest_used_as_delivery_approval"] is False
     assert payload["tracked_component_risks"]["test_execution_coverage"]["critical_validation_status"] == "PASS"
     assert payload["tracked_component_risks"]["test_execution_coverage"]["delivery_verifier_status"] == "PASS"
+    assert payload["tracked_component_risks"]["human_likeness_evidence"]["status"] == "NOT_FULLY_PROVEN"
+    assert payload["tracked_component_risks"]["human_likeness_evidence"]["human_likeness_fully_proven"] is False
+    assert payload["tracked_component_risks"]["human_likeness_evidence"]["final_human_likeness_claim_allowed"] is False
+    assert payload["tracked_component_risks"]["human_likeness_evidence"]["current_scope_action_distribution_passed"] is True
+    assert payload["tracked_component_risks"]["human_likeness_evidence"]["model_quality_risk"] is True
+    assert payload["tracked_component_risks"]["human_likeness_claim_gate"]["claim"] == "FULL_HUMAN_LIKENESS"
+    assert payload["tracked_component_risks"]["human_likeness_claim_gate"]["decision"] == "BLOCKED"
+    assert payload["tracked_component_risks"]["human_likeness_claim_gate"]["claim_allowed"] is False
+    assert payload["tracked_component_risks"]["human_likeness_claim_gate"]["human_likeness_fully_proven"] is False
+    assert (
+        payload["tracked_component_risks"]["human_likeness_claim_gate"]["action_distribution_only_proof_rejected"]
+        is True
+    )
+    assert payload["tracked_component_risks"]["human_likeness_claim_gate"]["model_quality_risk"] is True
 
 
 def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
@@ -482,6 +582,23 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     payload["tracked_component_risks"]["test_execution_coverage"]["critical_validation_status"] = "FAIL"
     payload["tracked_component_risks"]["test_execution_coverage"]["delivery_verifier_status"] = "FAIL"
     payload["tracked_component_risks"]["test_execution_coverage"]["current_delivery_blocker"] = True
+    payload["tracked_component_risks"]["human_likeness_evidence"]["human_likeness_fully_proven"] = True
+    payload["tracked_component_risks"]["human_likeness_evidence"]["final_human_likeness_claim_allowed"] = True
+    payload["tracked_component_risks"]["human_likeness_evidence"]["model_quality_risk"] = False
+    payload["tracked_component_risks"]["human_likeness_evidence"]["behavior_dimensions"]["bet_sizing"][
+        "final_proof_allowed"
+    ] = True
+    payload["tracked_component_risks"]["human_likeness_evidence"]["behavior_dimensions"]["position_based_behavior"][
+        "required"
+    ] = False
+    payload["tracked_component_risks"]["human_likeness_claim_gate"]["decision"] = "APPROVED"
+    payload["tracked_component_risks"]["human_likeness_claim_gate"]["claim_allowed"] = True
+    payload["tracked_component_risks"]["human_likeness_claim_gate"]["human_likeness_fully_proven"] = True
+    payload["tracked_component_risks"]["human_likeness_claim_gate"]["action_distribution_only_proof_rejected"] = False
+    payload["tracked_component_risks"]["human_likeness_claim_gate"]["model_quality_risk"] = False
+    payload["tracked_component_risks"]["human_likeness_claim_gate"]["evidence_requirements"]["timing"][
+        "currently_sufficient_for_final_claim"
+    ] = True
     payload.pop("overall_status", None)
 
     invariants = validate_final_delivery_acceptance(payload)
@@ -516,6 +633,19 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     assert "critical_validation_must_pass_for_delivery" in invariants["violations"]
     assert "delivery_verifier_must_pass_for_delivery" in invariants["violations"]
     assert "test_execution_gap_must_not_block_current_delivery" in invariants["violations"]
+    assert "human_likeness_must_not_be_marked_fully_proven" in invariants["violations"]
+    assert "final_human_likeness_claim_must_remain_blocked" in invariants["violations"]
+    assert "human_likeness_gap_must_remain_model_quality_risk" in invariants["violations"]
+    assert "human_likeness_dimension_final_proof_must_be_blocked:bet_sizing" in invariants["violations"]
+    assert "human_likeness_dimension_must_be_required:position_based_behavior" in invariants["violations"]
+    assert "human_likeness_claim_gate_decision_must_remain_blocked" in invariants["violations"]
+    assert "human_likeness_claim_gate_must_not_allow_final_claim" in invariants["violations"]
+    assert "human_likeness_claim_gate_must_not_mark_full_proof" in invariants["violations"]
+    assert "human_likeness_claim_gate_must_reject_action_distribution_only_proof" in invariants["violations"]
+    assert "human_likeness_claim_gate_gap_must_remain_model_quality_risk" in invariants["violations"]
+    assert "human_likeness_claim_gate_dimension_must_not_be_currently_sufficient:timing" in invariants[
+        "violations"
+    ]
     assert "model_confidence_monitoring_must_be_required_for_real_traffic" in invariants["violations"]
     assert "real_production_traffic_must_not_be_approved_before_observability" in invariants["violations"]
     assert "real_production_traffic_status_must_require_observability" in invariants["violations"]

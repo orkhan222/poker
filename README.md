@@ -55,6 +55,8 @@ Human-likeness and action-distribution checks pass for the current validation sc
 
 The executable proof is generated at `reports\behavioral_revalidation_proof.json`, rendered at `reports\behavioral_revalidation_proof.md`, and exposed through `GET /behavioral-revalidation-proof.json`. It validates the passing contract and verifies that false generalized claims fail the same validator.
 
+Full human-likeness is now protected by an explicit claim gate. The gate allows the limited statement that current-scope action distribution passes, but blocks any final human-likeness claim until bet sizing, timing, position-based behavior, and street-level strategy are validated with reviewed evidence. This gate is generated at `reports\human_likeness_claim_gate.json`, rendered at `reports\human_likeness_claim_gate.md`, and exposed through `GET /human-likeness-claim-gate.json`.
+
 
 Bet-sizing and timing behavior are implemented and measured in the current delivery scope. The service returns `bet_size`, `wait_time_ms`, `sizing_method`, and `timing_method`; however, higher-realism behavior still requires calibration with more reviewed real-player bet-size and decision-timing labels. This boundary is generated at `reports\bet_timing_calibration.json`, rendered at `reports\bet_timing_calibration.md`, and exposed through `GET /bet-timing-calibration.json`.
 
@@ -75,6 +77,7 @@ Machine-readable status endpoints:
 /production-approval.json
 /raw-model-status.json
 /challenger-strategy-quality.json
+/human-likeness-claim-gate.json
 /approval-boundary.json
 /client-handoff.json
 /llm-decision-context.json
