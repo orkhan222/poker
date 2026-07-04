@@ -1,0 +1,19 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: routed_bundle_smoke
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: normalized_action_contract
+description: Build the normalized action schema contract for OCR/dealer action labels.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_normalized_action_contract.py
+  args:
+    project_root: .
+    out: ${logging.reports_dir}/normalized_action_contract.json
+    markdown_out: ${logging.reports_dir}/normalized_action_contract.md
+    max_rows: 5000

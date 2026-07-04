@@ -90,6 +90,7 @@ def require_files(root: Path) -> str:
         "configs/experiments/bet_timing_calibration.yaml",
         "configs/experiments/hole_card_data_quality.yaml",
         "configs/experiments/data_leakage_contract.yaml",
+        "configs/experiments/normalized_action_contract.yaml",
         "configs/experiments/actions_context_quality.yaml",
         "configs/experiments/stack_event_context_quality.yaml",
         "configs/experiments/train_routed_bundle_smoke.yaml",
@@ -105,6 +106,7 @@ def require_files(root: Path) -> str:
         "configs/experiments/llm_decision_candidate_ranker_qwen25.yaml",
         "configs/experiments/llm_decision_candidate_gate.yaml",
         "configs/experiments/llm_architecture_comparison.yaml",
+        "configs/experiments/phase2_selection_comparison.yaml",
         "configs/experiments/llm_role_boundary.yaml",
         "configs/experiments/qlora_next_stage.yaml",
         "configs/experiments/production_runtime_monitoring.yaml",
@@ -158,6 +160,8 @@ def require_files(root: Path) -> str:
         "reports/llm_decision_candidate_gate.md",
         "reports/llm_architecture_comparison.json",
         "reports/llm_architecture_comparison.md",
+        "reports/phase2_selection_comparison.json",
+        "reports/phase2_selection_comparison.md",
         "reports/llm_role_boundary.json",
         "reports/llm_role_boundary.md",
         "reports/qlora_next_stage.json",
@@ -206,6 +210,8 @@ def require_files(root: Path) -> str:
         "reports/hole_card_data_quality.md",
         "reports/data_leakage_contract.json",
         "reports/data_leakage_contract.md",
+        "reports/normalized_action_contract.json",
+        "reports/normalized_action_contract.md",
         "reports/actions_context_quality.json",
         "reports/actions_context_quality.md",
         "reports/stack_event_context_quality.json",
@@ -249,6 +255,7 @@ def require_files(root: Path) -> str:
         "scripts/build_bet_timing_calibration.py",
         "scripts/build_hole_card_data_quality.py",
         "scripts/build_data_leakage_contract.py",
+        "scripts/build_normalized_action_contract.py",
         "scripts/build_actions_context_quality.py",
         "scripts/build_stack_event_context_quality.py",
         "scripts/build_raw_model_status.py",
@@ -307,6 +314,8 @@ def require_files(root: Path) -> str:
         "poker_agent/bet_timing_calibration.py",
         "poker_agent/hole_card_data_quality.py",
         "poker_agent/data_leakage_contract.py",
+        "poker_agent/action_normalization.py",
+        "poker_agent/normalized_action_contract.py",
         "poker_agent/actions_context_quality.py",
         "poker_agent/stack_event_context_quality.py",
         "poker_agent/raw_model_status.py",
@@ -368,6 +377,7 @@ def require_files(root: Path) -> str:
         "tests/test_bet_timing_calibration.py",
         "tests/test_hole_card_data_quality.py",
         "tests/test_data_leakage_contract.py",
+        "tests/test_normalized_action_contract.py",
         "tests/test_actions_context_quality.py",
         "tests/test_stack_event_context_quality.py",
         "tests/test_raw_model_status.py",
@@ -637,6 +647,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     candidate_ranker = _read_json(reports / "llm_decision_candidate_ranker_qwen25.json")
     candidate_gate = _read_json(reports / "llm_decision_candidate_gate.json")
     architecture_comparison = _read_json(reports / "llm_architecture_comparison.json")
+    phase2_selection_comparison = _read_json(reports / "phase2_selection_comparison.json")
     llm_role_boundary = _read_json(reports / "llm_role_boundary.json")
     qlora_next_stage = _read_json(reports / "qlora_next_stage.json")
     production_runtime_monitoring = _read_json(reports / "production_runtime_monitoring.json")
@@ -655,6 +666,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     bet_timing_calibration = _read_json(reports / "bet_timing_calibration.json")
     hole_card_data_quality = _read_json(reports / "hole_card_data_quality.json")
     data_leakage_contract = _read_json(reports / "data_leakage_contract.json")
+    normalized_action_contract = _read_json(reports / "normalized_action_contract.json")
     actions_context_quality = _read_json(reports / "actions_context_quality.json")
     stack_event_context_quality = _read_json(reports / "stack_event_context_quality.json")
     raw_model_status = _read_json(reports / "raw_model_status.json")
@@ -987,6 +999,68 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError(f"Forbidden outcome-field source usage detected: {leakage_sources.get('forbidden_source_usages')}")
     if (data_leakage_contract.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError(f"Data-leakage invariants failed: {data_leakage_contract.get('invariants')}")
+    normalized_actions_audit = normalized_action_contract.get("actions_csv_audit") or {}
+    normalized_training_audit = normalized_action_contract.get("training_label_audit") or {}
+    normalized_examples = {
+        example.get("raw_action"): example for example in normalized_action_contract.get("noisy_action_examples") or []
+    }
+    if normalized_action_contract.get("overall_status") != "PASS":
+        raise AssertionError(
+            f"Normalized action contract did not pass: {normalized_action_contract.get('overall_status')}"
+        )
+    if (normalized_action_contract.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(
+            f"Normalized action contract invariants failed: {normalized_action_contract.get('invariants')}"
+        )
+    if normalized_action_contract.get("normalized_action_status") != "IMPLEMENTED":
+        raise AssertionError("Normalized action contract must be implemented")
+    if normalized_action_contract.get("raw_action_source_status") != "RAW_OCR_OR_DEALER_TEXT":
+        raise AssertionError("actions.csv action source must remain declared as raw OCR/dealer text")
+    if set(normalized_action_contract.get("canonical_actions") or []) != {
+        "fold",
+        "call",
+        "check",
+        "bet",
+        "raise",
+        "all_in",
+    }:
+        raise AssertionError("Normalized action contract must expose the full canonical action set")
+    if normalized_action_contract.get("source_field") != "actions.csv::action":
+        raise AssertionError("Normalized action source field must be actions.csv::action")
+    if normalized_action_contract.get("normalized_field") != "canonical_action":
+        raise AssertionError("Normalized action target field must be canonical_action")
+    if normalized_action_contract.get("raw_ocr_action_must_not_be_training_label") is not True:
+        raise AssertionError("Raw OCR action strings must not be valid training labels")
+    for required_flag in (
+        "normalization_required_before_training",
+        "normalization_required_before_evaluation",
+        "normalization_required_before_policy_comparison",
+    ):
+        if normalized_action_contract.get(required_flag) is not True:
+            raise AssertionError(f"Normalized action contract missing required flag: {required_flag}")
+    if normalized_action_contract.get("current_delivery_blocker") is not False:
+        raise AssertionError("Normalized action contract must not block current delivery")
+    if normalized_action_contract.get("model_quality_risk") is not False:
+        raise AssertionError("Implemented normalized action contract must not remain an open model-quality risk")
+    if normalized_actions_audit.get("action_column_present") is not True:
+        raise AssertionError("actions.csv must expose an action column for normalization")
+    if int(normalized_actions_audit.get("rows_scanned") or 0) <= 0:
+        raise AssertionError("Normalized action audit must scan actions.csv rows")
+    if int(normalized_actions_audit.get("canonical_decision_rows") or 0) <= 0:
+        raise AssertionError("Normalized action audit must find canonical decision rows")
+    if normalized_training_audit.get("status") != "PASS":
+        raise AssertionError("Training labels must be normalized into the canonical action set")
+    if normalized_training_audit.get("invalid_labels"):
+        raise AssertionError(f"Raw or invalid training labels detected: {normalized_training_audit.get('invalid_labels')}")
+    for raw_action, expected in {
+        "ra1se": "raise",
+        "cail": "call",
+        "bett": "bet",
+        "all-in": "all_in",
+    }.items():
+        example = normalized_examples.get(raw_action) or {}
+        if example.get("observed") != expected or example.get("passed") is not True:
+            raise AssertionError(f"Noisy action example failed normalization: {raw_action}")
     actions_schema = actions_context_quality.get("actions_csv_schema_audit") or {}
     actions_mitigation = actions_context_quality.get("derived_context_mitigation") or {}
     actions_features = actions_context_quality.get("training_feature_audit") or {}
@@ -1478,6 +1552,49 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Architecture comparison incorrectly grants production approval")
     if (architecture_comparison.get("approval_boundary") or {}).get("deployed_strategy_stack_affected") is not False:
         raise AssertionError("LLM architecture comparison incorrectly affects deployed strategy approval")
+    phase2_gate = phase2_selection_comparison.get("comparison_gate") or {}
+    phase2_candidates = phase2_selection_comparison.get("candidates") or {}
+    expected_phase2_candidates = {
+        "llm_decision_agent",
+        "supervised_model",
+        "rule_based_fallback",
+        "routed_policy_bundle",
+        "future_rl_agent",
+    }
+    if phase2_selection_comparison.get("overall_status") != "PASS":
+        raise AssertionError(
+            f"Phase 2 selection comparison did not pass: {phase2_selection_comparison.get('overall_status')}"
+        )
+    if (phase2_selection_comparison.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(
+            f"Phase 2 selection comparison invariants failed: {phase2_selection_comparison.get('invariants')}"
+        )
+    if phase2_selection_comparison.get("boundary") != "PHASE_2_SELECTION_REQUIRES_COMMON_HOLDOUT_AND_SIMULATION":
+        raise AssertionError("Phase 2 selection comparison must expose the common-condition boundary")
+    if set(phase2_selection_comparison.get("required_candidates") or []) != expected_phase2_candidates:
+        raise AssertionError("Phase 2 selection comparison must include every required candidate")
+    if (phase2_selection_comparison.get("common_holdout_contract") or {}).get("same_holdout_required") is not True:
+        raise AssertionError("Phase 2 selection comparison must require a common holdout")
+    if (phase2_selection_comparison.get("common_simulation_contract") or {}).get("same_simulation_required") is not True:
+        raise AssertionError("Phase 2 selection comparison must require a common simulation")
+    if phase2_gate.get("selected_for_current_delivery") != "routed_policy_bundle":
+        raise AssertionError("Phase 2 current delivery architecture must remain routed_policy_bundle")
+    if phase2_gate.get("final_selection_claim_allowed") is not False:
+        raise AssertionError("Phase 2 final selection claim must remain blocked until common-condition comparison")
+    if phase2_gate.get("current_delivery_blocker") is not False:
+        raise AssertionError("Phase 2 common-condition comparison gap must not block current delivery")
+    if phase2_gate.get("model_quality_risk") is not True:
+        raise AssertionError("Phase 2 common-condition comparison gap must remain a model-quality risk")
+    if phase2_gate.get("all_candidates_compared_on_common_holdout") is not False:
+        raise AssertionError("Phase 2 common holdout must not be marked complete yet")
+    if phase2_gate.get("all_candidates_compared_in_common_simulation") is not False:
+        raise AssertionError("Phase 2 common simulation must not be marked complete yet")
+    if not phase2_gate.get("missing_common_holdout_candidates"):
+        raise AssertionError("Phase 2 missing common holdout candidates must be listed")
+    if not phase2_gate.get("missing_common_simulation_candidates"):
+        raise AssertionError("Phase 2 missing common simulation candidates must be listed")
+    if (phase2_candidates.get("future_rl_agent") or {}).get("implementation_status") != "NOT_AVAILABLE_YET":
+        raise AssertionError("Future RL agent must not be claimed available before Phase 3 training proof")
 
     llm_role = llm_role_boundary.get("current_llm_role") or {}
     llm_event_layer = llm_role.get("event_normalization_layer") or {}
@@ -1633,6 +1750,9 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError(f"Production monitoring invariants failed: {production_runtime_monitoring.get('invariants')}")
 
     final_strategy_delivery = final_strategy_quality_status.get("delivery_boundary") or {}
+    final_strategy_deployment_vs_competitive = (
+        final_strategy_quality_status.get("deployment_vs_competitive_claim_boundary") or {}
+    )
     final_strategy_boundary = final_strategy_quality_status.get("final_strategy_quality_boundary") or {}
     final_strategy_remaining = final_strategy_quality_status.get("remaining_work") or {}
     final_strategy_real_traffic = final_strategy_quality_status.get("real_traffic_boundary") or {}
@@ -1644,6 +1764,31 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Final strategy quality status must preserve software delivery readiness")
     if final_strategy_delivery.get("current_delivery_blocker") is not False:
         raise AssertionError("Final strategy quality hardening gap must not block current delivery")
+    deployment_components = final_strategy_deployment_vs_competitive.get("deployment_sufficient_components") or {}
+    for component in (
+        "fastapi_service",
+        "docker_packaging",
+        "predict_endpoint",
+        "health_endpoint",
+        "reports_and_verifier",
+    ):
+        if deployment_components.get(component) is not True:
+            raise AssertionError(f"Deployment component must be present for delivery review: {component}")
+    if final_strategy_deployment_vs_competitive.get("deployment_delivery_ready") is not True:
+        raise AssertionError("Deployment boundary must preserve software delivery readiness")
+    if final_strategy_deployment_vs_competitive.get("deployment_claim_allowed") is not True:
+        raise AssertionError("Deployment claim must be allowed for FastAPI/Docker service delivery")
+    if final_strategy_deployment_vs_competitive.get("competitive_poker_agent_claim_allowed") is not False:
+        raise AssertionError("Competitive poker-agent claim must remain blocked")
+    if (
+        final_strategy_deployment_vs_competitive.get("competitive_poker_agent_claim_state")
+        != "BLOCKED_PENDING_MODEL_DATA_AND_TRAINING_HARDENING"
+    ):
+        raise AssertionError("Competitive poker-agent claim state must remain blocked pending hardening")
+    if final_strategy_deployment_vs_competitive.get("current_delivery_blocker") is not False:
+        raise AssertionError("Competitive strategy hardening gap must not block current delivery")
+    if final_strategy_deployment_vs_competitive.get("deployed_strategy_stack_affected") is not False:
+        raise AssertionError("Competitive strategy hardening gap must not affect the deployed stack approval")
     if final_strategy_boundary.get("status") != "NOT_APPROVED_PENDING_HARDENING_GATES":
         raise AssertionError("Final strategy quality must remain not approved pending hardening gates")
     if final_strategy_boundary.get("final_production_strategy_quality_approved") is not False:
@@ -1659,6 +1804,11 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     }
     if set(final_strategy_remaining) != required_final_strategy_items:
         raise AssertionError("Final strategy quality status must track every remaining hardening item")
+    if (
+        set(final_strategy_deployment_vs_competitive.get("required_before_competitive_claim") or [])
+        != required_final_strategy_items
+    ):
+        raise AssertionError("Competitive claim must require every final strategy hardening item")
     for name in required_final_strategy_items:
         if (final_strategy_remaining.get(name) or {}).get("status") != "REQUIRED":
             raise AssertionError(f"Final strategy hardening item must remain required: {name}")
@@ -1677,11 +1827,13 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     final_runtime_monitoring = final_acceptance_risks.get("production_runtime_monitoring") or {}
     final_challenger = final_acceptance_risks.get("challenger_strategy_quality") or {}
     final_hole = final_acceptance_risks.get("hole_card_data_quality") or {}
+    final_normalized_action = final_acceptance_risks.get("normalized_action_contract") or {}
     final_actions_context = final_acceptance_risks.get("actions_context_quality") or {}
     final_stack_context = final_acceptance_risks.get("stack_event_context_quality") or {}
     final_bet = final_acceptance_risks.get("bet_timing_calibration") or {}
     final_behavioral = final_acceptance_risks.get("behavioral_revalidation") or {}
     final_multi = final_acceptance_risks.get("multi_agent_training") or {}
+    final_phase2_selection = final_acceptance_risks.get("phase2_selection_comparison") or {}
     final_human_likeness_claim_gate = final_acceptance_risks.get("human_likeness_claim_gate") or {}
     if final_delivery_acceptance.get("overall_status") != "PASS":
         raise AssertionError(f"Final delivery acceptance did not pass: {final_delivery_acceptance.get('overall_status')}")
@@ -1758,6 +1910,37 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Final acceptance must not let challenger gap affect deployed stack approval")
     if final_hole.get("upstream_resolved") is not False:
         raise AssertionError("Final acceptance must not mark upstream hole-card quality as resolved")
+    if final_normalized_action.get("boundary") != "RAW_OCR_ACTIONS_REQUIRE_CANONICAL_LABEL_NORMALIZATION":
+        raise AssertionError("Final acceptance must expose the normalized-action boundary")
+    if final_normalized_action.get("normalized_action_status") != "IMPLEMENTED":
+        raise AssertionError("Final acceptance must keep normalized action contract implemented")
+    if final_normalized_action.get("raw_action_source_status") != "RAW_OCR_OR_DEALER_TEXT":
+        raise AssertionError("Final acceptance must declare raw action source as OCR/dealer text")
+    if set(final_normalized_action.get("canonical_actions") or []) != {
+        "fold",
+        "call",
+        "check",
+        "bet",
+        "raise",
+        "all_in",
+    }:
+        raise AssertionError("Final acceptance must preserve the full canonical action set")
+    if final_normalized_action.get("raw_ocr_action_must_not_be_training_label") is not True:
+        raise AssertionError("Final acceptance must block raw OCR action labels")
+    if final_normalized_action.get("normalization_required_before_training") is not True:
+        raise AssertionError("Final acceptance must require action normalization before training")
+    if final_normalized_action.get("normalization_required_before_evaluation") is not True:
+        raise AssertionError("Final acceptance must require action normalization before evaluation")
+    if final_normalized_action.get("normalization_required_before_policy_comparison") is not True:
+        raise AssertionError("Final acceptance must require action normalization before policy comparison")
+    if final_normalized_action.get("current_delivery_blocker") is not False:
+        raise AssertionError("Final acceptance must not make normalized action contract a delivery blocker")
+    if final_normalized_action.get("model_quality_risk") is not False:
+        raise AssertionError("Final acceptance must not keep normalized action as an open model-quality risk")
+    if final_normalized_action.get("training_label_status") != "PASS":
+        raise AssertionError("Final acceptance must expose canonical training labels")
+    if final_normalized_action.get("invalid_training_labels"):
+        raise AssertionError("Final acceptance must not expose raw OCR labels in training labels")
     if final_actions_context.get("explicit_context_status") != "INCOMPLETE_EXPLICIT_BETTING_CONTEXT":
         raise AssertionError("Final acceptance must keep actions.csv explicit context marked incomplete")
     final_missing_actions_context = set(final_actions_context.get("missing_explicit_context_fields") or [])
@@ -1792,6 +1975,24 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Final acceptance must require larger clean gameplay revalidation")
     if final_multi.get("full_production_scale_multi_agent_training_status") != "NOT_COMPLETED":
         raise AssertionError("Final acceptance must not mark full production-scale multi-agent training complete")
+    if final_phase2_selection.get("status") != "STRICT_SELECTION_GATE_IMPLEMENTED":
+        raise AssertionError("Final acceptance must expose the strict Phase 2 selection comparison")
+    if final_phase2_selection.get("selected_for_current_delivery") != "routed_policy_bundle":
+        raise AssertionError("Final acceptance must keep routed_policy_bundle as the current delivery architecture")
+    if final_phase2_selection.get("final_selection_claim_allowed") is not False:
+        raise AssertionError("Final acceptance must block Phase 2 final selection until common-condition comparison")
+    if final_phase2_selection.get("all_candidates_compared_on_common_holdout") is not False:
+        raise AssertionError("Final acceptance must not mark Phase 2 common holdout complete")
+    if final_phase2_selection.get("all_candidates_compared_in_common_simulation") is not False:
+        raise AssertionError("Final acceptance must not mark Phase 2 common simulation complete")
+    if not final_phase2_selection.get("missing_common_holdout_candidates"):
+        raise AssertionError("Final acceptance must list missing Phase 2 common holdout candidates")
+    if not final_phase2_selection.get("missing_common_simulation_candidates"):
+        raise AssertionError("Final acceptance must list missing Phase 2 common simulation candidates")
+    if final_phase2_selection.get("current_delivery_blocker") is not False:
+        raise AssertionError("Final acceptance must not make Phase 2 common-condition gap a delivery blocker")
+    if final_phase2_selection.get("model_quality_risk") is not True:
+        raise AssertionError("Final acceptance must keep Phase 2 common-condition gap as model-quality risk")
     if final_human_likeness_claim_gate.get("claim") != "FULL_HUMAN_LIKENESS":
         raise AssertionError("Final acceptance must expose the full human-likeness claim gate")
     if final_human_likeness_claim_gate.get("decision") != "BLOCKED":
@@ -1846,6 +2047,7 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/experiments/llm_decision_candidate_ranker_qwen25.yaml",
         "configs/experiments/llm_decision_candidate_gate.yaml",
         "configs/experiments/llm_architecture_comparison.yaml",
+        "configs/experiments/phase2_selection_comparison.yaml",
         "configs/experiments/project_completion.yaml",
         "configs/experiments/training_cluster_requirements.yaml",
         "configs/experiments/today_acceptance_training.yaml",
@@ -1861,6 +2063,7 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/experiments/human_likeness_claim_gate.yaml",
         "configs/experiments/hole_card_data_quality.yaml",
         "configs/experiments/data_leakage_contract.yaml",
+        "configs/experiments/normalized_action_contract.yaml",
         "configs/experiments/actions_context_quality.yaml",
         "configs/experiments/stack_event_context_quality.yaml",
         "configs/experiments/production_gate.yaml",
@@ -1904,6 +2107,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "configs/experiments/llm_decision_candidate_ranker_qwen25.yaml",
         "configs/experiments/llm_decision_candidate_gate.yaml",
         "configs/experiments/llm_architecture_comparison.yaml",
+        "configs/experiments/phase2_selection_comparison.yaml",
         "configs/experiments/challenger_strategy_quality.yaml",
         "configs/experiments/final_strategy_quality_status.yaml",
         "configs/experiments/phase3_open_spiel_arena.yaml",
@@ -1912,6 +2116,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "configs/experiments/human_likeness_evidence.yaml",
         "configs/experiments/human_likeness_claim_gate.yaml",
         "configs/experiments/data_leakage_contract.yaml",
+        "configs/experiments/normalized_action_contract.yaml",
         "configs/experiments/actions_context_quality.yaml",
         "configs/experiments/stack_event_context_quality.yaml",
         "evaluation/decision_context_smoke.jsonl",
@@ -1939,6 +2144,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/llm_decision_candidate_gate.md",
         "reports/llm_architecture_comparison.json",
         "reports/llm_architecture_comparison.md",
+        "reports/phase2_selection_comparison.json",
+        "reports/phase2_selection_comparison.md",
         "reports/policy_acceptance.json",
         "reports/production_self_play.json",
         "reports/deployed_strategy_gate.json",
@@ -1991,6 +2198,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/human_likeness_claim_gate.md",
         "reports/data_leakage_contract.json",
         "reports/data_leakage_contract.md",
+        "reports/normalized_action_contract.json",
+        "reports/normalized_action_contract.md",
         "reports/actions_context_quality.json",
         "reports/actions_context_quality.md",
         "reports/stack_event_context_quality.json",
@@ -2015,6 +2224,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/human_likeness_claim_gate.py",
         "poker_agent/human_likeness_policy_guard.py",
         "poker_agent/data_leakage_contract.py",
+        "poker_agent/action_normalization.py",
+        "poker_agent/normalized_action_contract.py",
         "poker_agent/actions_context_quality.py",
         "poker_agent/stack_event_context_quality.py",
         "poker_agent/strategy_stack_maturity.py",
@@ -2023,6 +2234,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/llm_decision_benchmark.py",
         "poker_agent/llm_decision_gate.py",
         "poker_agent/llm_architecture_comparison.py",
+        "poker_agent/phase2_selection_comparison.py",
         "poker_agent/project_completion.py",
         "poker_agent/final_delivery_acceptance.py",
         "poker_agent/final_strategy_quality_status.py",
@@ -2049,6 +2261,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/build_human_likeness_evidence.py",
         "scripts/build_human_likeness_claim_gate.py",
         "scripts/build_data_leakage_contract.py",
+        "scripts/build_normalized_action_contract.py",
         "scripts/build_actions_context_quality.py",
         "scripts/build_stack_event_context_quality.py",
         "scripts/build_strategy_stack_maturity.py",
@@ -2057,6 +2270,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/build_decision_context_holdout.py",
         "scripts/build_llm_decision_gate.py",
         "scripts/build_llm_architecture_comparison.py",
+        "scripts/build_phase2_selection_comparison.py",
         "scripts/build_project_completion.py",
         "scripts/build_final_delivery_acceptance.py",
         "scripts/build_final_strategy_quality_status.py",
@@ -2076,8 +2290,10 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "tests/test_human_likeness_claim_gate.py",
         "tests/test_human_likeness_policy_guard.py",
         "tests/test_data_leakage_contract.py",
+        "tests/test_normalized_action_contract.py",
         "tests/test_actions_context_quality.py",
         "tests/test_stack_event_context_quality.py",
+        "tests/test_phase2_selection_comparison.py",
         "tests/test_challenger_strategy_quality.py",
         "tests/test_final_strategy_quality_status.py",
         "tests/test_strategy_stack_maturity.py",

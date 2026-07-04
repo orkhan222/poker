@@ -63,6 +63,8 @@ Bet-sizing and timing behavior are implemented and measured in the current deliv
 
 Missing or unreliable hole-card data remains a core dataset limitation. The routed policy bundle mitigates this by separating observed-card and missing-card policy paths, but it does not claim to solve the upstream OCR/card-label quality issue. This boundary is generated at `reports\hole_card_data_quality.json`, rendered at `reports\hole_card_data_quality.md`, and exposed through `GET /hole-card-data-quality.json`.
 
+The dataset now has an explicit normalized action contract. Raw `actions.csv::action` values are treated as OCR/dealer text, not final supervised labels; noisy forms such as `ra1se`, `cail`, `bett`, and `all-in` are normalized to the canonical action set `fold/call/check/bet/raise/all_in` before training, evaluation, and policy comparison. This contract is generated at `reports\normalized_action_contract.json`, rendered at `reports\normalized_action_contract.md`, and exposed through `GET /normalized-action-contract.json`.
+
 Machine-readable status endpoints:
 
 ```text
@@ -78,6 +80,7 @@ Machine-readable status endpoints:
 /raw-model-status.json
 /challenger-strategy-quality.json
 /human-likeness-claim-gate.json
+/normalized-action-contract.json
 /approval-boundary.json
 /client-handoff.json
 /llm-decision-context.json
@@ -93,6 +96,8 @@ The important distinction is intentional: `deployed_strategy_gate=PASS` approves
 Final production-level strategy quality is now guarded by an explicit challenger contract. The project may say that the deployed strategy stack is ready for monitored delivery, but it cannot claim final production-level strategy quality until a stronger challenger model beats the current raw supervised artifact and passes the challenger/raw gates. This boundary is generated at `reports\challenger_strategy_quality.json`, rendered at `reports\challenger_strategy_quality.md`, and exposed through `GET /challenger-strategy-quality.json`.
 
 The consolidated strategy-quality boundary is generated at `reports\final_strategy_quality_status.json`, rendered at `reports\final_strategy_quality_status.md`, and exposed through `GET /final-strategy-quality-status.json`. It keeps software delivery ready while blocking final production-level poker strategy quality until the remaining hardening items are complete: stronger challenger model, improved hole-card data, calibration, larger validation data, and production-scale multi-agent training.
+
+Software deployment readiness and competitive strategy approval are separated by code. FastAPI, Docker, `/health`, `/predict`, reports, and verifier are sufficient for delivery review, but the competitive poker-agent claim remains blocked until a stronger model, cleaner card/action data, calibration, larger real-game validation, and full production-scale multi-agent training are complete. This boundary is exposed in `reports\final_strategy_quality_status.json` under `deployment_vs_competitive_claim_boundary`.
 
 
 The final acceptance boundary is available at `reports\final_delivery_acceptance.json`, rendered at `reports\final_delivery_acceptance.md`, and exposed through `GET /final-delivery-acceptance.json`. It consolidates service readiness, deployed-stack approval, LLM role limits, raw-model status, hole-card data quality, bet/timing calibration, behavioral revalidation, and multi-agent training boundaries into one machine-readable delivery position.
@@ -509,6 +514,18 @@ reports\project_completion.md
 
 The completion contract preserves the same approval boundary as the delivery reports: the deployed runtime stack is approved, while the raw supervised artifact remains a standalone component risk until a stronger challenger passes the raw production gate.
 
+## Phase 2 Strict Selection Comparison
+
+Phase 2 selection is now guarded by a stricter common-condition contract. The LLM decision agent, standalone supervised model, rule-based fallback, routed policy bundle, and future RL agent must be evaluated on the same grouped holdout and the same agent-only simulation configuration before a final architecture winner can be claimed.
+
+The current delivery architecture remains `routed_policy_bundle`, because it is the best deployed stack for the current missing-card data conditions. That is not represented as the final global Phase 2 winner until the full common-condition comparison is complete.
+
+```text
+GET /phase2-selection-comparison.json
+reports\phase2_selection_comparison.json
+reports\phase2_selection_comparison.md
+```
+
 The approval boundary itself is exposed at:
 
 ```text
@@ -537,6 +554,8 @@ reports\llm_event_gold_eval.json
 reports\llm_event_gold_report.md
 reports\llm_decision_context.json
 reports\llm_decision_context.md
+reports\phase2_selection_comparison.json
+reports\phase2_selection_comparison.md
 reports\llm_role_boundary.json
 reports\llm_role_boundary.md
 reports\llm_transformer_gold_eval.json

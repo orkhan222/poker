@@ -115,6 +115,19 @@ def test_final_strategy_quality_status_blocks_final_claim_but_keeps_delivery_rea
     assert payload["overall_status"] == "PASS"
     assert payload["delivery_boundary"]["software_delivery_ready"] is True
     assert payload["delivery_boundary"]["current_delivery_blocker"] is False
+    deployment_vs_competitive = payload["deployment_vs_competitive_claim_boundary"]
+    assert deployment_vs_competitive["deployment_delivery_ready"] is True
+    assert deployment_vs_competitive["deployment_claim_allowed"] is True
+    assert deployment_vs_competitive["deployment_sufficient_components"]["fastapi_service"] is True
+    assert deployment_vs_competitive["deployment_sufficient_components"]["docker_packaging"] is True
+    assert deployment_vs_competitive["deployment_sufficient_components"]["predict_endpoint"] is True
+    assert deployment_vs_competitive["deployment_sufficient_components"]["health_endpoint"] is True
+    assert deployment_vs_competitive["competitive_poker_agent_claim_allowed"] is False
+    assert (
+        deployment_vs_competitive["competitive_poker_agent_claim_state"]
+        == "BLOCKED_PENDING_MODEL_DATA_AND_TRAINING_HARDENING"
+    )
+    assert deployment_vs_competitive["current_delivery_blocker"] is False
     boundary = payload["final_strategy_quality_boundary"]
     assert boundary["status"] == "NOT_APPROVED_PENDING_HARDENING_GATES"
     assert boundary["final_production_strategy_quality_approved"] is False
@@ -137,6 +150,11 @@ def test_final_strategy_quality_status_rejects_false_approval(tmp_path: Path) ->
     payload["final_strategy_quality_boundary"]["status"] = "APPROVED"
     payload["final_strategy_quality_boundary"]["final_production_strategy_quality_approved"] = True
     payload["final_strategy_quality_boundary"]["final_production_strategy_quality_claim_allowed"] = True
+    payload["deployment_vs_competitive_claim_boundary"]["competitive_poker_agent_claim_allowed"] = True
+    payload["deployment_vs_competitive_claim_boundary"]["competitive_poker_agent_claim_state"] = "APPROVED"
+    payload["deployment_vs_competitive_claim_boundary"]["deployment_sufficient_components"]["predict_endpoint"] = False
+    payload["deployment_vs_competitive_claim_boundary"]["current_delivery_blocker"] = True
+    payload["blocked_claims"].remove("The current delivery is a final competitive poker agent.")
     payload["remaining_work"]["stronger_challenger_model"]["status"] = "COMPLETE"
     payload.pop("overall_status", None)
 
@@ -146,6 +164,11 @@ def test_final_strategy_quality_status_rejects_false_approval(tmp_path: Path) ->
     assert "final_production_strategy_quality_must_not_be_approved" in invariants["violations"]
     assert "final_production_strategy_quality_claim_must_be_blocked" in invariants["violations"]
     assert "final_strategy_quality_status_must_remain_not_approved" in invariants["violations"]
+    assert "competitive_poker_agent_claim_must_be_blocked" in invariants["violations"]
+    assert "competitive_poker_agent_claim_state_must_remain_blocked" in invariants["violations"]
+    assert "deployment_component_must_be_present:predict_endpoint" in invariants["violations"]
+    assert "competitive_claim_gap_must_not_block_current_delivery" in invariants["violations"]
+    assert "blocked_claims_must_reject_competitive_agent_claim" in invariants["violations"]
     assert "remaining_work_item_must_remain_required:stronger_challenger_model" in invariants["violations"]
 
 
@@ -156,4 +179,6 @@ def test_final_strategy_quality_status_endpoint_returns_contract() -> None:
 
     assert payload["overall_status"] == "PASS"
     assert payload["delivery_boundary"]["software_delivery_ready"] is True
+    assert payload["deployment_vs_competitive_claim_boundary"]["deployment_claim_allowed"] is True
+    assert payload["deployment_vs_competitive_claim_boundary"]["competitive_poker_agent_claim_allowed"] is False
     assert payload["final_strategy_quality_boundary"]["final_production_strategy_quality_approved"] is False

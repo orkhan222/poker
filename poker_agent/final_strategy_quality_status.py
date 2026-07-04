@@ -12,6 +12,7 @@ DEPLOYED_STACK_APPROVED = "APPROVED"
 FINAL_STRATEGY_NOT_APPROVED = "NOT_APPROVED_PENDING_HARDENING_GATES"
 FINAL_STRATEGY_APPROVED = "APPROVED"
 REQUIRED = "REQUIRED"
+COMPETITIVE_AGENT_CLAIM_BLOCKED = "BLOCKED_PENDING_MODEL_DATA_AND_TRAINING_HARDENING"
 
 REQUIRED_WORK_ITEMS = (
     "stronger_challenger_model",
@@ -73,6 +74,39 @@ def build_final_strategy_quality_status(project_root: Path) -> dict[str, Any]:
             "reports_present": True,
             "verifier_present": True,
             "current_delivery_blocker": False,
+        },
+        "deployment_vs_competitive_claim_boundary": {
+            "deployment_delivery_ready": delivery_ready,
+            "deployment_sufficient_components": {
+                "fastapi_service": True,
+                "docker_packaging": True,
+                "predict_endpoint": True,
+                "health_endpoint": True,
+                "reports_and_verifier": True,
+            },
+            "deployment_claim_allowed": delivery_ready,
+            "deployment_claim": (
+                "The FastAPI service, Docker package, /health endpoint, /predict endpoint, reports, "
+                "and verifier are sufficient for software delivery review."
+            ),
+            "competitive_poker_agent_claim_allowed": final_strategy_approved,
+            "competitive_poker_agent_claim_state": (
+                "APPROVED" if final_strategy_approved else COMPETITIVE_AGENT_CLAIM_BLOCKED
+            ),
+            "competitive_claim_blocker_reason": (
+                "A competitive poker agent claim requires a stronger model, cleaner and more complete "
+                "card/action data, calibrated behavior, larger real-game validation, and full production-scale "
+                "multi-agent training."
+            ),
+            "required_before_competitive_claim": [
+                "stronger_challenger_model",
+                "hole_card_data_quality",
+                "calibration",
+                "larger_validation_data",
+                "production_scale_multi_agent_training",
+            ],
+            "current_delivery_blocker": False,
+            "deployed_strategy_stack_affected": False,
         },
         "final_strategy_quality_boundary": {
             "status": FINAL_STRATEGY_APPROVED if final_strategy_approved else FINAL_STRATEGY_NOT_APPROVED,
@@ -154,10 +188,12 @@ def build_final_strategy_quality_status(project_root: Path) -> dict[str, Any]:
         },
         "allowed_claims": [
             "The API, Docker packaging, reports, verifier, and deployed strategy stack are ready for delivery.",
+            "FastAPI, Docker, /health, and /predict are sufficient for software delivery review.",
             "The deployed strategy stack can be treated separately from final production-level strategy quality.",
             "The remaining hardening work is explicitly tracked and does not block the current delivery package.",
         ],
         "blocked_claims": [
+            "The current delivery is a final competitive poker agent.",
             "Final production-level poker strategy quality is approved.",
             "The current challenger model is sufficient for final production strategy quality.",
             "Hole-card data quality is solved.",
@@ -182,6 +218,7 @@ def build_final_strategy_quality_status(project_root: Path) -> dict[str, Any]:
 def validate_final_strategy_quality_status(payload: dict[str, Any]) -> dict[str, Any]:
     violations: list[str] = []
     delivery = payload.get("delivery_boundary") or {}
+    deployment_vs_competitive = payload.get("deployment_vs_competitive_claim_boundary") or {}
     final_quality = payload.get("final_strategy_quality_boundary") or {}
     remaining = payload.get("remaining_work") or {}
     real_traffic = payload.get("real_traffic_boundary") or {}
@@ -196,6 +233,24 @@ def validate_final_strategy_quality_status(payload: dict[str, Any]) -> dict[str,
         violations.append("deployed_strategy_stack_must_be_approved")
     if delivery.get("current_delivery_blocker") is not False:
         violations.append("final_strategy_quality_gap_must_not_block_current_delivery")
+    components = deployment_vs_competitive.get("deployment_sufficient_components") or {}
+    for component in ("fastapi_service", "docker_packaging", "predict_endpoint", "health_endpoint", "reports_and_verifier"):
+        if components.get(component) is not True:
+            violations.append(f"deployment_component_must_be_present:{component}")
+    if deployment_vs_competitive.get("deployment_delivery_ready") is not True:
+        violations.append("deployment_boundary_must_keep_software_delivery_ready")
+    if deployment_vs_competitive.get("deployment_claim_allowed") is not True:
+        violations.append("deployment_claim_must_be_allowed_for_software_delivery")
+    if deployment_vs_competitive.get("competitive_poker_agent_claim_allowed") is not False:
+        violations.append("competitive_poker_agent_claim_must_be_blocked")
+    if deployment_vs_competitive.get("competitive_poker_agent_claim_state") != COMPETITIVE_AGENT_CLAIM_BLOCKED:
+        violations.append("competitive_poker_agent_claim_state_must_remain_blocked")
+    if set(deployment_vs_competitive.get("required_before_competitive_claim") or []) != set(REQUIRED_WORK_ITEMS):
+        violations.append("competitive_claim_required_work_items_must_match_hardening_gates")
+    if deployment_vs_competitive.get("current_delivery_blocker") is not False:
+        violations.append("competitive_claim_gap_must_not_block_current_delivery")
+    if deployment_vs_competitive.get("deployed_strategy_stack_affected") is not False:
+        violations.append("competitive_claim_gap_must_not_affect_deployed_stack")
 
     missing_items = sorted(set(REQUIRED_WORK_ITEMS) - set(remaining))
     if missing_items:
@@ -260,6 +315,8 @@ def validate_final_strategy_quality_status(payload: dict[str, Any]) -> dict[str,
     blocked = set(payload.get("blocked_claims") or [])
     if "Final production-level poker strategy quality is approved." not in blocked:
         violations.append("blocked_claims_must_reject_final_strategy_quality_approval")
+    if "The current delivery is a final competitive poker agent." not in blocked:
+        violations.append("blocked_claims_must_reject_competitive_agent_claim")
 
     return {"status": "FAIL" if violations else "PASS", "violations": violations}
 
@@ -280,6 +337,7 @@ def write_final_strategy_quality_status(
 
 def render_final_strategy_quality_status_markdown(payload: dict[str, Any]) -> str:
     delivery = payload["delivery_boundary"]
+    deployment_vs_competitive = payload["deployment_vs_competitive_claim_boundary"]
     final_quality = payload["final_strategy_quality_boundary"]
     real_traffic = payload["real_traffic_boundary"]
     lines = [
@@ -293,6 +351,14 @@ def render_final_strategy_quality_status_markdown(payload: dict[str, Any]) -> st
         f"- Service delivery: `{delivery['service_delivery']}`",
         f"- Deployed strategy stack: `{delivery['deployed_strategy_stack']}`",
         f"- Current delivery blocker: `{delivery['current_delivery_blocker']}`",
+        "",
+        "## Deployment vs Competitive Claim Boundary",
+        "",
+        f"- Deployment claim allowed: `{deployment_vs_competitive['deployment_claim_allowed']}`",
+        f"- Competitive poker-agent claim allowed: `{deployment_vs_competitive['competitive_poker_agent_claim_allowed']}`",
+        f"- Competitive poker-agent claim state: `{deployment_vs_competitive['competitive_poker_agent_claim_state']}`",
+        f"- Current delivery blocker: `{deployment_vs_competitive['current_delivery_blocker']}`",
+        f"- Reason: {deployment_vs_competitive['competitive_claim_blocker_reason']}",
         "",
         "## Final Strategy Quality Boundary",
         "",

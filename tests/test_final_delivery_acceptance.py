@@ -198,6 +198,31 @@ def _write_reports(reports: Path) -> None:
         ),
         encoding="utf-8",
     )
+    (reports / "normalized_action_contract.json").write_text(
+        json.dumps(
+            {
+                "normalized_action_status": "IMPLEMENTED",
+                "raw_action_source_status": "RAW_OCR_OR_DEALER_TEXT",
+                "canonical_actions": ["fold", "call", "check", "bet", "raise", "all_in"],
+                "source_field": "actions.csv::action",
+                "normalized_field": "canonical_action",
+                "raw_ocr_action_must_not_be_training_label": True,
+                "normalization_required_before_training": True,
+                "normalization_required_before_evaluation": True,
+                "normalization_required_before_policy_comparison": True,
+                "current_delivery_blocker": False,
+                "model_quality_risk": False,
+                "training_label_audit": {"status": "PASS", "invalid_labels": []},
+                "noisy_action_examples": [
+                    {"raw_action": "ra1se", "observed": "raise", "passed": True},
+                    {"raw_action": "cail", "observed": "call", "passed": True},
+                    {"raw_action": "bett", "observed": "bet", "passed": True},
+                    {"raw_action": "all-in", "observed": "all_in", "passed": True},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     (reports / "actions_context_quality.json").write_text(
         json.dumps(
             {
@@ -273,6 +298,50 @@ def _write_reports(reports: Path) -> None:
                     "full_production_scale_multi_agent_training_status": "NOT_COMPLETED",
                     "production_blocker_for_current_delivery": False,
                 }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (reports / "phase2_selection_comparison.json").write_text(
+        json.dumps(
+            {
+                "status": "STRICT_SELECTION_GATE_IMPLEMENTED",
+                "required_candidates": [
+                    "llm_decision_agent",
+                    "supervised_model",
+                    "rule_based_fallback",
+                    "routed_policy_bundle",
+                    "future_rl_agent",
+                ],
+                "common_holdout_contract": {"same_holdout_required": True},
+                "common_simulation_contract": {"same_simulation_required": True},
+                "candidates": {
+                    "future_rl_agent": {"implementation_status": "NOT_AVAILABLE_YET"},
+                },
+                "comparison_gate": {
+                    "all_required_candidates_present": True,
+                    "all_candidates_compared_on_common_holdout": False,
+                    "all_candidates_compared_in_common_simulation": False,
+                    "missing_common_holdout_candidates": [
+                        "llm_decision_agent",
+                        "supervised_model",
+                        "rule_based_fallback",
+                        "routed_policy_bundle",
+                        "future_rl_agent",
+                    ],
+                    "missing_common_simulation_candidates": [
+                        "llm_decision_agent",
+                        "supervised_model",
+                        "rule_based_fallback",
+                        "routed_policy_bundle",
+                        "future_rl_agent",
+                    ],
+                    "selected_for_current_delivery": "routed_policy_bundle",
+                    "final_selected_architecture": None,
+                    "final_selection_claim_allowed": False,
+                    "current_delivery_blocker": False,
+                    "model_quality_risk": True,
+                },
             }
         ),
         encoding="utf-8",
@@ -503,6 +572,25 @@ def test_final_delivery_acceptance_passes_with_tracked_risks(tmp_path: Path) -> 
     assert payload["tracked_component_risks"]["challenger_strategy_quality"]["challenger_required_before_final_claim"] is True
     assert payload["tracked_component_risks"]["challenger_strategy_quality"]["final_production_strategy_quality_claim_allowed"] is False
     assert payload["tracked_component_risks"]["raw_supervised_model"]["standalone_status"] == "NOT_STANDALONE_APPROVED"
+    assert payload["tracked_component_risks"]["normalized_action_contract"]["normalized_action_status"] == "IMPLEMENTED"
+    assert (
+        payload["tracked_component_risks"]["normalized_action_contract"]["raw_action_source_status"]
+        == "RAW_OCR_OR_DEALER_TEXT"
+    )
+    assert set(payload["tracked_component_risks"]["normalized_action_contract"]["canonical_actions"]) == {
+        "fold",
+        "call",
+        "check",
+        "bet",
+        "raise",
+        "all_in",
+    }
+    assert (
+        payload["tracked_component_risks"]["normalized_action_contract"]["raw_ocr_action_must_not_be_training_label"]
+        is True
+    )
+    assert payload["tracked_component_risks"]["normalized_action_contract"]["training_label_status"] == "PASS"
+    assert payload["tracked_component_risks"]["normalized_action_contract"]["invalid_training_labels"] == []
     assert (
         payload["tracked_component_risks"]["actions_context_quality"]["explicit_context_status"]
         == "INCOMPLETE_EXPLICIT_BETTING_CONTEXT"
@@ -516,6 +604,26 @@ def test_final_delivery_acceptance_passes_with_tracked_risks(tmp_path: Path) -> 
     assert payload["tracked_component_risks"]["stack_event_context_quality"]["decision_time_derivation_required"] is True
     assert payload["tracked_component_risks"]["stack_event_context_quality"]["current_delivery_blocker"] is False
     assert payload["tracked_component_risks"]["stack_event_context_quality"]["model_quality_risk"] is True
+    assert payload["tracked_component_risks"]["phase2_selection_comparison"]["status"] == "STRICT_SELECTION_GATE_IMPLEMENTED"
+    assert (
+        payload["tracked_component_risks"]["phase2_selection_comparison"]["selected_for_current_delivery"]
+        == "routed_policy_bundle"
+    )
+    assert payload["tracked_component_risks"]["phase2_selection_comparison"]["final_selection_claim_allowed"] is False
+    assert (
+        payload["tracked_component_risks"]["phase2_selection_comparison"][
+            "all_candidates_compared_on_common_holdout"
+        ]
+        is False
+    )
+    assert (
+        payload["tracked_component_risks"]["phase2_selection_comparison"][
+            "all_candidates_compared_in_common_simulation"
+        ]
+        is False
+    )
+    assert payload["tracked_component_risks"]["phase2_selection_comparison"]["current_delivery_blocker"] is False
+    assert payload["tracked_component_risks"]["phase2_selection_comparison"]["model_quality_risk"] is True
     assert payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["status"] == "TRAINING_PROOF_NOT_COMPLETED"
     assert payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["measured_win_rate_claim_allowed"] is False
     assert payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["current_delivery_blocker"] is False
@@ -564,6 +672,13 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     payload["tracked_component_risks"]["production_runtime_monitoring"]["real_production_traffic_approved"] = True
     payload["tracked_component_risks"]["production_runtime_monitoring"]["real_production_traffic_approval_status"] = "APPROVED"
     payload["tracked_component_risks"]["challenger_strategy_quality"]["final_production_strategy_quality_claim_allowed"] = True
+    payload["tracked_component_risks"]["normalized_action_contract"]["normalized_action_status"] = "MISSING"
+    payload["tracked_component_risks"]["normalized_action_contract"]["raw_ocr_action_must_not_be_training_label"] = False
+    payload["tracked_component_risks"]["normalized_action_contract"]["normalization_required_before_training"] = False
+    payload["tracked_component_risks"]["normalized_action_contract"]["model_quality_risk"] = True
+    payload["tracked_component_risks"]["normalized_action_contract"]["training_label_status"] = "FAIL"
+    payload["tracked_component_risks"]["normalized_action_contract"]["invalid_training_labels"] = ["ra1se"]
+    payload["tracked_component_risks"]["normalized_action_contract"]["noisy_action_examples"][0]["passed"] = False
     payload["tracked_component_risks"]["actions_context_quality"]["explicit_context_status"] = "COMPLETE"
     payload["tracked_component_risks"]["actions_context_quality"]["does_not_fully_replace_explicit_context"] = False
     payload["tracked_component_risks"]["actions_context_quality"]["model_quality_risk"] = False
@@ -571,6 +686,15 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     payload["tracked_component_risks"]["stack_event_context_quality"]["decision_time_derivation_required"] = False
     payload["tracked_component_risks"]["stack_event_context_quality"]["target_action_stack_delta_allowed_as_feature"] = True
     payload["tracked_component_risks"]["stack_event_context_quality"]["model_quality_risk"] = False
+    payload["tracked_component_risks"]["phase2_selection_comparison"]["all_candidates_compared_on_common_holdout"] = True
+    payload["tracked_component_risks"]["phase2_selection_comparison"]["all_candidates_compared_in_common_simulation"] = True
+    payload["tracked_component_risks"]["phase2_selection_comparison"]["missing_common_holdout_candidates"] = []
+    payload["tracked_component_risks"]["phase2_selection_comparison"]["missing_common_simulation_candidates"] = []
+    payload["tracked_component_risks"]["phase2_selection_comparison"]["selected_for_current_delivery"] = "llm_decision_agent"
+    payload["tracked_component_risks"]["phase2_selection_comparison"]["final_selected_architecture"] = "llm_decision_agent"
+    payload["tracked_component_risks"]["phase2_selection_comparison"]["future_rl_agent_status"] = "AVAILABLE"
+    payload["tracked_component_risks"]["phase2_selection_comparison"]["final_selection_claim_allowed"] = True
+    payload["tracked_component_risks"]["phase2_selection_comparison"]["model_quality_risk"] = False
     payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["status"] = "TRAINING_PROOF_COMPLETED"
     payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["measured_win_rate_claim_allowed"] = True
     payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["model_quality_risk"] = False
@@ -622,6 +746,15 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     assert "stack_events_must_require_decision_time_derivation" in invariants["violations"]
     assert "target_action_stack_delta_must_not_be_allowed_as_feature" in invariants["violations"]
     assert "stack_event_context_gap_must_remain_model_quality_risk" in invariants["violations"]
+    assert "phase2_selection_common_holdout_must_not_be_marked_complete_yet" in invariants["violations"]
+    assert "phase2_selection_common_simulation_must_not_be_marked_complete_yet" in invariants["violations"]
+    assert "phase2_selection_missing_common_holdout_candidates_must_be_listed" in invariants["violations"]
+    assert "phase2_selection_missing_common_simulation_candidates_must_be_listed" in invariants["violations"]
+    assert "phase2_selection_current_delivery_architecture_must_be_routed_bundle" in invariants["violations"]
+    assert "phase2_selection_final_architecture_must_not_be_selected_yet" in invariants["violations"]
+    assert "phase2_selection_future_rl_must_not_be_claimed_available" in invariants["violations"]
+    assert "phase2_selection_final_claim_must_be_blocked_until_common_conditions" in invariants["violations"]
+    assert "phase2_selection_gap_must_remain_model_quality_risk" in invariants["violations"]
     assert "phase3_open_spiel_rl_training_proof_must_remain_not_completed" in invariants["violations"]
     assert "phase3_rl_win_rate_claim_must_remain_blocked_until_training_proof" in invariants["violations"]
     assert "phase3_rl_training_gap_must_remain_model_quality_risk" in invariants["violations"]
@@ -650,6 +783,13 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     assert "real_production_traffic_must_not_be_approved_before_observability" in invariants["violations"]
     assert "real_production_traffic_status_must_require_observability" in invariants["violations"]
     assert "final_strategy_quality_claim_must_remain_blocked_until_challenger_passes" in invariants["violations"]
+    assert "normalized_action_contract_must_be_implemented" in invariants["violations"]
+    assert "raw_ocr_action_must_not_be_training_label" in invariants["violations"]
+    assert "normalized_action_must_be_required_before_training" in invariants["violations"]
+    assert "normalized_action_contract_must_not_remain_model_quality_risk" in invariants["violations"]
+    assert "normalized_action_training_labels_must_pass" in invariants["violations"]
+    assert "normalized_action_training_labels_must_not_contain_raw_ocr" in invariants["violations"]
+    assert "normalized_action_example_must_pass:ra1se" in invariants["violations"]
 
 
 def test_final_delivery_acceptance_endpoint_returns_contract() -> None:

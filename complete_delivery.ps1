@@ -135,6 +135,8 @@ $CandidateGateReport = Join-Path $ReportsDir "llm_decision_candidate_gate.json"
 $CandidateGateMarkdown = Join-Path $ReportsDir "llm_decision_candidate_gate.md"
 $ArchitectureComparisonReport = Join-Path $ReportsDir "llm_architecture_comparison.json"
 $ArchitectureComparisonMarkdown = Join-Path $ReportsDir "llm_architecture_comparison.md"
+$Phase2SelectionComparisonReport = Join-Path $ReportsDir "phase2_selection_comparison.json"
+$Phase2SelectionComparisonMarkdownReport = Join-Path $ReportsDir "phase2_selection_comparison.md"
 $LlmRoleBoundaryReport = Join-Path $ReportsDir "llm_role_boundary.json"
 $LlmRoleBoundaryMarkdownReport = Join-Path $ReportsDir "llm_role_boundary.md"
 $QloraNextStageReport = Join-Path $ReportsDir "qlora_next_stage.json"
@@ -167,6 +169,8 @@ $HumanLikenessClaimGateReport = Join-Path $ReportsDir "human_likeness_claim_gate
 $HumanLikenessClaimGateMarkdownReport = Join-Path $ReportsDir "human_likeness_claim_gate.md"
 $HoleCardDataQualityReport = Join-Path $ReportsDir "hole_card_data_quality.json"
 $HoleCardDataQualityMarkdownReport = Join-Path $ReportsDir "hole_card_data_quality.md"
+$NormalizedActionContractReport = Join-Path $ReportsDir "normalized_action_contract.json"
+$NormalizedActionContractMarkdownReport = Join-Path $ReportsDir "normalized_action_contract.md"
 $BetTimingCalibrationReport = Join-Path $ReportsDir "bet_timing_calibration.json"
 $BetTimingCalibrationMarkdownReport = Join-Path $ReportsDir "bet_timing_calibration.md"
 $RawModelStatusReport = Join-Path $ReportsDir "raw_model_status.json"
@@ -349,6 +353,12 @@ Write-Host "5e-4/8 Building LLM role boundary contract..." -ForegroundColor Gree
     --out $LlmRoleBoundaryReport `
     --markdown-out $LlmRoleBoundaryMarkdownReport
 
+Write-Host "5e-4b/8 Building strict Phase 2 selection comparison contract..." -ForegroundColor Green
+& $Python scripts\build_phase2_selection_comparison.py `
+    --project-root $ProjectRoot `
+    --out $Phase2SelectionComparisonReport `
+    --markdown-out $Phase2SelectionComparisonMarkdownReport
+
 Write-Host "5e-5/8 Building QLoRA next-stage boundary contract..." -ForegroundColor Green
 & $Python scripts\build_qlora_next_stage.py `
     --project-root $ProjectRoot `
@@ -474,6 +484,12 @@ Write-Host "7f-1/8 Building hole-card data-quality contract..." -ForegroundColor
     --out $HoleCardDataQualityReport `
     --markdown-out $HoleCardDataQualityMarkdownReport
 
+Write-Host "7f-1b/8 Building normalized action contract..." -ForegroundColor Green
+& $Python scripts\build_normalized_action_contract.py `
+    --project-root $ProjectRoot `
+    --out $NormalizedActionContractReport `
+    --markdown-out $NormalizedActionContractMarkdownReport
+
 Write-Host "7f-2/8 Building client GPU training response..." -ForegroundColor Green
 & $Python scripts\build_client_gpu_training_response.py `
     --project-root $ProjectRoot `
@@ -552,6 +568,7 @@ Write-Host "Decision Qwen benchmark: $DecisionQwenReport"
 Write-Host "Decision model gate: $DecisionGateReport"
 Write-Host "Candidate ranker: $CandidateRankerReport"
 Write-Host "Architecture comparison: $ArchitectureComparisonReport"
+Write-Host "Phase 2 selection comparison: $Phase2SelectionComparisonReport"
 Write-Host "LLM role boundary: $LlmRoleBoundaryReport"
 Write-Host "Instruction-model eval: $TransformerEvalReport"
 Write-Host "Instruction-model report: $TransformerMarkdownReport"
@@ -569,6 +586,7 @@ Write-Host "Human-likeness evidence: $HumanLikenessEvidenceReport"
 Write-Host "Human-likeness claim gate: $HumanLikenessClaimGateReport"
 Write-Host "Bet/timing calibration: $BetTimingCalibrationReport"
 Write-Host "Hole-card data quality: $HoleCardDataQualityReport"
+Write-Host "Normalized action contract: $NormalizedActionContractReport"
 Write-Host "Strategy stack maturity: $StrategyStackMaturityReport"
 Write-Host "Raw model status: $RawModelStatusReport"
 Write-Host "Challenger strategy quality: $ChallengerStrategyQualityReport"

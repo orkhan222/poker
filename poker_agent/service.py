@@ -32,7 +32,9 @@ from poker_agent.llm_decision_context import build_decision_context_report
 from poker_agent.llm_role_boundary import build_llm_role_boundary
 from poker_agent.model_risk_register import build_model_risk_register
 from poker_agent.multi_agent_training_status import build_multi_agent_training_status
+from poker_agent.normalized_action_contract import build_normalized_action_contract
 from poker_agent.open_spiel_llm_arena import build_phase3_open_spiel_arena_report
+from poker_agent.phase2_selection_comparison import build_phase2_selection_comparison
 from poker_agent.production_approval import build_production_approval
 from poker_agent.project_completion import build_project_completion
 from poker_agent.production_runtime_monitoring import build_production_runtime_monitoring, runtime_monitoring_state
@@ -91,6 +93,7 @@ BEHAVIORAL_REVALIDATION_PATH = PROJECT_ROOT / "reports" / "behavioral_revalidati
 BEHAVIORAL_REVALIDATION_PROOF_PATH = PROJECT_ROOT / "reports" / "behavioral_revalidation_proof.json"
 HOLE_CARD_DATA_QUALITY_PATH = PROJECT_ROOT / "reports" / "hole_card_data_quality.json"
 DATA_LEAKAGE_CONTRACT_PATH = PROJECT_ROOT / "reports" / "data_leakage_contract.json"
+NORMALIZED_ACTION_CONTRACT_PATH = PROJECT_ROOT / "reports" / "normalized_action_contract.json"
 ACTION_CONTEXT_QUALITY_PATH = PROJECT_ROOT / "reports" / "actions_context_quality.json"
 STACK_EVENT_CONTEXT_QUALITY_PATH = PROJECT_ROOT / "reports" / "stack_event_context_quality.json"
 BET_TIMING_CALIBRATION_PATH = PROJECT_ROOT / "reports" / "bet_timing_calibration.json"
@@ -101,6 +104,7 @@ EVALUATION_METRIC_CONTRACT_PATH = PROJECT_ROOT / "reports" / "evaluation_metric_
 TEST_EXECUTION_CONTRACT_PATH = PROJECT_ROOT / "reports" / "test_execution_contract.json"
 HUMAN_LIKENESS_EVIDENCE_PATH = PROJECT_ROOT / "reports" / "human_likeness_evidence.json"
 HUMAN_LIKENESS_CLAIM_GATE_PATH = PROJECT_ROOT / "reports" / "human_likeness_claim_gate.json"
+PHASE2_SELECTION_COMPARISON_PATH = PROJECT_ROOT / "reports" / "phase2_selection_comparison.json"
 
 
 APP_HTML = """
@@ -936,6 +940,17 @@ def llm_architecture_comparison_json() -> dict[str, Any]:
     return json.loads(LLM_ARCHITECTURE_COMPARISON_PATH.read_text(encoding="utf-8"))
 
 
+@app.get(
+    "/phase2-selection-comparison.json",
+    tags=["System"],
+    summary="Strict Phase 2 common-condition architecture selection contract",
+)
+def phase2_selection_comparison_json() -> dict[str, Any]:
+    if PHASE2_SELECTION_COMPARISON_PATH.exists():
+        return json.loads(PHASE2_SELECTION_COMPARISON_PATH.read_text(encoding="utf-8"))
+    return build_phase2_selection_comparison(PROJECT_ROOT)
+
+
 @app.get("/llm-role-boundary.json", tags=["System"], summary="LLM role boundary")
 def llm_role_boundary_json() -> dict[str, Any]:
     if LLM_ROLE_BOUNDARY_PATH.exists():
@@ -1075,6 +1090,13 @@ def data_leakage_contract_json() -> dict[str, Any]:
     if DATA_LEAKAGE_CONTRACT_PATH.exists():
         return json.loads(DATA_LEAKAGE_CONTRACT_PATH.read_text(encoding="utf-8"))
     return build_data_leakage_contract(PROJECT_ROOT)
+
+
+@app.get("/normalized-action-contract.json", tags=["System"], summary="Normalized action label contract")
+def normalized_action_contract_json() -> dict[str, Any]:
+    if NORMALIZED_ACTION_CONTRACT_PATH.exists():
+        return json.loads(NORMALIZED_ACTION_CONTRACT_PATH.read_text(encoding="utf-8"))
+    return build_normalized_action_contract(PROJECT_ROOT)
 
 
 @app.get("/actions-context-quality.json", tags=["System"], summary="actions.csv betting-context boundary")

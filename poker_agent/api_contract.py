@@ -142,6 +142,20 @@ def api_contract() -> dict[str, Any]:
             ],
             "boundary": "These fields may exist in raw CSVs for reporting, but are not valid decision-time features.",
         },
+        "normalized_action_contract": {
+            "endpoint": "/normalized-action-contract.json",
+            "description": "Normalizes raw OCR/dealer action text into canonical action labels before training, evaluation, and policy comparison.",
+            "source_field": "actions.csv::action",
+            "normalized_field": "canonical_action",
+            "canonical_actions": ["fold", "call", "check", "bet", "raise", "all_in"],
+            "noisy_examples": {
+                "ra1se": "raise",
+                "cail": "call",
+                "bett": "bet",
+                "all-in": "all_in",
+            },
+            "boundary": "Raw OCR action strings must not be used directly as supervised labels.",
+        },
         "actions_context_quality": {
             "endpoint": "/actions-context-quality.json",
             "description": "Documents missing explicit betting-context fields in actions.csv and verifies leakage-safe derived context features.",
@@ -245,6 +259,29 @@ def api_contract() -> dict[str, Any]:
                 "manually reviewed human holdout."
             ),
             "selected_research_architecture": "candidate_ranker",
+        },
+        "phase2_selection_comparison": {
+            "endpoint": "/phase2-selection-comparison.json",
+            "description": (
+                "Strict Phase 2 selection gate requiring LLM, supervised model, rule-based fallback, "
+                "routed policy, and future RL agent to be compared on the same holdout and same simulation conditions."
+            ),
+            "required_candidates": [
+                "llm_decision_agent",
+                "supervised_model",
+                "rule_based_fallback",
+                "routed_policy_bundle",
+                "future_rl_agent",
+            ],
+            "common_holdout_required": True,
+            "common_simulation_required": True,
+            "current_delivery_architecture": "routed_policy_bundle",
+            "final_selection_claim_allowed_without_common_conditions": False,
+            "claim_boundary": (
+                "The routed policy bundle can remain the current delivery stack, but Phase 2 final "
+                "architecture selection is blocked until every required candidate has the same holdout "
+                "and same simulation evidence."
+            ),
         },
         "autonomous_agent": {
             "capabilities_endpoint": "/agent/capabilities.json",

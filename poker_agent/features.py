@@ -6,6 +6,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
+from poker_agent.action_normalization import normalize_action as normalize_action_label
 from poker_agent.schemas import PredictionRequest
 from poker_agent.schemas import VALID_ACTIONS
 
@@ -50,21 +51,7 @@ NON_DECISION_ACTIONS = {
 
 
 def normalize_action(action: str) -> str:
-    cleaned = re.sub(r"\s+", " ", str(action).strip().lower())
-    cleaned = ACTION_NORMALIZATION.get(cleaned, cleaned)
-    if "fold" in cleaned:
-        return "fold"
-    if "check" in cleaned:
-        return "check"
-    if "call" in cleaned:
-        return "call"
-    if "raise" in cleaned:
-        return "raise"
-    if "bet" in cleaned:
-        return "bet"
-    if "all" in cleaned:
-        return "all_in"
-    return cleaned or "unknown"
+    return normalize_action_label(action)
 
 
 def parse_cards(raw: Any) -> list[str]:

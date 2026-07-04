@@ -1,0 +1,25 @@
+defaults:
+  - override /model@_global_.model: routed_bundle_smoke
+  - override /training@_global_.training: group_holdout
+  - _self_
+
+name: phase2_selection_comparison
+description: Build the strict Phase 2 common-holdout and common-simulation comparison contract.
+
+command:
+  entrypoint: scripts/build_phase2_selection_comparison.py
+  args:
+    project_root: .
+    out: ${logging.reports_dir}/phase2_selection_comparison.json
+    markdown_out: ${logging.reports_dir}/phase2_selection_comparison.md
+
+selection:
+  required_candidates:
+    - llm_decision_agent
+    - supervised_model
+    - rule_based_fallback
+    - routed_policy_bundle
+    - future_rl_agent
+  common_holdout_id: phase2_common_grouped_holdout_v1
+  common_simulation_id: phase2_common_agent_arena_v1
+  final_selection_claim_allowed_without_common_conditions: false

@@ -17,10 +17,12 @@ RUNTIME_MONITORING_BOUNDARY = "REAL_TRAFFIC_REQUIRES_MONITORING_ROLLBACK_AND_DRI
 CHALLENGER_STRATEGY_QUALITY_BOUNDARY = "FINAL_STRATEGY_QUALITY_REQUIRES_PASSING_CHALLENGER"
 ACTIONS_CONTEXT_BOUNDARY = "DERIVED_BETTING_CONTEXT_NOT_FULL_EXPLICIT_ACTION_CONTEXT"
 STACK_EVENT_CONTEXT_BOUNDARY = "RAW_STACK_EVENTS_REQUIRE_DERIVED_DECISION_CONTEXT"
+NORMALIZED_ACTION_BOUNDARY = "RAW_OCR_ACTIONS_REQUIRE_CANONICAL_LABEL_NORMALIZATION"
 PHASE3_OPEN_SPIEL_RL_BOUNDARY = "OPEN_SPIEL_RL_TRAINING_PROOF_REQUIRED"
 EVALUATION_METRIC_BOUNDARY = "ACCURACY_ALONE_NOT_SUFFICIENT"
 TEST_EXECUTION_BOUNDARY = "FULL_PYTEST_TIMEOUT_IS_NOT_DELIVERY_APPROVAL"
 HUMAN_LIKENESS_EVIDENCE_BOUNDARY = "ACTION_DISTRIBUTION_ALONE_IS_NOT_FULL_HUMAN_LIKENESS_PROOF"
+PHASE2_SELECTION_BOUNDARY = "PHASE_2_SELECTION_REQUIRES_COMMON_HOLDOUT_AND_SIMULATION"
 
 
 def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
@@ -31,6 +33,7 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
     llm_role = _read_optional_json(reports / "llm_role_boundary.json")
     bet_timing = _read_optional_json(reports / "bet_timing_calibration.json")
     hole_card = _read_optional_json(reports / "hole_card_data_quality.json")
+    normalized_action = _read_optional_json(reports / "normalized_action_contract.json")
     actions_context = _read_optional_json(reports / "actions_context_quality.json")
     stack_event_context = _read_optional_json(reports / "stack_event_context_quality.json")
     behavioral = _read_optional_json(reports / "behavioral_revalidation.json")
@@ -45,6 +48,7 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
     test_execution_contract = _read_optional_json(reports / "test_execution_contract.json")
     human_likeness_evidence = _read_optional_json(reports / "human_likeness_evidence.json")
     human_likeness_claim_gate = _read_optional_json(reports / "human_likeness_claim_gate.json")
+    phase2_selection = _read_optional_json(reports / "phase2_selection_comparison.json")
 
     handoff_position = client_handoff.get("technical_position") or {}
     approval_raw = production_approval.get("raw_supervised_model") or {}
@@ -52,6 +56,7 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
     llm_current = llm_role.get("current_llm_role") or {}
     bet_boundary = bet_timing.get("calibration_boundary") or {}
     hole_boundary = hole_card.get("upstream_data_quality_boundary") or {}
+    normalized_training_audit = normalized_action.get("training_label_audit") or {}
     actions_schema = actions_context.get("actions_csv_schema_audit") or {}
     actions_mitigation = actions_context.get("derived_context_mitigation") or {}
     stack_raw_boundary = stack_event_context.get("raw_stack_event_boundary") or {}
@@ -70,6 +75,8 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
     challenger_result = challenger_strategy_quality.get("challenger_result") or {}
     phase3_rl_boundary = phase3_open_spiel_arena.get("rl_training_proof_boundary") or {}
     evaluation_metric_families = evaluation_metric_contract.get("metric_families") or {}
+    phase2_gate = phase2_selection.get("comparison_gate") or {}
+    phase2_candidates = phase2_selection.get("candidates") or {}
 
     payload: dict[str, Any] = {
         "version": FINAL_DELIVERY_ACCEPTANCE_VERSION,
@@ -200,6 +207,31 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
                 "component_risk": hole_boundary.get("component_risk"),
                 "production_blocker": hole_boundary.get("production_blocker_for_current_deployment"),
             },
+            "normalized_action_contract": {
+                "boundary": NORMALIZED_ACTION_BOUNDARY,
+                "normalized_action_status": normalized_action.get("normalized_action_status"),
+                "raw_action_source_status": normalized_action.get("raw_action_source_status"),
+                "canonical_actions": normalized_action.get("canonical_actions") or [],
+                "source_field": normalized_action.get("source_field"),
+                "normalized_field": normalized_action.get("normalized_field"),
+                "raw_ocr_action_must_not_be_training_label": normalized_action.get(
+                    "raw_ocr_action_must_not_be_training_label"
+                ),
+                "normalization_required_before_training": normalized_action.get(
+                    "normalization_required_before_training"
+                ),
+                "normalization_required_before_evaluation": normalized_action.get(
+                    "normalization_required_before_evaluation"
+                ),
+                "normalization_required_before_policy_comparison": normalized_action.get(
+                    "normalization_required_before_policy_comparison"
+                ),
+                "current_delivery_blocker": normalized_action.get("current_delivery_blocker"),
+                "model_quality_risk": normalized_action.get("model_quality_risk"),
+                "training_label_status": normalized_training_audit.get("status"),
+                "invalid_training_labels": normalized_training_audit.get("invalid_labels") or [],
+                "noisy_action_examples": normalized_action.get("noisy_action_examples") or [],
+            },
             "actions_context_quality": {
                 "boundary": ACTIONS_CONTEXT_BOUNDARY,
                 "explicit_context_status": actions_schema.get("explicit_context_status"),
@@ -273,6 +305,34 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
                     "full_production_scale_multi_agent_training_status"
                 ),
                 "production_blocker": training_boundary.get("production_blocker", training_boundary.get("production_blocker_for_current_delivery", False)),
+            },
+            "phase2_selection_comparison": {
+                "boundary": PHASE2_SELECTION_BOUNDARY,
+                "status": phase2_selection.get("status"),
+                "required_candidates": phase2_selection.get("required_candidates") or [],
+                "same_holdout_required": (phase2_selection.get("common_holdout_contract") or {}).get(
+                    "same_holdout_required"
+                ),
+                "same_simulation_required": (phase2_selection.get("common_simulation_contract") or {}).get(
+                    "same_simulation_required"
+                ),
+                "all_required_candidates_present": phase2_gate.get("all_required_candidates_present"),
+                "all_candidates_compared_on_common_holdout": phase2_gate.get(
+                    "all_candidates_compared_on_common_holdout"
+                ),
+                "all_candidates_compared_in_common_simulation": phase2_gate.get(
+                    "all_candidates_compared_in_common_simulation"
+                ),
+                "missing_common_holdout_candidates": phase2_gate.get("missing_common_holdout_candidates") or [],
+                "missing_common_simulation_candidates": phase2_gate.get("missing_common_simulation_candidates") or [],
+                "selected_for_current_delivery": phase2_gate.get("selected_for_current_delivery"),
+                "final_selected_architecture": phase2_gate.get("final_selected_architecture"),
+                "future_rl_agent_status": (phase2_candidates.get("future_rl_agent") or {}).get(
+                    "implementation_status"
+                ),
+                "final_selection_claim_allowed": phase2_gate.get("final_selection_claim_allowed"),
+                "current_delivery_blocker": phase2_gate.get("current_delivery_blocker"),
+                "model_quality_risk": phase2_gate.get("model_quality_risk"),
             },
             "phase3_open_spiel_rl_training": {
                 "boundary": PHASE3_OPEN_SPIEL_RL_BOUNDARY,
@@ -379,6 +439,8 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "QLoRA or larger LLM fine-tuning is tracked as a next-stage improvement, not as completed production-approved work.",
             "Real-traffic rollout requires active monitoring, rollback rules, live drift tracking, prediction-distribution tracking, and model-confidence monitoring.",
             "The raw supervised model is loadable inside the approved stack but not standalone production-approved.",
+            "Raw OCR/dealer action strings are normalized into canonical action labels before training, evaluation, and policy comparison.",
+            "The current Phase 2 delivery stack is routed_policy_bundle; final Phase 2 winner selection requires the common holdout and common simulation comparison across all required candidates.",
             "Final production-level strategy quality is blocked until a stronger challenger passes the challenger and raw gates.",
             "Known gaps are tracked as component risks or future calibration milestones, not hidden blockers.",
         ],
@@ -404,6 +466,8 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "Human-likeness is fully proven by action distribution alone.",
             "Bet sizing, timing, position behavior, and street-level strategy do not require separate validation.",
             "Current validation replaces larger clean real-gameplay revalidation.",
+            "Raw OCR action strings such as ra1se, cail, bett, or all-in are valid supervised labels without normalization.",
+            "Phase 2 final architecture selection is complete without comparing LLM, supervised model, rule-based fallback, routed policy, and future RL agent on the same holdout and simulation conditions.",
         ],
         "evidence": {
             "production_approval": "reports/production_approval.json",
@@ -412,6 +476,7 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "llm_role_boundary": "reports/llm_role_boundary.json",
             "bet_timing_calibration": "reports/bet_timing_calibration.json",
             "hole_card_data_quality": "reports/hole_card_data_quality.json",
+            "normalized_action_contract": "reports/normalized_action_contract.json",
             "actions_context_quality": "reports/actions_context_quality.json",
             "stack_event_context_quality": "reports/stack_event_context_quality.json",
             "behavioral_revalidation": "reports/behavioral_revalidation.json",
@@ -426,13 +491,16 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "test_execution_contract": "reports/test_execution_contract.json",
             "human_likeness_evidence": "reports/human_likeness_evidence.json",
             "human_likeness_claim_gate": "reports/human_likeness_claim_gate.json",
+            "phase2_selection_comparison": "reports/phase2_selection_comparison.json",
         },
         "next_milestones": [
+            "Run the strict Phase 2 common-condition comparison for LLM, supervised model, rule-based fallback, routed policy, and future RL agent on the same grouped holdout and agent-only simulation arena.",
             "Train and promote a stronger standalone raw supervised challenger only after it beats the current raw supervised model and passes every raw gate.",
             "Run QLoRA or larger-LLM fine-tuning as a separate next-stage milestone for noisy OCR/dealer-log normalization, structured extraction, candidate ranking, and JSON/schema compliance improvement.",
             "Enable external production telemetry storage, alerting, rollback procedures, and live drift tracking before real-traffic rollout.",
             "Collect larger reviewed real gameplay labels for timing, bet size, hole-card visibility, and action distribution slices.",
             "Instrument actions.csv with explicit amount, to_call, pot_before_action, min_raise, legal_actions, and action_order fields.",
+            "Keep raw OCR/dealer action text and canonical action labels separate in every future dataset export.",
             "Persist explicit pre-action pot, effective_stack, SPR, current_bet_size, and min_raise labels alongside stack event logs.",
             "Run a separate full production-scale multi-agent training cycle under an approved A100/H100 cluster profile.",
             "Execute the Phase 3 OpenSpiel RL training proof with real pyspiel runtime, two trained Phase 1 policy artifacts, at least five independent seeds, long-run volume, and policy-update training.",
@@ -456,6 +524,7 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
     runtime_observability = risks.get("production_runtime_monitoring") or {}
     challenger = risks.get("challenger_strategy_quality") or {}
     hole = risks.get("hole_card_data_quality") or {}
+    normalized_action = risks.get("normalized_action_contract") or {}
     actions_context = risks.get("actions_context_quality") or {}
     stack_event_context = risks.get("stack_event_context_quality") or {}
     bet = risks.get("bet_timing_calibration") or {}
@@ -466,6 +535,7 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
     test_execution = risks.get("test_execution_coverage") or {}
     human_likeness = risks.get("human_likeness_evidence") or {}
     human_likeness_claim_gate = risks.get("human_likeness_claim_gate") or {}
+    phase2_selection = risks.get("phase2_selection_comparison") or {}
 
     if payload.get("final_status") != FINAL_STATUS:
         violations.append("final_status_must_be_ready_with_tracked_component_risks")
@@ -708,6 +778,54 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
         violations.append("hole_card_upstream_issue_must_not_be_marked_resolved")
     if hole.get("component_risk") is not True or hole.get("production_blocker") is not False:
         violations.append("hole_card_issue_must_remain_component_risk_not_blocker")
+    if normalized_action.get("boundary") != NORMALIZED_ACTION_BOUNDARY:
+        violations.append("normalized_action_boundary_must_be_present")
+    if normalized_action.get("normalized_action_status") != "IMPLEMENTED":
+        violations.append("normalized_action_contract_must_be_implemented")
+    if normalized_action.get("raw_action_source_status") != "RAW_OCR_OR_DEALER_TEXT":
+        violations.append("normalized_action_source_must_be_raw_ocr_or_dealer_text")
+    if set(normalized_action.get("canonical_actions") or []) != {
+        "fold",
+        "call",
+        "check",
+        "bet",
+        "raise",
+        "all_in",
+    }:
+        violations.append("normalized_action_canonical_set_must_be_complete")
+    if normalized_action.get("source_field") != "actions.csv::action":
+        violations.append("normalized_action_source_field_must_be_actions_csv_action")
+    if normalized_action.get("normalized_field") != "canonical_action":
+        violations.append("normalized_action_target_field_must_be_canonical_action")
+    if normalized_action.get("raw_ocr_action_must_not_be_training_label") is not True:
+        violations.append("raw_ocr_action_must_not_be_training_label")
+    if normalized_action.get("normalization_required_before_training") is not True:
+        violations.append("normalized_action_must_be_required_before_training")
+    if normalized_action.get("normalization_required_before_evaluation") is not True:
+        violations.append("normalized_action_must_be_required_before_evaluation")
+    if normalized_action.get("normalization_required_before_policy_comparison") is not True:
+        violations.append("normalized_action_must_be_required_before_policy_comparison")
+    if normalized_action.get("current_delivery_blocker") is not False:
+        violations.append("normalized_action_contract_must_not_block_current_delivery")
+    if normalized_action.get("model_quality_risk") is not False:
+        violations.append("normalized_action_contract_must_not_remain_model_quality_risk")
+    if normalized_action.get("training_label_status") != "PASS":
+        violations.append("normalized_action_training_labels_must_pass")
+    if normalized_action.get("invalid_training_labels"):
+        violations.append("normalized_action_training_labels_must_not_contain_raw_ocr")
+    normalized_examples = {
+        example.get("raw_action"): example for example in normalized_action.get("noisy_action_examples") or []
+    }
+    required_normalized_examples = {
+        "ra1se": "raise",
+        "cail": "call",
+        "bett": "bet",
+        "all-in": "all_in",
+    }
+    for raw_action, expected in required_normalized_examples.items():
+        example = normalized_examples.get(raw_action) or {}
+        if example.get("observed") != expected or example.get("passed") is not True:
+            violations.append(f"normalized_action_example_must_pass:{raw_action}")
     if actions_context.get("explicit_context_status") != "INCOMPLETE_EXPLICIT_BETTING_CONTEXT":
         violations.append("actions_context_must_remain_marked_incomplete")
     required_action_fields = {
@@ -783,6 +901,45 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
         violations.append("full_production_scale_multi_agent_training_must_not_be_marked_completed")
     if multi.get("production_blocker") is not False:
         violations.append("multi_agent_hardening_gap_must_not_block_current_delivery")
+    if phase2_selection.get("boundary") != PHASE2_SELECTION_BOUNDARY:
+        violations.append("phase2_selection_boundary_must_be_present")
+    if phase2_selection.get("status") != "STRICT_SELECTION_GATE_IMPLEMENTED":
+        violations.append("phase2_selection_status_must_be_strict_gate_implemented")
+    required_phase2_candidates = {
+        "llm_decision_agent",
+        "supervised_model",
+        "rule_based_fallback",
+        "routed_policy_bundle",
+        "future_rl_agent",
+    }
+    if set(phase2_selection.get("required_candidates") or []) != required_phase2_candidates:
+        violations.append("phase2_selection_required_candidates_must_be_complete")
+    if phase2_selection.get("same_holdout_required") is not True:
+        violations.append("phase2_selection_must_require_same_holdout")
+    if phase2_selection.get("same_simulation_required") is not True:
+        violations.append("phase2_selection_must_require_same_simulation")
+    if phase2_selection.get("all_required_candidates_present") is not True:
+        violations.append("phase2_selection_must_include_all_required_candidates")
+    if phase2_selection.get("all_candidates_compared_on_common_holdout") is not False:
+        violations.append("phase2_selection_common_holdout_must_not_be_marked_complete_yet")
+    if phase2_selection.get("all_candidates_compared_in_common_simulation") is not False:
+        violations.append("phase2_selection_common_simulation_must_not_be_marked_complete_yet")
+    if not phase2_selection.get("missing_common_holdout_candidates"):
+        violations.append("phase2_selection_missing_common_holdout_candidates_must_be_listed")
+    if not phase2_selection.get("missing_common_simulation_candidates"):
+        violations.append("phase2_selection_missing_common_simulation_candidates_must_be_listed")
+    if phase2_selection.get("selected_for_current_delivery") != "routed_policy_bundle":
+        violations.append("phase2_selection_current_delivery_architecture_must_be_routed_bundle")
+    if phase2_selection.get("final_selected_architecture") is not None:
+        violations.append("phase2_selection_final_architecture_must_not_be_selected_yet")
+    if phase2_selection.get("future_rl_agent_status") != "NOT_AVAILABLE_YET":
+        violations.append("phase2_selection_future_rl_must_not_be_claimed_available")
+    if phase2_selection.get("final_selection_claim_allowed") is not False:
+        violations.append("phase2_selection_final_claim_must_be_blocked_until_common_conditions")
+    if phase2_selection.get("current_delivery_blocker") is not False:
+        violations.append("phase2_selection_gap_must_not_block_current_delivery")
+    if phase2_selection.get("model_quality_risk") is not True:
+        violations.append("phase2_selection_gap_must_remain_model_quality_risk")
 
     return {"status": "FAIL" if violations else "PASS", "violations": violations}
 
@@ -828,6 +985,8 @@ def render_final_delivery_acceptance_markdown(payload: dict[str, Any]) -> str:
         f"- Challenger strategy quality: `{risks['challenger_strategy_quality']['boundary']}`",
         f"- Final strategy-quality claim allowed: `{risks['challenger_strategy_quality']['final_production_strategy_quality_claim_allowed']}`",
         f"- Hole-card upstream resolved: `{risks['hole_card_data_quality']['upstream_resolved']}`",
+        f"- Normalized action contract: `{risks['normalized_action_contract']['normalized_action_status']}`",
+        f"- Raw OCR action accepted as training label: `{not risks['normalized_action_contract']['raw_ocr_action_must_not_be_training_label']}`",
         f"- actions.csv explicit context: `{risks['actions_context_quality']['explicit_context_status']}`",
         f"- actions.csv model-quality risk: `{risks['actions_context_quality']['model_quality_risk']}`",
         f"- stack_events decision context: `{risks['stack_event_context_quality']['derived_context_status']}`",
@@ -838,6 +997,11 @@ def render_final_delivery_acceptance_markdown(payload: dict[str, Any]) -> str:
         f"- Timing final human-likeness proof allowed: `{risks['bet_timing_calibration']['timing_human_likeness_final_proof_allowed']}`",
         f"- Larger gameplay revalidation required: `{risks['behavioral_revalidation']['larger_clean_real_gameplay_revalidation_required']}`",
         f"- Full production-scale multi-agent training: `{risks['multi_agent_training']['full_production_scale_multi_agent_training_status']}`",
+        f"- Phase 2 strict selection: `{risks['phase2_selection_comparison']['status']}`",
+        f"- Phase 2 current delivery architecture: `{risks['phase2_selection_comparison']['selected_for_current_delivery']}`",
+        f"- Phase 2 final selection claim allowed: `{risks['phase2_selection_comparison']['final_selection_claim_allowed']}`",
+        f"- Phase 2 common holdout complete: `{risks['phase2_selection_comparison']['all_candidates_compared_on_common_holdout']}`",
+        f"- Phase 2 common simulation complete: `{risks['phase2_selection_comparison']['all_candidates_compared_in_common_simulation']}`",
         f"- Phase 3 OpenSpiel RL proof: `{risks['phase3_open_spiel_rl_training']['status']}`",
         f"- Phase 3 measured win-rate claim allowed: `{risks['phase3_open_spiel_rl_training']['measured_win_rate_claim_allowed']}`",
         f"- Evaluation metric boundary: `{risks['evaluation_metric_coverage']['boundary']}`",
