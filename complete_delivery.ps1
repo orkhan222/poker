@@ -171,6 +171,8 @@ $HoleCardDataQualityReport = Join-Path $ReportsDir "hole_card_data_quality.json"
 $HoleCardDataQualityMarkdownReport = Join-Path $ReportsDir "hole_card_data_quality.md"
 $NormalizedActionContractReport = Join-Path $ReportsDir "normalized_action_contract.json"
 $NormalizedActionContractMarkdownReport = Join-Path $ReportsDir "normalized_action_contract.md"
+$ScenarioSanityReport = Join-Path $ReportsDir "scenario_sanity.json"
+$ScenarioSanityMarkdownReport = Join-Path $ReportsDir "scenario_sanity.md"
 $BetTimingCalibrationReport = Join-Path $ReportsDir "bet_timing_calibration.json"
 $BetTimingCalibrationMarkdownReport = Join-Path $ReportsDir "bet_timing_calibration.md"
 $RawModelStatusReport = Join-Path $ReportsDir "raw_model_status.json"
@@ -489,6 +491,13 @@ Write-Host "7f-1b/8 Building normalized action contract..." -ForegroundColor Gre
     --project-root $ProjectRoot `
     --out $NormalizedActionContractReport `
     --markdown-out $NormalizedActionContractMarkdownReport
+
+Write-Host "7f-1c/8 Building targeted scenario sanity report..." -ForegroundColor Green
+& $Python scripts\build_scenario_sanity.py `
+    --project-root $ProjectRoot `
+    --out $ScenarioSanityReport `
+    --markdown-out $ScenarioSanityMarkdownReport `
+    --fail-on-sanity-error
 
 Write-Host "7f-2/8 Building client GPU training response..." -ForegroundColor Green
 & $Python scripts\build_client_gpu_training_response.py `

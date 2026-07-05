@@ -4,10 +4,12 @@ import os
 import time
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Body, FastAPI, HTTPException, Query, Request
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from poker_agent.agents import MLPolicyAgent, RuleBasedAgent
 from poker_agent.api_contract import api_contract
@@ -40,6 +42,7 @@ from poker_agent.project_completion import build_project_completion
 from poker_agent.production_runtime_monitoring import build_production_runtime_monitoring, runtime_monitoring_state
 from poker_agent.qlora_next_stage import build_qlora_next_stage
 from poker_agent.raw_model_status import build_raw_model_status
+from poker_agent.scenario_sanity import build_scenario_sanity
 from poker_agent.schemas import PredictionRequest
 from poker_agent.scope_contract import build_scope_contract
 from poker_agent.stack_event_context_quality import build_stack_event_context_quality
@@ -49,10 +52,130 @@ from poker_agent.test_execution_contract import build_test_execution_contract
 from poker_agent.training_cluster import DEFAULT_RUN_PROFILE, build_training_cluster_requirements
 
 
+ActionName = Literal["fold", "call", "check", "bet", "raise", "all_in"]
+StreetName = Literal["preflop", "flop", "turn", "river"]
+
+
+class BettingHistoryBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    player_position: str = Field(default="UTG", description="Acting player position.")
+    action: ActionName = Field(default="raise", description="Canonical action before the hero decision.")
+    amount: float = Field(default=4.5, ge=0.0, description="Observed action amount, if available.")
+    street: StreetName = Field(default="preflop", description="Street where the action happened.")
+    wait_time_ms: float | None = Field(default=None, ge=0.0, description="Observed player decision latency.")
+
+
+class TimingContextBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    opponent_wait_before_turn_ms: float = Field(default=0.0, ge=0.0)
+    opponent_wait_after_hero_action_ms: float = Field(default=0.0, ge=0.0)
+
+
+class PredictRequestBody(BaseModel):
+    model_config = ConfigDict(
+        extra="ignore",
+        json_schema_extra={
+            "example": {
+                "position": "BTN",
+                "street": "preflop",
+                "hole_cards": ["Ah", "Kd"],
+                "board_cards": [],
+                "pot": 2.5,
+                "to_call": 1.0,
+                "stack": 100.0,
+                "min_raise": 2.0,
+                "player_count": 6,
+            }
+        },
+    )
+
+    position: str = Field(
+        default="BTN",
+        validation_alias=AliasChoices("position", "player_position"),
+        description="Hero table position.",
+    )
+    street: StreetName = Field(default="preflop", description="Current betting street.")
+    hole_cards: list[str] = Field(default_factory=list, description="Hero hole cards, for example Ah Kd.")
+    board_cards: list[str] = Field(default_factory=list, description="Community cards visible before the decision.")
+    pot: float = Field(default=0.0, ge=0.0, description="Current pot size before the hero action.")
+    to_call: float = Field(default=0.0, ge=0.0, description="Amount required to call.")
+    stack: float = Field(default=0.0, ge=0.0, description="Hero stack before the decision.")
+    min_raise: float = Field(default=0.0, ge=0.0, description="Minimum legal raise size.")
+    player_count: int = Field(default=6, ge=2, le=10, description="Number of players dealt into the hand.")
+    betting_history: list[BettingHistoryBody] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("betting_history", "action_history"),
+        description="Actions observable before the target hero action.",
+    )
+    opponent_wait_before_turn_ms: float = Field(default=0.0, ge=0.0)
+    opponent_wait_after_hero_action_ms: float = Field(default=0.0, ge=0.0)
+    timing_context: TimingContextBody | None = Field(default=None)
+
+    def to_payload(self) -> dict[str, Any]:
+        payload = self.model_dump()
+        if self.timing_context is not None:
+            payload["timing_context"] = self.timing_context.model_dump()
+        return payload
+
+
+class ActionProbabilitiesBody(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    fold: float = Field(default=0.0, ge=0.0, le=1.0)
+    call: float = Field(default=0.0, ge=0.0, le=1.0)
+    check: float = Field(default=0.0, ge=0.0, le=1.0)
+    bet: float = Field(default=0.0, ge=0.0, le=1.0)
+    raise_: float = Field(default=0.0, ge=0.0, le=1.0, alias="raise")
+    all_in: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class PredictResponseBody(BaseModel):
+    model_config = ConfigDict(
+        populate_by_name=True,
+        extra="ignore",
+        json_schema_extra={
+            "example": {
+                "action": "raise",
+                "probabilities": {
+                    "fold": 0.02,
+                    "call": 0.24,
+                    "check": 0.04,
+                    "bet": 0.18,
+                    "raise": 0.52,
+                    "all_in": 0.0,
+                },
+                "confidence": 0.52,
+                "bet_size": 4.5,
+                "wait_time_ms": 1264,
+                "sizing_method": "pressure_raise",
+                "timing_method": "table_tempo_calibrated",
+                "model_status": "routed_policy_bundle",
+            }
+        },
+    )
+
+    action: ActionName
+    probabilities: ActionProbabilitiesBody
+    confidence: float = Field(ge=0.0, le=1.0)
+    bet_size: float = Field(default=0.0, ge=0.0)
+    wait_time_ms: int = Field(default=250, ge=0)
+    sizing_method: str
+    timing_method: str
+    model_status: str
+    warnings: list[str] = Field(default_factory=list)
+
+
 app = FastAPI(
     title="Poker Decision Agent API",
     description="API for real-time poker action prediction using the bundled trained policy model.",
     version="1.0.0",
+    docs_url=None,
+    swagger_ui_parameters={
+        "defaultModelsExpandDepth": -1,
+        "docExpansion": "full",
+    },
     openapi_tags=[
         {
             "name": "Prediction",
@@ -64,6 +187,7 @@ app = FastAPI(
         },
     ],
 )
+PUBLIC_OPENAPI_PATHS = {"/predict"}
 _agent = None
 _autonomous_agent = None
 _agent_load_error: str | None = None
@@ -105,6 +229,268 @@ TEST_EXECUTION_CONTRACT_PATH = PROJECT_ROOT / "reports" / "test_execution_contra
 HUMAN_LIKENESS_EVIDENCE_PATH = PROJECT_ROOT / "reports" / "human_likeness_evidence.json"
 HUMAN_LIKENESS_CLAIM_GATE_PATH = PROJECT_ROOT / "reports" / "human_likeness_claim_gate.json"
 PHASE2_SELECTION_COMPARISON_PATH = PROJECT_ROOT / "reports" / "phase2_selection_comparison.json"
+SCENARIO_SANITY_PATH = PROJECT_ROOT / "reports" / "scenario_sanity.json"
+
+
+def public_openapi_schema() -> dict[str, Any]:
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    public_routes = [
+        route
+        for route in app.routes
+        if getattr(route, "path", None) in PUBLIC_OPENAPI_PATHS
+    ]
+    schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=public_routes,
+        tags=[
+            {
+                "name": "Prediction",
+                "description": "Poker action prediction endpoints.",
+            },
+        ],
+    )
+
+    for path_item in schema.get("paths", {}).values():
+        for operation in path_item.values():
+            if isinstance(operation, dict):
+                operation.get("responses", {}).pop("422", None)
+
+    components = schema.get("components") or {}
+    schemas = components.get("schemas") or {}
+    schemas.pop("HTTPValidationError", None)
+    schemas.pop("ValidationError", None)
+    if not schemas:
+        components.pop("schemas", None)
+    if not components:
+        schema.pop("components", None)
+
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = public_openapi_schema
+
+
+CLIENT_SWAGGER_HTML = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Poker Decision Agent API Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+  <style>
+    body.client-facing-swagger {
+      margin: 0;
+      background: #ffffff;
+    }
+    body.client-facing-swagger .swagger-ui {
+      padding-top: 0;
+    }
+    .swagger-ui .wrapper {
+      width: min(1480px, calc(100vw - 64px));
+      max-width: none;
+      margin: 0 auto;
+      padding: 10px 0;
+    }
+    .swagger-ui .info {
+      margin: 8px 0 16px;
+    }
+    .swagger-ui .info .title {
+      color: #26354f;
+      font-size: 34px;
+      line-height: 1.15;
+    }
+    .swagger-ui .info p {
+      margin: 8px 0 0;
+    }
+    .swagger-ui .information-container.wrapper {
+      padding-bottom: 2px;
+    }
+    .swagger-ui .scheme-container {
+      display: none;
+    }
+    .swagger-ui .opblock-tag-section {
+      margin-top: 2px;
+    }
+    .swagger-ui .opblock-tag {
+      border-bottom-color: #d8dee8;
+      padding: 0 0 8px;
+      margin: 0 0 8px;
+    }
+    .swagger-ui .opblock-tag small {
+      padding-left: 8px;
+    }
+    .swagger-ui .opblock {
+      border-radius: 4px;
+      box-shadow: none;
+    }
+    .swagger-ui .opblock .opblock-summary {
+      padding: 9px 16px;
+    }
+    .swagger-ui .opblock-description-wrapper {
+      padding: 14px 22px;
+    }
+    .swagger-ui .parameters-container {
+      display: none !important;
+    }
+    .swagger-ui table.parameters,
+    .swagger-ui .parameters-col_description,
+    .swagger-ui .parameters-col_name {
+      display: none !important;
+    }
+    .swagger-ui .try-out,
+    .swagger-ui .try-out__btn,
+    .swagger-ui .opblock-section-header:has(.try-out) {
+      display: none !important;
+    }
+    .swagger-ui .opblock-section-header {
+      box-shadow: none;
+      border-top: 1px solid #d8dee8;
+      border-bottom: 1px solid #d8dee8;
+    }
+    .swagger-ui .responses-wrapper,
+    .swagger-ui .request-body {
+      padding: 0 22px 16px;
+    }
+    .swagger-ui .highlight-code {
+      max-height: none;
+    }
+    .swagger-ui .highlight-code > .microlight,
+    .swagger-ui pre {
+      max-height: 340px;
+      overflow: auto;
+      border-radius: 4px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .swagger-ui .try-out {
+      padding-right: 0;
+    }
+    .client-docs-helper {
+      width: min(1480px, calc(100vw - 64px));
+      margin: 8px auto 6px;
+      border: 1px solid #b8d7c7;
+      border-radius: 4px;
+      background: #f3fbf7;
+      color: #1f2f25;
+      padding: 10px 14px;
+      font-family: sans-serif;
+    }
+    .client-docs-helper strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 15px;
+    }
+    .client-docs-helper span {
+      display: block;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    @media (max-width: 760px) {
+      .swagger-ui .wrapper {
+        width: calc(100vw - 24px);
+        padding: 8px 0;
+      }
+      .swagger-ui .info .title {
+        font-size: 28px;
+      }
+      .client-docs-helper {
+        width: calc(100vw - 24px);
+      }
+    }
+  </style>
+</head>
+<body class="client-facing-swagger compact-public-docs">
+  <div class="client-docs-helper">
+    <strong>Public API surface</strong>
+    <span>Use <code>POST /predict</code>. Input is a JSON request body; there are no query parameters. The operation below opens in read-only example mode so request and response examples are visible without entering edit mode.</span>
+  </div>
+  <div id="swagger-ui"></div>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script>
+    function expandPredictOperation() {
+      var blocks = document.querySelectorAll(".swagger-ui .opblock");
+      blocks.forEach(function (block) {
+        var summary = block.querySelector(".opblock-summary");
+        if (!summary || !summary.textContent || summary.textContent.indexOf("/predict") === -1) {
+          return;
+        }
+        if (!block.classList.contains("is-open")) {
+          var control = summary.querySelector(".opblock-summary-control") || summary.querySelector("button") || summary;
+          control.click();
+        }
+      });
+    }
+
+    function hideEmptyParameterSections() {
+      document.querySelectorAll(".swagger-ui .parameters-container").forEach(function (node) {
+        node.style.display = "none";
+      });
+      document.querySelectorAll(".swagger-ui table.parameters").forEach(function (node) {
+        node.style.display = "none";
+      });
+      document.querySelectorAll(".swagger-ui .opblock-section-header").forEach(function (header) {
+        var text = (header.textContent || "").replace(/\\s+/g, " ").trim().toLowerCase();
+        if (text.indexOf("parameters") === 0) {
+          header.style.display = "none";
+        }
+      });
+    }
+
+    function keepPredictExpanded() {
+      expandPredictOperation();
+      hideEmptyParameterSections();
+      var target = document.getElementById("swagger-ui");
+      if (!target || !window.MutationObserver) {
+        return;
+      }
+      var observer = new MutationObserver(function () {
+        window.requestAnimationFrame(function () {
+          expandPredictOperation();
+          hideEmptyParameterSections();
+        });
+      });
+      observer.observe(target, { childList: true, subtree: true, attributes: true });
+      [100, 300, 700, 1200].forEach(function (delayMs) {
+        window.setTimeout(function () {
+          expandPredictOperation();
+          hideEmptyParameterSections();
+        }, delayMs);
+      });
+    }
+
+    window.onload = function () {
+      window.ui = SwaggerUIBundle({
+        url: "/openapi.json",
+        dom_id: "#swagger-ui",
+        deepLinking: true,
+        docExpansion: "full",
+        defaultModelsExpandDepth: -1,
+        defaultModelExpandDepth: 1,
+        displayRequestDuration: false,
+        tryItOutEnabled: false,
+        supportedSubmitMethods: [],
+        presets: [
+          SwaggerUIBundle.presets.apis
+        ],
+        onComplete: keepPredictExpanded
+      });
+      keepPredictExpanded();
+    };
+  </script>
+</body>
+</html>
+"""
+
+
+@app.get("/docs", response_class=HTMLResponse, include_in_schema=False)
+def public_docs_page() -> str:
+    return CLIENT_SWAGGER_HTML
 
 
 APP_HTML = """
@@ -965,7 +1351,12 @@ def qlora_next_stage_json() -> dict[str, Any]:
     return build_qlora_next_stage(PROJECT_ROOT)
 
 
-@app.get("/agent/capabilities.json", tags=["System"], summary="Autonomous agent capabilities")
+@app.get(
+    "/agent/capabilities.json",
+    tags=["System"],
+    summary="Controlled session policy capabilities",
+    include_in_schema=False,
+)
 def autonomous_agent_capabilities_json() -> dict[str, Any]:
     return get_autonomous_agent().capabilities()
 
@@ -973,11 +1364,12 @@ def autonomous_agent_capabilities_json() -> dict[str, Any]:
 @app.post(
     "/agent/decide",
     tags=["Prediction"],
-    summary="Advance an autonomous hand session",
+    summary="Advance a controlled hand session",
     description=(
         "Accepts an ordered structured observation, enforces legal actions, and returns an "
         "idempotent policy decision for simulation or an approved environment adapter."
     ),
+    include_in_schema=False,
 )
 def autonomous_agent_decide(payload: dict[str, Any]) -> dict[str, Any]:
     try:
@@ -990,7 +1382,8 @@ def autonomous_agent_decide(payload: dict[str, Any]) -> dict[str, Any]:
 @app.get(
     "/agent/sessions/{hand_id}",
     tags=["System"],
-    summary="Autonomous hand session state",
+    summary="Controlled hand session state",
+    include_in_schema=False,
 )
 def autonomous_agent_session(hand_id: str) -> dict[str, Any]:
     try:
@@ -1002,7 +1395,8 @@ def autonomous_agent_session(hand_id: str) -> dict[str, Any]:
 @app.post(
     "/agent/sessions/{hand_id}/settle",
     tags=["Prediction"],
-    summary="Settle an autonomous hand session",
+    summary="Settle a controlled hand session",
+    include_in_schema=False,
 )
 def autonomous_agent_settle(hand_id: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
     try:
@@ -1038,6 +1432,13 @@ def strategy_remediation_json() -> dict[str, Any]:
             "report": str(STRATEGY_REMEDIATION_REPORT_PATH),
         }
     return json.loads(STRATEGY_REMEDIATION_REPORT_PATH.read_text(encoding="utf-8"))
+
+
+@app.get("/scenario-sanity.json", tags=["System"], summary="Targeted poker scenario sanity validation")
+def scenario_sanity_json() -> dict[str, Any]:
+    if SCENARIO_SANITY_PATH.exists():
+        return json.loads(SCENARIO_SANITY_PATH.read_text(encoding="utf-8"))
+    return build_scenario_sanity(PROJECT_ROOT)
 
 
 
@@ -1139,17 +1540,49 @@ def predict_page() -> str:
     "/predict",
     tags=["Prediction"],
     summary="Predict poker action",
-    description="Accepts a poker game state and returns the selected action with action probabilities.",
+    description=(
+        "Accepts a structured poker game state as a JSON request body and returns the selected "
+        "action with probabilities, bet sizing, and timing. No query parameters are required."
+    ),
+    response_model=PredictResponseBody,
+    response_model_by_alias=True,
+    responses={
+        200: {
+            "description": "Poker action prediction with normalized probabilities, bet sizing, and timing.",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "action": "raise",
+                        "probabilities": {
+                            "fold": 0.02,
+                            "call": 0.24,
+                            "check": 0.04,
+                            "bet": 0.18,
+                            "raise": 0.52,
+                            "all_in": 0.0,
+                        },
+                        "confidence": 0.52,
+                        "bet_size": 4.5,
+                        "wait_time_ms": 1264,
+                        "sizing_method": "pressure_raise",
+                        "timing_method": "table_tempo_calibrated",
+                        "model_status": "routed_policy_bundle",
+                    }
+                }
+            },
+        }
+    },
 )
-def predict(payload: dict[str, Any]) -> dict[str, Any]:
+def predict(payload: PredictRequestBody = Body(...)) -> dict[str, Any]:
     started = time.perf_counter()
+    request_payload = payload.to_payload()
     try:
-        request = PredictionRequest.from_dict(payload)
+        request = PredictionRequest.from_dict(request_payload)
         result = get_agent().predict(request).to_dict()
         runtime_monitoring_state.observe_prediction(
             result,
             latency_ms=(time.perf_counter() - started) * 1000.0,
-            request_payload=payload,
+            request_payload=request_payload,
         )
         return result
     except Exception as exc:

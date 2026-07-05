@@ -21,8 +21,16 @@ from poker_agent.agents import MLPolicyAgent
 from poker_agent.api_contract import api_contract
 from poker_agent.approval_boundary import assert_approval_boundary, build_approval_boundary
 from poker_agent.model import load_policy
+from poker_agent.scenario_sanity import validate_scenario_sanity
 from poker_agent.schemas import PredictionRequest
-from poker_agent.service import get_agent, get_autonomous_agent, health_payload, resolve_model_path
+from poker_agent.service import (
+    CLIENT_SWAGGER_HTML,
+    app,
+    get_agent,
+    get_autonomous_agent,
+    health_payload,
+    resolve_model_path,
+)
 
 
 @dataclass
@@ -93,6 +101,7 @@ def require_files(root: Path) -> str:
         "configs/experiments/normalized_action_contract.yaml",
         "configs/experiments/actions_context_quality.yaml",
         "configs/experiments/stack_event_context_quality.yaml",
+        "configs/experiments/scenario_sanity.yaml",
         "configs/experiments/train_routed_bundle_smoke.yaml",
         "configs/experiments/llm_event_extraction_smoke.yaml",
         "configs/experiments/llm_event_benchmark.yaml",
@@ -216,6 +225,8 @@ def require_files(root: Path) -> str:
         "reports/actions_context_quality.md",
         "reports/stack_event_context_quality.json",
         "reports/stack_event_context_quality.md",
+        "reports/scenario_sanity.json",
+        "reports/scenario_sanity.md",
         "reports/raw_model_status.json",
         "reports/raw_model_status.md",
         "reports/raw_model_challenger.json",
@@ -258,6 +269,7 @@ def require_files(root: Path) -> str:
         "scripts/build_normalized_action_contract.py",
         "scripts/build_actions_context_quality.py",
         "scripts/build_stack_event_context_quality.py",
+        "scripts/build_scenario_sanity.py",
         "scripts/build_raw_model_status.py",
         "scripts/train_raw_model_challenger.py",
         "scripts/build_challenger_strategy_quality.py",
@@ -318,6 +330,7 @@ def require_files(root: Path) -> str:
         "poker_agent/normalized_action_contract.py",
         "poker_agent/actions_context_quality.py",
         "poker_agent/stack_event_context_quality.py",
+        "poker_agent/scenario_sanity.py",
         "poker_agent/raw_model_status.py",
         "poker_agent/raw_model_challenger.py",
         "poker_agent/challenger_strategy_quality.py",
@@ -380,6 +393,7 @@ def require_files(root: Path) -> str:
         "tests/test_normalized_action_contract.py",
         "tests/test_actions_context_quality.py",
         "tests/test_stack_event_context_quality.py",
+        "tests/test_scenario_sanity.py",
         "tests/test_raw_model_status.py",
         "tests/test_raw_model_challenger.py",
         "tests/test_challenger_strategy_quality.py",
@@ -613,6 +627,98 @@ def health_contract(model_path: Path) -> str:
         raise AssertionError(f"Fallback health payload does not expose load error: {payload}")
     return json.dumps(payload, sort_keys=True)
 
+
+def public_openapi_contract() -> str:
+    schema = app.openapi()
+    paths = set(schema.get("paths") or {})
+    expected_paths = {"/predict"}
+    swagger_params = app.swagger_ui_parameters or {}
+    docs_routes = [route for route in app.routes if getattr(route, "path", None) == "/docs"]
+    if app.docs_url is not None:
+        raise AssertionError("Default FastAPI Swagger route must be disabled for the client-facing docs shell")
+    if len(docs_routes) != 1 or getattr(docs_routes[0], "include_in_schema", True):
+        raise AssertionError("Client-facing /docs route must exist and stay hidden from OpenAPI")
+    for required_fragment in (
+        "client-facing-swagger",
+        "compact-public-docs",
+        "client-docs-helper",
+        "parameters-container",
+        "hideEmptyParameterSections",
+        'url: "/openapi.json"',
+        "SwaggerUIBundle",
+        "expandPredictOperation",
+        "keepPredictExpanded",
+        "onComplete: keepPredictExpanded",
+        "tryItOutEnabled: false",
+        "supportedSubmitMethods: []",
+        "try-out__btn",
+    ):
+        if required_fragment not in CLIENT_SWAGGER_HTML:
+            raise AssertionError(f"Client-facing Swagger HTML is missing {required_fragment!r}")
+    if "tryItOutEnabled: true" in CLIENT_SWAGGER_HTML:
+        raise AssertionError("Public docs must not open Swagger in editable Try it out mode by default")
+    if "supportedSubmitMethods: []" not in CLIENT_SWAGGER_HTML:
+        raise AssertionError("Public docs must disable Swagger submit controls by default")
+    if swagger_params.get("defaultModelsExpandDepth") != -1:
+        raise AssertionError("Swagger UI must hide the Schemas/models panel")
+    if swagger_params.get("docExpansion") != "full":
+        raise AssertionError("Swagger UI must expand the public /predict operation by default")
+    if paths != expected_paths:
+        raise AssertionError(f"Public OpenAPI must expose only {sorted(expected_paths)}; got {sorted(paths)}")
+    tags = [tag.get("name") for tag in schema.get("tags", []) if isinstance(tag, dict)]
+    if tags != ["Prediction"]:
+        raise AssertionError(f"Public OpenAPI must expose only the Prediction tag; got {tags}")
+    if "/agent/decide" in paths or "/agent/sessions/{hand_id}/settle" in paths:
+        raise AssertionError("Controlled session endpoints must remain hidden from public Swagger docs")
+    schemas = (schema.get("components") or {}).get("schemas") or {}
+    expected_schemas = {
+        "ActionProbabilitiesBody",
+        "BettingHistoryBody",
+        "PredictRequestBody",
+        "PredictResponseBody",
+        "TimingContextBody",
+    }
+    if set(schemas) != expected_schemas:
+        raise AssertionError(f"Public OpenAPI must expose only predict schemas; got {sorted(schemas)}")
+    if {"HTTPValidationError", "ValidationError"} & set(schemas):
+        raise AssertionError("Public OpenAPI must not expose validation-error schema clutter")
+    if "additionalProp1" in json.dumps(schema, sort_keys=True):
+        raise AssertionError("Public OpenAPI must not show generic additionalProp1 examples")
+    predict_request_schema = schemas.get("PredictRequestBody") or {}
+    request_example = predict_request_schema.get("example") or {}
+    compact_example_fields = {
+        "position",
+        "street",
+        "hole_cards",
+        "board_cards",
+        "pot",
+        "to_call",
+        "stack",
+        "min_raise",
+        "player_count",
+    }
+    if set(request_example) != compact_example_fields:
+        raise AssertionError(
+            "Public /predict request example must stay compact and client-facing; "
+            f"got fields {sorted(request_example)}"
+        )
+    if {"betting_history", "timing_context"} & set(request_example):
+        raise AssertionError("Advanced optional fields must not be shown in the default /predict example")
+    predict_operation = ((schema.get("paths") or {}).get("/predict") or {}).get("post") or {}
+    description = predict_operation.get("description") or ""
+    if "JSON request body" not in description or "No query parameters" not in description:
+        raise AssertionError("Public /predict docs must clarify that input is a JSON body, not query parameters")
+    probability_schema = json.dumps(schemas.get("ActionProbabilitiesBody") or {}, sort_keys=True)
+    for action in ("fold", "call", "check", "bet", "raise"):
+        if action not in probability_schema:
+            raise AssertionError(f"Action probability schema is missing {action}")
+    for path_item in schema.get("paths", {}).values():
+        for operation in path_item.values():
+            if isinstance(operation, dict) and "422" in (operation.get("responses") or {}):
+                raise AssertionError("Public OpenAPI must not show default validation-error schema blocks")
+    return f"public_paths={','.join(sorted(paths))};tags={','.join(tags)}"
+
+
 def api_input_contract() -> str:
     contract = api_contract()
     request_contract = contract.get("prediction_request") or {}
@@ -669,6 +775,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     normalized_action_contract = _read_json(reports / "normalized_action_contract.json")
     actions_context_quality = _read_json(reports / "actions_context_quality.json")
     stack_event_context_quality = _read_json(reports / "stack_event_context_quality.json")
+    scenario_sanity = _read_json(reports / "scenario_sanity.json")
     raw_model_status = _read_json(reports / "raw_model_status.json")
     raw_model_challenger = _read_json(reports / "raw_model_challenger.json")
     challenger_strategy_quality = _read_json(reports / "challenger_strategy_quality.json")
@@ -1169,6 +1276,25 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     ):
         if (stack_proof_cases.get(blocked_case) or {}).get("observed_status") != "FAIL":
             raise AssertionError(f"Stack-event blocked proof case must observe FAIL: {blocked_case}")
+
+    scenario_errors = validate_scenario_sanity(scenario_sanity)
+    if scenario_errors:
+        raise AssertionError(f"Scenario sanity validation failed: {scenario_errors}")
+    scenario_boundary = scenario_sanity.get("boundary") or {}
+    if scenario_sanity.get("overall_status") != "PASS":
+        raise AssertionError(f"Scenario sanity report did not pass: {scenario_sanity.get('overall_status')}")
+    if scenario_sanity.get("passed_scenarios") != scenario_sanity.get("scenario_count"):
+        raise AssertionError("All targeted poker sanity scenarios must pass")
+    if scenario_boundary.get("full_production_strategy_proof") is not False:
+        raise AssertionError("Scenario sanity must not be represented as full production strategy proof")
+    if scenario_boundary.get("final_strategy_quality_claim_allowed") is not False:
+        raise AssertionError("Scenario sanity alone must not allow final strategy-quality claims")
+    if scenario_boundary.get("current_delivery_blocker") is not False:
+        raise AssertionError("Scenario sanity must not become a software delivery blocker")
+    for case in scenario_sanity.get("cases") or []:
+        if not case.get("guardrails"):
+            raise AssertionError(f"Scenario sanity case did not expose applied guardrail: {case.get('scenario_id')}")
+
     raw_contract = raw_model_status.get("raw_supervised_model") or {}
     raw_boundary = raw_model_status.get("release_boundary") or {}
     if raw_contract.get("runtime_status") != "LOADABLE":
@@ -2066,6 +2192,7 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/experiments/normalized_action_contract.yaml",
         "configs/experiments/actions_context_quality.yaml",
         "configs/experiments/stack_event_context_quality.yaml",
+        "configs/experiments/scenario_sanity.yaml",
         "configs/experiments/production_gate.yaml",
         "configs/experiments/challenger_strategy_quality.yaml",
         "configs/experiments/final_strategy_quality_status.yaml",
@@ -2204,6 +2331,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/actions_context_quality.md",
         "reports/stack_event_context_quality.json",
         "reports/stack_event_context_quality.md",
+        "reports/scenario_sanity.json",
+        "reports/scenario_sanity.md",
         "poker_agent/autonomous_agent.py",
         "poker_agent/model_risk_register.py",
         "poker_agent/production_approval.py",
@@ -2228,6 +2357,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/normalized_action_contract.py",
         "poker_agent/actions_context_quality.py",
         "poker_agent/stack_event_context_quality.py",
+        "poker_agent/scenario_sanity.py",
         "poker_agent/strategy_stack_maturity.py",
         "poker_agent/approval_boundary.py",
         "poker_agent/llm_decision_context.py",
@@ -2264,6 +2394,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/build_normalized_action_contract.py",
         "scripts/build_actions_context_quality.py",
         "scripts/build_stack_event_context_quality.py",
+        "scripts/build_scenario_sanity.py",
         "scripts/build_strategy_stack_maturity.py",
         "scripts/build_llm_decision_context.py",
         "scripts/llm_decision_context_eval.py",
@@ -2293,6 +2424,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "tests/test_normalized_action_contract.py",
         "tests/test_actions_context_quality.py",
         "tests/test_stack_event_context_quality.py",
+        "tests/test_scenario_sanity.py",
         "tests/test_phase2_selection_comparison.py",
         "tests/test_challenger_strategy_quality.py",
         "tests/test_final_strategy_quality_status.py",
@@ -2329,6 +2461,7 @@ def main() -> None:
         run_check("inference_contract", lambda: inference_contract(args.model)),
         run_check("autonomous_agent_contract", autonomous_agent_contract),
         run_check("health_contract", lambda: health_contract(args.model)),
+        run_check("public_openapi_contract", public_openapi_contract),
         run_check("api_input_contract", api_input_contract),
         run_check("reports_contract", lambda: reports_contract(root, args.require_gate_pass)),
         run_check("repo_hygiene_contract", lambda: repo_hygiene_contract(root)),

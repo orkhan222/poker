@@ -6,6 +6,7 @@ from typing import Any
 from poker_agent.action_planning import build_action_plan
 from poker_agent.features import request_to_features
 from poker_agent.model import load_policy
+from poker_agent.scenario_sanity import apply_critical_spot_guardrail
 from poker_agent.schemas import PredictionRequest, PredictionResponse
 
 
@@ -91,6 +92,7 @@ class MLPolicyAgent:
             return self.missing_card_fallback.predict(request, warnings=warnings)
 
         action, probabilities = self.model.predict_from_features(request_to_features(request))
+        action, probabilities, strategy_guardrails = apply_critical_spot_guardrail(request, probabilities)
         confidence = max(probabilities.values(), default=0.0)
         plan = build_action_plan(request, action, confidence)
         return PredictionResponse(
@@ -103,5 +105,6 @@ class MLPolicyAgent:
             timing_method=plan.timing_method,
             model_status=str(metadata.get("policy", "model")),
             warnings=warnings,
+            strategy_guardrails=strategy_guardrails,
         )
 

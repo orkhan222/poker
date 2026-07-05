@@ -65,6 +65,10 @@ Missing or unreliable hole-card data remains a core dataset limitation. The rout
 
 The dataset now has an explicit normalized action contract. Raw `actions.csv::action` values are treated as OCR/dealer text, not final supervised labels; noisy forms such as `ra1se`, `cail`, `bett`, and `all-in` are normalized to the canonical action set `fold/call/check/bet/raise/all_in` before training, evaluation, and policy comparison. This contract is generated at `reports\normalized_action_contract.json`, rendered at `reports\normalized_action_contract.md`, and exposed through `GET /normalized-action-contract.json`.
 
+Targeted poker scenario sanity validation is now enforced in code. The deployed stack must pass four critical spots: pocket aces facing a preflop raise, 7-2 offsuit facing a preflop raise, a nut-flush-draw flop continue decision, and a missed-river fold against a large bet. The guardrail is intentionally narrow and auditable; it blocks obvious strategy mistakes without being represented as full production strategy proof. The report is generated at `reports\scenario_sanity.json`, rendered at `reports\scenario_sanity.md`, and exposed through `GET /scenario-sanity.json`.
+
+The scenario sanity contract documents the root problem explicitly: a model can pass broad delivery checks while still failing obvious high-confidence poker spots. Passing this gate only supports a `critical_spot_sanity_passed` claim. It does not authorize claims of full production strategy quality, profitable poker policy, complete human-likeness, or self-play EV approval without broader holdout, calibration, EV, win-rate, bet-sizing, and seed-stability evidence.
+
 Machine-readable status endpoints:
 
 ```text
@@ -81,6 +85,7 @@ Machine-readable status endpoints:
 /challenger-strategy-quality.json
 /human-likeness-claim-gate.json
 /normalized-action-contract.json
+/scenario-sanity.json
 /approval-boundary.json
 /client-handoff.json
 /llm-decision-context.json
@@ -205,6 +210,8 @@ http://127.0.0.1:8001/health.json
 ```
 
 The health endpoint returns model status, policy name, split strategy, and the validation macro F1 stored in the model metadata.
+
+Swagger at `/docs` is intentionally limited to the public delivery API: `POST /predict`, and that operation is expanded by default so the request and response examples are visible immediately. The page uses a compact client-facing Swagger shell rather than the default FastAPI Swagger route: it widens the content area, hides the redundant `Parameters / No parameters` block, reduces the default vertical whitespace, keeps the examples readable, and removes internal report endpoints from the public API surface. A small public API helper panel is shown above Swagger, and a guarded browser-side expansion hook keeps `POST /predict` open after Swagger finishes rendering so the page does not look empty on first load. The operation opens as a read-only API contract by default: Swagger submit methods are disabled and the `Try it out`, `Cancel`, `Edit Value`, and `Execute` controls are hidden from the public documentation view. The examples are generated from typed Pydantic schemas, so the docs show concrete poker fields instead of generic `additionalProp1` objects. The default request example is intentionally compact and contains only the core game-state fields a client needs for a first call; optional advanced fields such as `betting_history` and `timing_context` remain part of the request schema and API contract, but they are not shown in the default example to avoid a noisy client-facing Swagger page. The Swagger UI models panel is hidden to keep the page focused on the usable endpoint, while the schema contract remains available through `/openapi.json`. The health endpoint remains available at `/health.json`, and internal reports and contract endpoints remain available by direct URL, but they are hidden from public OpenAPI so the client-facing API surface stays clean.
 
 ### Controlled Autonomous Agent
 

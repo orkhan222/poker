@@ -68,6 +68,7 @@ class PredictionResponse:
     timing_method: str = "complexity_calibrated"
     model_status: str = "model"
     warnings: list[str] = field(default_factory=list)
+    strategy_guardrails: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         confidence = self.confidence or max(self.probabilities.values(), default=0.0)
@@ -83,4 +84,6 @@ class PredictionResponse:
         }
         if self.warnings:
             payload["warnings"] = self.warnings
+        if self.strategy_guardrails:
+            payload["strategy_guardrails"] = self.strategy_guardrails
         return payload

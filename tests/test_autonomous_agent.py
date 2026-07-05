@@ -135,3 +135,95 @@ def test_api_contract_exposes_autonomous_lifecycle() -> None:
     assert contract["agent_type"] == "controlled_stateful_policy_agent"
     assert contract["decision_endpoint"] == "/agent/decide"
     assert "legal-action enforcement" in contract["lifecycle_controls"]
+
+
+def test_controlled_session_routes_are_hidden_from_public_openapi() -> None:
+    from poker_agent.service import app
+
+    paths = set(app.openapi()["paths"])
+
+    assert paths == {"/predict"}
+    assert "/predict" in paths
+    assert "/health.json" not in paths
+    assert "/agent/capabilities.json" not in paths
+    assert "/agent/decide" not in paths
+    assert "/agent/sessions/{hand_id}" not in paths
+    assert "/agent/sessions/{hand_id}/settle" not in paths
+
+
+def test_public_openapi_hides_internal_reports_and_validation_schemas() -> None:
+    from poker_agent.service import app
+
+    schema = app.openapi()
+    schemas = (schema.get("components") or {}).get("schemas") or {}
+
+    assert "/final-delivery-acceptance.json" not in schema["paths"]
+    assert "/health.json" not in schema["paths"]
+    assert "/strategy-stack-maturity.json" not in schema["paths"]
+    assert "/strategy-readiness.json" not in schema["paths"]
+    assert "/llm-role-boundary.json" not in schema["paths"]
+    assert [tag["name"] for tag in schema.get("tags", [])] == ["Prediction"]
+    assert set(schemas) == {
+        "ActionProbabilitiesBody",
+        "BettingHistoryBody",
+        "PredictRequestBody",
+        "PredictResponseBody",
+        "TimingContextBody",
+    }
+    assert "HTTPValidationError" not in schemas
+    assert "ValidationError" not in schemas
+    assert "additionalProp1" not in str(schema)
+    assert "fold" in str(schemas["ActionProbabilitiesBody"])
+    assert "raise" in str(schemas["ActionProbabilitiesBody"])
+
+    request_example = schemas["PredictRequestBody"]["example"]
+    assert set(request_example) == {
+        "position",
+        "street",
+        "hole_cards",
+        "board_cards",
+        "pot",
+        "to_call",
+        "stack",
+        "min_raise",
+        "player_count",
+    }
+    assert "betting_history" not in request_example
+    assert "timing_context" not in request_example
+
+    operation = schema["paths"]["/predict"]["post"]
+    assert "JSON request body" in operation["description"]
+    assert "No query parameters" in operation["description"]
+
+
+def test_swagger_ui_hides_models_panel() -> None:
+    from poker_agent.service import app
+
+    assert app.swagger_ui_parameters["defaultModelsExpandDepth"] == -1
+    assert app.swagger_ui_parameters["docExpansion"] == "full"
+
+
+def test_public_docs_page_uses_client_facing_swagger_shell() -> None:
+    from poker_agent.service import CLIENT_SWAGGER_HTML, app, public_docs_page
+
+    docs_routes = [route for route in app.routes if getattr(route, "path", None) == "/docs"]
+    html = public_docs_page()
+
+    assert len(docs_routes) == 1
+    assert docs_routes[0].include_in_schema is False
+    assert html == CLIENT_SWAGGER_HTML
+    assert "client-facing-swagger" in html
+    assert "compact-public-docs" in html
+    assert "client-docs-helper" in html
+    assert "SwaggerUIBundle" in html
+    assert "parameters-container" in html
+    assert "hideEmptyParameterSections" in html
+    assert "expandPredictOperation" in html
+    assert "keepPredictExpanded" in html
+    assert "onComplete: keepPredictExpanded" in html
+    assert "tryItOutEnabled: false" in html
+    assert "tryItOutEnabled: true" not in html
+    assert "supportedSubmitMethods: []" in html
+    assert "try-out__btn" in html
+    assert 'url: "/openapi.json"' in html
+    assert app.docs_url is None
