@@ -6,6 +6,11 @@ from pathlib import Path
 from typing import Any
 
 from poker_agent.features import load_training_examples, request_to_features
+from poker_agent.leakage_guard import (
+    FORBIDDEN_OUTCOME_FIELDS,
+    OUTCOME_FIELD_DEFINITIONS,
+    forbidden_outcome_feature_names,
+)
 from poker_agent.model import load_policy
 from poker_agent.schemas import PredictionRequest
 
@@ -14,14 +19,30 @@ DATA_LEAKAGE_CONTRACT_VERSION = "2026-07-02"
 LEAKAGE_GUARD_STATUS = "PASS_NO_OUTCOME_FEATURES"
 OUTCOME_ONLY_FIELD_STATUS = "DATASET_ONLY_NOT_TRAINING_FEATURES"
 
-FORBIDDEN_OUTCOME_FIELDS = (
-    "winner_positions",
-    "stack_delta",
-    "ending_stack",
-    "dealer_winner",
-    "dealer_pot",
-    "pot_from_stacks",
-)
+LEAKAGE_RISK_CONTRACT: dict[str, Any] = {
+    "risk_id": "post_outcome_feature_leakage",
+    "root_cause": "post_hand_outcome_fields_available_in_raw_dataset_schema",
+    "risk_statement": (
+        "Outcome and settlement fields are present in the raw CSV schema but are not observable "
+        "at decision time. Using them as model inputs would let the model learn from future information."
+    ),
+    "temporal_requirement": "features_must_be_observable_before_target_action",
+    "forbidden_fields": list(FORBIDDEN_OUTCOME_FIELDS),
+    "field_definitions": OUTCOME_FIELD_DEFINITIONS,
+    "feature_policy": {
+        "raw_dataset_schema_presence": "allowed_for_audit_and_reporting_only",
+        "training_feature_use": "forbidden",
+        "prediction_request_use": "forbidden",
+        "model_artifact_feature_use": "forbidden",
+        "detected_violation": "production_blocker",
+    },
+    "impact_if_violated": [
+        "optimistic offline metrics",
+        "invalid holdout evaluation",
+        "model learns hand outcome instead of decision policy",
+        "unsafe production strategy-quality claim",
+    ],
+}
 
 GUARDED_SOURCE_FILES = (
     "poker_agent/features.py",
@@ -51,6 +72,7 @@ def build_data_leakage_contract(project_root: Path, *, max_examples: int = 5000)
             "pot_from_stacks are outcome-only or post-hand fields. They must not be used as "
             "training or prediction features because they would let the model observe future information."
         ),
+        "leakage_risk_contract": LEAKAGE_RISK_CONTRACT,
         "forbidden_outcome_fields": list(FORBIDDEN_OUTCOME_FIELDS),
         "leakage_boundary": {
             "status": OUTCOME_ONLY_FIELD_STATUS,
@@ -67,10 +89,12 @@ def build_data_leakage_contract(project_root: Path, *, max_examples: int = 5000)
         "prediction_request_audit": request_audit,
         "model_artifact_audit": model_audit,
         "source_usage_audit": source_audit,
+        "raw_dataset_schema_audit": audit_raw_dataset_schema(project_root),
         "implemented_fixes": [
             "Removed ending_stack fallback from supervised training feature extraction.",
             "Removed ending_stack fallback from decision-context holdout generation.",
             "Added a machine-readable leakage contract covering feature names, model artifacts, and guarded training sources.",
+            "Added a temporal availability contract for outcome-only fields that may remain in raw CSVs only for audit/reporting.",
         ],
         "allowed_claims": [
             "Outcome-only fields may remain in the raw CSV schema for audit, reporting, and downstream settlement analysis.",
@@ -85,6 +109,34 @@ def build_data_leakage_contract(project_root: Path, *, max_examples: int = 5000)
     payload["invariants"] = validate_data_leakage_contract(payload)
     payload["overall_status"] = "PASS" if payload["invariants"]["status"] == "PASS" else "FAIL"
     return payload
+
+
+def audit_raw_dataset_schema(project_root: Path) -> dict[str, Any]:
+    schema_hits: list[dict[str, Any]] = []
+    missing_tables: list[str] = []
+    for table in sorted({item["source_table"] for item in OUTCOME_FIELD_DEFINITIONS.values()}):
+        path = project_root / "data" / table
+        if not path.exists():
+            missing_tables.append(table)
+            continue
+        header = path.read_text(encoding="utf-8").splitlines()[0].split(",") if path.stat().st_size else []
+        for field, definition in OUTCOME_FIELD_DEFINITIONS.items():
+            if definition["source_table"] == table and field in header:
+                schema_hits.append(
+                    {
+                        "table": table,
+                        "field": field,
+                        "availability": definition["availability"],
+                        "presence_allowed": True,
+                        "allowed_use": "audit_reporting_settlement_only",
+                    }
+                )
+    return {
+        "status": "PASS",
+        "missing_tables": missing_tables,
+        "outcome_fields_present_in_raw_schema": schema_hits,
+        "presence_is_not_feature_approval": True,
+    }
 
 
 def audit_training_feature_names(project_root: Path, *, max_examples: int) -> dict[str, Any]:
@@ -195,12 +247,39 @@ def audit_training_source_usage(project_root: Path) -> dict[str, Any]:
 
 def validate_data_leakage_contract(payload: dict[str, Any]) -> dict[str, Any]:
     violations: list[str] = []
+    risk = payload.get("leakage_risk_contract") or {}
+    feature_policy = risk.get("feature_policy") or {}
+    field_definitions = risk.get("field_definitions") or {}
     boundary = payload.get("leakage_boundary") or {}
     feature_audit = payload.get("feature_name_audit") or {}
     request_audit = payload.get("prediction_request_audit") or {}
     model_audit = payload.get("model_artifact_audit") or {}
     source_audit = payload.get("source_usage_audit") or {}
+    raw_schema_audit = payload.get("raw_dataset_schema_audit") or {}
 
+    if risk.get("risk_id") != "post_outcome_feature_leakage":
+        violations.append("leakage_risk_id_must_be_explicit")
+    if risk.get("root_cause") != "post_hand_outcome_fields_available_in_raw_dataset_schema":
+        violations.append("leakage_root_cause_must_be_post_hand_outcome_fields")
+    if risk.get("temporal_requirement") != "features_must_be_observable_before_target_action":
+        violations.append("decision_time_temporal_requirement_must_be_explicit")
+    if set(risk.get("forbidden_fields") or []) != set(FORBIDDEN_OUTCOME_FIELDS):
+        violations.append("leakage_risk_forbidden_fields_must_match_contract")
+    if set(field_definitions) != set(FORBIDDEN_OUTCOME_FIELDS):
+        violations.append("outcome_field_definitions_must_cover_all_forbidden_fields")
+    for field, definition in field_definitions.items():
+        if definition.get("availability") not in {"post_hand", "post_hand_reconstruction"}:
+            violations.append(f"outcome_field_temporal_availability_invalid:{field}")
+    if feature_policy.get("raw_dataset_schema_presence") != "allowed_for_audit_and_reporting_only":
+        violations.append("raw_outcome_schema_presence_must_be_audit_only")
+    if feature_policy.get("training_feature_use") != "forbidden":
+        violations.append("risk_contract_training_feature_use_must_be_forbidden")
+    if feature_policy.get("prediction_request_use") != "forbidden":
+        violations.append("risk_contract_prediction_request_use_must_be_forbidden")
+    if feature_policy.get("model_artifact_feature_use") != "forbidden":
+        violations.append("risk_contract_model_feature_use_must_be_forbidden")
+    if feature_policy.get("detected_violation") != "production_blocker":
+        violations.append("risk_contract_detected_violation_must_be_production_blocker")
     if set(payload.get("forbidden_outcome_fields") or []) != set(FORBIDDEN_OUTCOME_FIELDS):
         violations.append("forbidden_outcome_fields_must_match_contract")
     if boundary.get("status") != OUTCOME_ONLY_FIELD_STATUS:
@@ -238,6 +317,15 @@ def validate_data_leakage_contract(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("guarded_training_sources_must_not_reference_outcome_fields")
     if source_audit.get("forbidden_source_usages"):
         violations.append("forbidden_outcome_fields_used_in_guarded_source")
+    if raw_schema_audit.get("status") != "PASS":
+        violations.append("raw_dataset_schema_audit_must_pass")
+    if raw_schema_audit.get("presence_is_not_feature_approval") is not True:
+        violations.append("raw_schema_presence_must_not_equal_feature_approval")
+    for item in raw_schema_audit.get("outcome_fields_present_in_raw_schema") or []:
+        if item.get("presence_allowed") is not True:
+            violations.append("raw_outcome_field_presence_must_remain_allowed_for_audit")
+        if item.get("allowed_use") != "audit_reporting_settlement_only":
+            violations.append("raw_outcome_field_allowed_use_must_be_audit_only")
 
     return {"status": "FAIL" if violations else "PASS", "violations": violations}
 
@@ -259,19 +347,43 @@ def write_data_leakage_contract(
 
 
 def render_data_leakage_contract_markdown(payload: dict[str, Any]) -> str:
+    risk = payload["leakage_risk_contract"]
     boundary = payload["leakage_boundary"]
     feature_audit = payload["feature_name_audit"]
     request_audit = payload["prediction_request_audit"]
     model_audit = payload["model_artifact_audit"]
     source_audit = payload["source_usage_audit"]
+    raw_schema_audit = payload["raw_dataset_schema_audit"]
     lines = [
         "# Data Leakage Contract",
         "",
         payload["client_statement"],
         "",
-        "## Forbidden Outcome Fields",
+        "## Risk Contract",
+        "",
+        f"- Risk ID: `{risk['risk_id']}`",
+        f"- Root cause: `{risk['root_cause']}`",
+        f"- Temporal requirement: `{risk['temporal_requirement']}`",
+        f"- Training feature use: `{risk['feature_policy']['training_feature_use']}`",
+        f"- Prediction request use: `{risk['feature_policy']['prediction_request_use']}`",
+        f"- Model artifact feature use: `{risk['feature_policy']['model_artifact_feature_use']}`",
+        f"- Detected violation: `{risk['feature_policy']['detected_violation']}`",
+        "",
+        "## Outcome Field Definitions",
         "",
     ]
+    for field in payload["forbidden_outcome_fields"]:
+        definition = risk["field_definitions"][field]
+        lines.append(
+            f"- `{field}`: `{definition['source_table']}`, `{definition['availability']}` - {definition['reason']}"
+        )
+    lines.extend(
+        [
+            "",
+        "## Forbidden Outcome Fields",
+        "",
+        ]
+    )
     lines.extend(f"- `{field}`" for field in payload["forbidden_outcome_fields"])
     lines.extend(
         [
@@ -291,6 +403,7 @@ def render_data_leakage_contract_markdown(payload: dict[str, Any]) -> str:
             f"- Prediction request audit: `{request_audit['status']}`; feature count: `{request_audit.get('feature_count')}`",
             f"- Model artifact audit: `{model_audit['status']}`",
             f"- Source usage audit: `{source_audit['status']}`",
+            f"- Raw dataset schema audit: `{raw_schema_audit['status']}`; outcome fields present: `{len(raw_schema_audit.get('outcome_fields_present_in_raw_schema') or [])}`",
             "",
             "## Implemented Fixes",
             "",
@@ -304,14 +417,7 @@ def render_data_leakage_contract_markdown(payload: dict[str, Any]) -> str:
 
 
 def _forbidden_names(feature_names: list[str]) -> list[str]:
-    return sorted(
-        {
-            name
-            for name in feature_names
-            for forbidden in FORBIDDEN_OUTCOME_FIELDS
-            if forbidden in name
-        }
-    )
+    return forbidden_outcome_feature_names(feature_names)
 
 
 def _collect_model_feature_names(model: Any) -> set[str]:

@@ -109,6 +109,20 @@ def test_hole_card_data_quality_keeps_limitation_open_with_routed_mitigation(tmp
     assert payload["strength_signal_impact"]["observed_hole_cards_macro_f1"] == 0.39
     assert payload["strength_signal_impact"]["challenger_observed_hole_cards_macro_f1"] == 0.43
     assert payload["strength_signal_impact"]["primary_hand_strength_signal_reliable_for_standalone_policy"] is False
+    assert "strength_proxy" in payload["strength_signal_impact"]["affected_features"]
+    assert "made_hand_score" in payload["strength_signal_impact"]["affected_features"]
+    risk = payload["risk_contract"]
+    assert risk["risk_id"] == "hole_card_data_risk"
+    assert risk["root_cause"] == "ocr_hole_card_extraction_missing_or_unreliable"
+    assert risk["primary_dataset_column"] == "players.cards"
+    assert risk["weakens_primary_poker_signal"] is True
+    assert risk["affected_signal"] == "private_card_strength_and_texture"
+    assert risk["feature_policy"]["missing_or_invalid_cards"] == "flag_and_route"
+    assert risk["feature_policy"]["do_not_impute_unknown_cards_as_known_private_cards"] is True
+    assert risk["feature_policy"]["do_not_treat_missing_cards_as_reliable_zero_strength"] is True
+    assert risk["feature_policy"]["train_observed_card_and_public_context_slices_separately"] is True
+    assert risk["current_delivery_blocker"] is False
+    assert risk["final_strategy_quality_claim_blocker"] is True
     assert payload["upstream_data_quality_boundary"]["limitation_status"] == "OPEN_DATA_QUALITY_LIMITATION"
     assert payload["upstream_data_quality_boundary"]["upstream_data_quality_issue_resolved"] is False
     assert payload["upstream_data_quality_boundary"]["production_blocker_for_current_deployment"] is False

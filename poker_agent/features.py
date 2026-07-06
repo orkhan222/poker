@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from poker_agent.action_normalization import normalize_action as normalize_action_label
+from poker_agent.leakage_guard import assert_no_outcome_feature_leakage
 from poker_agent.schemas import PredictionRequest
 from poker_agent.schemas import VALID_ACTIONS
 
@@ -469,6 +470,7 @@ def request_to_features(request: PredictionRequest) -> dict[str, float]:
     }
     features.update(card_texture_features(request.hole_cards, request.board_cards))
     features.update(betting_history_to_features(request.betting_history, request.position))
+    assert_no_outcome_feature_leakage(features, context="prediction request features")
     return features
 
 
@@ -710,6 +712,10 @@ def load_training_examples(
                     features["hole_cards_missing"] = 1.0 if hole_cards_missing else 0.0
                     features["hole_card_observed_ratio"] = min(len(hole_cards) / 2.0, 1.0)
                     features["board_card_observed_ratio"] = len(request.board_cards) / max(VISIBLE_BOARD_COUNTS.get(street, 0), 1) if street != "preflop" else 1.0
+                    assert_no_outcome_feature_leakage(
+                        features,
+                        context=f"training features hand_id={hand_id} frame_id={frame_id}",
+                    )
                     if include_hand_id:
                         examples.append((features, action, hand_id))
                     else:

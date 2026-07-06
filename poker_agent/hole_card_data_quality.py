@@ -21,6 +21,34 @@ INVALID_CARD_RATE_PROMOTION_THRESHOLD = 0.02
 CARD_TOKEN_RE = re.compile(r"^(?:[2-9TJQKA][CDHS]|10[CDHS])$", re.IGNORECASE)
 CARD_SPLIT_RE = re.compile(r"[\s,;|/]+")
 MAX_CARD_AUDIT_EXAMPLES = 10
+HOLE_CARD_RISK_CONTRACT = {
+    "risk_id": "hole_card_data_risk",
+    "root_cause": "ocr_hole_card_extraction_missing_or_unreliable",
+    "primary_dataset_column": "players.cards",
+    "weakens_primary_poker_signal": True,
+    "affected_signal": "private_card_strength_and_texture",
+    "affected_features": [
+        "strength_proxy",
+        "hole_card_observed_ratio",
+        "hole_cards_missing",
+        "card_texture_features",
+        "made_hand_score",
+        "draw_pressure",
+    ],
+    "decision_impact": [
+        "weaker preflop raise/call/fold separation",
+        "less reliable made-hand and draw-strength estimation",
+        "lower confidence on observed-card policy promotion",
+    ],
+    "feature_policy": {
+        "missing_or_invalid_cards": "flag_and_route",
+        "do_not_impute_unknown_cards_as_known_private_cards": True,
+        "do_not_treat_missing_cards_as_reliable_zero_strength": True,
+        "train_observed_card_and_public_context_slices_separately": True,
+    },
+    "current_delivery_blocker": False,
+    "final_strategy_quality_claim_blocker": True,
+}
 
 
 def scan_players_hole_cards(
@@ -169,6 +197,7 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
             "Missing or unreliable hole-card data remains a core dataset limitation. "
             "The routed policy bundle handles this better, but it does not fully solve the upstream data-quality issue."
         ),
+        "risk_contract": HOLE_CARD_RISK_CONTRACT,
         "coverage_snapshot": {
             "coverage_source": (
                 "direct_players_csv"
@@ -185,6 +214,7 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
         },
         "strength_signal_impact": {
             "status": DEGRADED_STRENGTH_SIGNAL,
+            "affected_features": HOLE_CARD_RISK_CONTRACT["affected_features"],
             "strength_proxy_zero_rate": zero_rates.get("strength_proxy"),
             "missing_hole_card_rate": players.get("missing_hole_card_rate"),
             "complete_hole_card_rate": players.get("complete_hole_card_rate"),
@@ -265,6 +295,8 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
 
 def validate_hole_card_data_quality(payload: dict[str, Any]) -> dict[str, Any]:
     violations: list[str] = []
+    risk = payload.get("risk_contract") or {}
+    feature_policy = risk.get("feature_policy") or {}
     coverage = payload.get("coverage_snapshot") or {}
     strength = payload.get("strength_signal_impact") or {}
     mitigation = payload.get("mitigation_boundary") or {}
@@ -278,6 +310,32 @@ def validate_hole_card_data_quality(payload: dict[str, Any]) -> dict[str, Any]:
     direct_missing_rate = _as_float(direct_audit.get("missing_hole_card_rate"))
     direct_reliable_two_card_rate = _as_float(direct_audit.get("reliable_two_card_rate"))
     direct_invalid_card_rate = _as_float(direct_audit.get("invalid_card_rate"))
+    required_affected_features = set(HOLE_CARD_RISK_CONTRACT["affected_features"])
+    observed_affected_features = set(str(item) for item in strength.get("affected_features") or [])
+
+    if risk.get("risk_id") != "hole_card_data_risk":
+        violations.append("hole_card_risk_id_must_be_explicit")
+    if risk.get("root_cause") != "ocr_hole_card_extraction_missing_or_unreliable":
+        violations.append("hole_card_root_cause_must_remain_ocr_extraction_quality")
+    if risk.get("primary_dataset_column") != "players.cards":
+        violations.append("hole_card_primary_dataset_column_must_be_players_cards")
+    if risk.get("weakens_primary_poker_signal") is not True:
+        violations.append("hole_card_risk_must_weaken_primary_poker_signal")
+    if risk.get("current_delivery_blocker") is not False:
+        violations.append("hole_card_risk_must_not_be_current_delivery_blocker")
+    if risk.get("final_strategy_quality_claim_blocker") is not True:
+        violations.append("hole_card_risk_must_block_final_strategy_quality_claim")
+    if feature_policy.get("missing_or_invalid_cards") != "flag_and_route":
+        violations.append("missing_or_invalid_hole_cards_must_be_flagged_and_routed")
+    if feature_policy.get("do_not_impute_unknown_cards_as_known_private_cards") is not True:
+        violations.append("unknown_hole_cards_must_not_be_imputed_as_known_private_cards")
+    if feature_policy.get("do_not_treat_missing_cards_as_reliable_zero_strength") is not True:
+        violations.append("missing_hole_cards_must_not_be_treated_as_reliable_zero_strength")
+    if feature_policy.get("train_observed_card_and_public_context_slices_separately") is not True:
+        violations.append("observed_and_missing_hole_card_slices_must_train_separately")
+    if not required_affected_features.issubset(observed_affected_features):
+        violations.append("hole_card_affected_features_must_include_primary_strength_signals")
+
     if missing_rate is None:
         violations.append("missing_hole_card_rate_is_required")
     if complete_rate is None:
@@ -388,6 +446,7 @@ def write_hole_card_data_quality(
 
 
 def render_hole_card_data_quality_markdown(payload: dict[str, Any]) -> str:
+    risk = payload["risk_contract"]
     coverage = payload["coverage_snapshot"]
     strength = payload["strength_signal_impact"]
     mitigation = payload["mitigation_boundary"]
@@ -399,6 +458,32 @@ def render_hole_card_data_quality_markdown(payload: dict[str, Any]) -> str:
         "",
         payload["client_statement"],
         "",
+        "## Risk Contract",
+        "",
+        f"- Risk ID: `{risk['risk_id']}`",
+        f"- Root cause: `{risk['root_cause']}`",
+        f"- Primary dataset column: `{risk['primary_dataset_column']}`",
+        f"- Weakens primary poker signal: `{risk['weakens_primary_poker_signal']}`",
+        f"- Affected signal: `{risk['affected_signal']}`",
+        f"- Current delivery blocker: `{risk['current_delivery_blocker']}`",
+        f"- Final strategy-quality claim blocker: `{risk['final_strategy_quality_claim_blocker']}`",
+        f"- Feature policy: `{risk['feature_policy']['missing_or_invalid_cards']}`",
+        "",
+        "Affected features:",
+        "",
+    ]
+    lines.extend(f"- `{feature}`" for feature in risk["affected_features"])
+    lines.extend(
+        [
+            "",
+            "Decision impact:",
+            "",
+        ]
+    )
+    lines.extend(f"- {impact}" for impact in risk["decision_impact"])
+    lines.extend(
+        [
+            "",
         "## Coverage Snapshot",
         "",
         f"- Missing hole-card rate: `{coverage.get('missing_hole_card_rate')}`",
@@ -417,6 +502,8 @@ def render_hole_card_data_quality_markdown(payload: dict[str, Any]) -> str:
         f"- Strength proxy zero rate: `{strength.get('strength_proxy_zero_rate')}`",
         f"- Direct reliable two-card rate: `{strength.get('direct_reliable_two_card_rate')}`",
         f"- Direct invalid-card rate: `{strength.get('direct_invalid_card_rate')}`",
+        "- Affected features: "
+        + ", ".join(f"`{feature}`" for feature in strength.get("affected_features", [])),
         f"- Primary hand-strength signal reliable for standalone policy: `{strength['primary_hand_strength_signal_reliable_for_standalone_policy']}`",
         f"- Observed-hole-card macro F1: `{strength.get('observed_hole_cards_macro_f1')}`",
         f"- Observed-hole-card threshold: `{strength.get('observed_hole_cards_threshold')}`",
@@ -451,7 +538,8 @@ def render_hole_card_data_quality_markdown(payload: dict[str, Any]) -> str:
         "",
         "## Required Upstream Fixes",
         "",
-    ]
+        ]
+    )
     lines.extend(f"- {item}" for item in payload["required_upstream_fixes"])
     lines.extend(["", "## Not Allowed Claims", ""])
     lines.extend(f"- {claim}" for claim in payload["not_allowed_claims"])

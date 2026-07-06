@@ -4,6 +4,9 @@ import csv
 from pathlib import Path
 
 from poker_agent.actions_context_quality import (
+    ACTION_CONTEXT_RISK_ID,
+    ACTION_CONTEXT_ROOT_CAUSE,
+    ACTION_CONTEXT_SOURCE_TABLE,
     EXPLICIT_BETTING_CONTEXT_STATUS,
     REQUIRED_EXPLICIT_ACTION_FIELDS,
     build_actions_context_quality,
@@ -18,13 +21,28 @@ def test_actions_context_quality_passes_with_open_dataset_limitation() -> None:
 
     payload = build_actions_context_quality(project_root, max_examples=200)
     schema = payload["actions_csv_schema_audit"]
+    risk = payload["risk_contract"]
     mitigation = payload["derived_context_mitigation"]
     feature_audit = payload["training_feature_audit"]
 
     assert payload["overall_status"] == "PASS"
+    assert risk["risk_id"] == ACTION_CONTEXT_RISK_ID
+    assert risk["root_cause"] == ACTION_CONTEXT_ROOT_CAUSE
+    assert risk["source_table"] == ACTION_CONTEXT_SOURCE_TABLE
+    assert set(risk["missing_or_reconstructed_decision_fields"]) == set(REQUIRED_EXPLICIT_ACTION_FIELDS)
+    assert set(risk["decision_time_context_policy"]) == set(REQUIRED_EXPLICIT_ACTION_FIELDS)
+    assert risk["target_row_values_are_labels_not_features"] is True
+    for field in ["amount", "to_call", "pot_before_action", "min_raise", "legal_actions"]:
+        assert risk["decision_time_context_policy"][field]["target_row_value_allowed_as_feature"] is False
+        assert risk["decision_time_context_policy"][field]["reconstruction_source"]
+    assert risk["current_delivery_blocker"] is False
+    assert risk["model_quality_risk"] is True
+    assert risk["final_strategy_quality_claim_blocker_without_richer_action_context"] is True
     assert schema["explicit_context_status"] == EXPLICIT_BETTING_CONTEXT_STATUS
     assert set(REQUIRED_EXPLICIT_ACTION_FIELDS).issubset(set(schema["missing_explicit_context_fields"]))
     assert mitigation["does_not_fully_replace_explicit_context"] is True
+    assert mitigation["target_action_context_leakage_guard"] is True
+    assert mitigation["final_strategy_quality_claim_blocker_without_richer_action_context"] is True
     assert mitigation["current_delivery_blocker"] is False
     assert mitigation["model_quality_risk"] is True
     assert feature_audit["status"] == "PASS"
@@ -46,6 +64,24 @@ def test_actions_context_quality_is_exposed_through_api_contract() -> None:
 
 def test_actions_context_quality_blocks_false_completion_claim() -> None:
     payload = {
+        "risk_contract": {
+            "risk_id": "wrong",
+            "root_cause": "wrong",
+            "source_table": "actions.csv",
+            "missing_or_reconstructed_decision_fields": ["to_call"],
+            "decision_time_context_policy": {
+                "to_call": {
+                    "required_semantics": "",
+                    "reconstruction_source": "",
+                    "target_row_value_allowed_as_feature": True,
+                }
+            },
+            "target_row_values_are_labels_not_features": False,
+            "mitigation_status": "RESOLVED",
+            "current_delivery_blocker": False,
+            "model_quality_risk": False,
+            "final_strategy_quality_claim_blocker_without_richer_action_context": False,
+        },
         "required_explicit_action_fields": list(REQUIRED_EXPLICIT_ACTION_FIELDS),
         "actions_csv_schema_audit": {
             "status": "PASS",
@@ -58,10 +94,12 @@ def test_actions_context_quality_blocks_false_completion_claim() -> None:
             "status": "IMPLEMENTED_FROM_PRE_ACTION_EVENT_STREAM",
             "implemented": True,
             "uses_target_action_amount_as_feature": True,
+            "target_action_context_leakage_guard": False,
             "uses_future_outcome_fields": False,
             "does_not_fully_replace_explicit_context": False,
             "current_delivery_blocker": False,
             "model_quality_risk": False,
+            "final_strategy_quality_claim_blocker_without_richer_action_context": False,
         },
         "training_feature_audit": {
             "status": "PASS",
@@ -73,8 +111,14 @@ def test_actions_context_quality_blocks_false_completion_claim() -> None:
     invariants = validate_actions_context_quality(payload)
 
     assert invariants["status"] == "FAIL"
+    assert "actions_context_risk_id_must_match_contract" in invariants["violations"]
+    assert "actions_context_policy_must_cover_every_required_field" in invariants["violations"]
+    assert "actions_context_target_row_values_must_be_labels_not_features" in invariants["violations"]
+    assert "actions_context_mitigation_status_must_require_reconstruction" in invariants["violations"]
+    assert "actions_context_must_block_final_strategy_claim_without_richer_data" in invariants["violations"]
     assert "missing_explicit_fields_must_remain_marked_incomplete" in invariants["violations"]
     assert "target_action_amount_must_not_be_used_as_feature" in invariants["violations"]
+    assert "target_action_context_leakage_guard_must_be_enabled" in invariants["violations"]
     assert "derived_context_must_not_claim_full_replacement" in invariants["violations"]
     assert "actions_context_limitation_must_remain_model_quality_risk" in invariants["violations"]
 

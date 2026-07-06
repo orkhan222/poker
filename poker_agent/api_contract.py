@@ -159,6 +159,8 @@ def api_contract() -> dict[str, Any]:
         "actions_context_quality": {
             "endpoint": "/actions-context-quality.json",
             "description": "Documents missing explicit betting-context fields in actions.csv and verifies leakage-safe derived context features.",
+            "risk_id": "actions_csv_betting_context_incomplete",
+            "root_cause": "actions.csv has action/street, but not the full decision-time betting context needed for strong call/fold/raise learning.",
             "missing_or_required_explicit_fields": [
                 "amount",
                 "to_call",
@@ -175,6 +177,9 @@ def api_contract() -> dict[str, Any]:
                 "raise_pressure",
                 "table_commitment_pressure",
             ],
+            "current_delivery_blocker": False,
+            "model_quality_risk": True,
+            "target_row_values_are_labels_not_features": True,
             "boundary": "Derived context mitigates the current dataset gap but does not fully replace explicit decision-time betting labels.",
         },
         "stack_event_context_quality": {

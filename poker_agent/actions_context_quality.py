@@ -9,7 +9,10 @@ from typing import Any
 from poker_agent.features import load_training_examples
 
 
-ACTIONS_CONTEXT_QUALITY_VERSION = "2026-07-02"
+ACTIONS_CONTEXT_QUALITY_VERSION = "2026-07-06"
+ACTION_CONTEXT_RISK_ID = "actions_csv_betting_context_incomplete"
+ACTION_CONTEXT_ROOT_CAUSE = "actions_csv_lacks_decision_time_betting_context_fields"
+ACTION_CONTEXT_SOURCE_TABLE = "actions.csv"
 EXPLICIT_BETTING_CONTEXT_STATUS = "INCOMPLETE_EXPLICIT_BETTING_CONTEXT"
 DERIVED_CONTEXT_STATUS = "IMPLEMENTED_FROM_PRE_ACTION_EVENT_STREAM"
 
@@ -21,6 +24,45 @@ REQUIRED_EXPLICIT_ACTION_FIELDS = (
     "legal_actions",
     "action_order",
 )
+
+DECISION_TIME_CONTEXT_POLICY: dict[str, dict[str, Any]] = {
+    "amount": {
+        "required_semantics": "Amount committed by an already observed prior action.",
+        "reconstruction_source": "previous frame-ordered action rows and stack_events contribution deltas",
+        "target_row_value_allowed_as_feature": False,
+        "reason": "The current row action amount is part of the label/outcome for that decision and would leak the target action.",
+    },
+    "to_call": {
+        "required_semantics": "Amount the acting player must call before choosing the target action.",
+        "reconstruction_source": "street-local player commitments before the target frame",
+        "target_row_value_allowed_as_feature": False,
+        "reason": "The value must describe the pre-action state, not the contribution created by the target action.",
+    },
+    "pot_before_action": {
+        "required_semantics": "Pot size available before the target action is selected.",
+        "reconstruction_source": "running pot reconstructed from previous stack deltas and street commitments",
+        "target_row_value_allowed_as_feature": False,
+        "reason": "Post-action pot size would encode the target action size.",
+    },
+    "min_raise": {
+        "required_semantics": "Minimum legal raise available before the target action.",
+        "reconstruction_source": "current street highest commitment and previous raise increment",
+        "target_row_value_allowed_as_feature": False,
+        "reason": "The legal threshold must be derived from prior betting state only.",
+    },
+    "legal_actions": {
+        "required_semantics": "Actions legally available to the acting player at decision time.",
+        "reconstruction_source": "street, to_call, stack, min_raise, and table commitment state",
+        "target_row_value_allowed_as_feature": False,
+        "reason": "Legal actions must constrain prediction before the target action is known.",
+    },
+    "action_order": {
+        "required_semantics": "Decision order within the hand and within the current street.",
+        "reconstruction_source": "frame_id ordering grouped by hand_id and street",
+        "target_row_value_allowed_as_feature": True,
+        "reason": "Order is observable from prior event sequence and does not reveal which action is selected.",
+    },
+}
 
 REQUIRED_DERIVED_CONTEXT_FEATURES = (
     "hand_action_order",
@@ -45,6 +87,24 @@ def build_actions_context_quality(project_root: Path, *, max_examples: int = 500
         "version": ACTIONS_CONTEXT_QUALITY_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "subject": "actions.csv betting-context quality contract",
+        "risk_contract": {
+            "risk_id": ACTION_CONTEXT_RISK_ID,
+            "root_cause": ACTION_CONTEXT_ROOT_CAUSE,
+            "source_table": ACTION_CONTEXT_SOURCE_TABLE,
+            "current_native_fields": ["action", "street"],
+            "missing_or_reconstructed_decision_fields": list(REQUIRED_EXPLICIT_ACTION_FIELDS),
+            "decision_time_context_policy": DECISION_TIME_CONTEXT_POLICY,
+            "target_row_values_are_labels_not_features": True,
+            "impact": [
+                "Call/fold/raise learning has weaker pot-odds and pressure signal when explicit context is absent.",
+                "Bet sizing quality depends on reconstructed stack and pot state rather than direct labels.",
+                "Legal-action and action-order ambiguity can bias supervised labels if not derived consistently.",
+            ],
+            "mitigation_status": "LEAKAGE_SAFE_RECONSTRUCTION_REQUIRED",
+            "current_delivery_blocker": False,
+            "model_quality_risk": True,
+            "final_strategy_quality_claim_blocker_without_richer_action_context": True,
+        },
         "client_statement": (
             "actions.csv currently contains the player action and street, but it does not provide "
             "explicit decision-time betting context fields such as amount, to_call, pot_before_action, "
@@ -64,10 +124,12 @@ def build_actions_context_quality(project_root: Path, *, max_examples: int = 500
             ],
             "required_derived_features": list(REQUIRED_DERIVED_CONTEXT_FEATURES),
             "uses_target_action_amount_as_feature": False,
+            "target_action_context_leakage_guard": True,
             "uses_future_outcome_fields": False,
             "does_not_fully_replace_explicit_context": True,
             "current_delivery_blocker": False,
             "model_quality_risk": True,
+            "final_strategy_quality_claim_blocker_without_richer_action_context": True,
         },
         "training_feature_audit": feature_audit,
         "required_dataset_improvements": [
@@ -161,9 +223,40 @@ def audit_training_actions_context_features(project_root: Path, *, max_examples:
 
 def validate_actions_context_quality(payload: dict[str, Any]) -> dict[str, Any]:
     violations: list[str] = []
+    risk = payload.get("risk_contract") or {}
     schema_audit = payload.get("actions_csv_schema_audit") or {}
     mitigation = payload.get("derived_context_mitigation") or {}
     feature_audit = payload.get("training_feature_audit") or {}
+
+    if risk.get("risk_id") != ACTION_CONTEXT_RISK_ID:
+        violations.append("actions_context_risk_id_must_match_contract")
+    if risk.get("root_cause") != ACTION_CONTEXT_ROOT_CAUSE:
+        violations.append("actions_context_root_cause_must_match_contract")
+    if risk.get("source_table") != ACTION_CONTEXT_SOURCE_TABLE:
+        violations.append("actions_context_source_table_must_be_actions_csv")
+    if set(risk.get("missing_or_reconstructed_decision_fields") or []) != set(REQUIRED_EXPLICIT_ACTION_FIELDS):
+        violations.append("actions_context_missing_fields_must_match_contract")
+    policy = risk.get("decision_time_context_policy") or {}
+    if set(policy) != set(REQUIRED_EXPLICIT_ACTION_FIELDS):
+        violations.append("actions_context_policy_must_cover_every_required_field")
+    for field in REQUIRED_EXPLICIT_ACTION_FIELDS:
+        field_policy = policy.get(field) or {}
+        if not field_policy.get("required_semantics"):
+            violations.append(f"actions_context_policy_missing_semantics_for_{field}")
+        if not field_policy.get("reconstruction_source"):
+            violations.append(f"actions_context_policy_missing_reconstruction_source_for_{field}")
+        if field != "action_order" and field_policy.get("target_row_value_allowed_as_feature") is not False:
+            violations.append(f"actions_context_policy_must_forbid_target_row_value_for_{field}")
+    if risk.get("target_row_values_are_labels_not_features") is not True:
+        violations.append("actions_context_target_row_values_must_be_labels_not_features")
+    if risk.get("mitigation_status") != "LEAKAGE_SAFE_RECONSTRUCTION_REQUIRED":
+        violations.append("actions_context_mitigation_status_must_require_reconstruction")
+    if risk.get("current_delivery_blocker") is not False:
+        violations.append("actions_context_risk_must_not_block_current_delivery")
+    if risk.get("model_quality_risk") is not True:
+        violations.append("actions_context_risk_must_remain_model_quality_risk")
+    if risk.get("final_strategy_quality_claim_blocker_without_richer_action_context") is not True:
+        violations.append("actions_context_must_block_final_strategy_claim_without_richer_data")
 
     if set(payload.get("required_explicit_action_fields") or []) != set(REQUIRED_EXPLICIT_ACTION_FIELDS):
         violations.append("required_explicit_action_fields_must_match_contract")
@@ -183,6 +276,8 @@ def validate_actions_context_quality(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("derived_context_must_be_implemented")
     if mitigation.get("uses_target_action_amount_as_feature") is not False:
         violations.append("target_action_amount_must_not_be_used_as_feature")
+    if mitigation.get("target_action_context_leakage_guard") is not True:
+        violations.append("target_action_context_leakage_guard_must_be_enabled")
     if mitigation.get("uses_future_outcome_fields") is not False:
         violations.append("future_outcome_fields_must_not_be_used")
     if mitigation.get("does_not_fully_replace_explicit_context") is not True:
@@ -191,6 +286,8 @@ def validate_actions_context_quality(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("actions_context_limitation_must_not_block_current_delivery")
     if mitigation.get("model_quality_risk") is not True:
         violations.append("actions_context_limitation_must_remain_model_quality_risk")
+    if mitigation.get("final_strategy_quality_claim_blocker_without_richer_action_context") is not True:
+        violations.append("actions_context_mitigation_must_block_final_strategy_claim_without_richer_data")
 
     if feature_audit.get("status") != "PASS":
         violations.append("training_examples_must_include_derived_context_features")
@@ -219,6 +316,7 @@ def write_actions_context_quality(
 
 
 def render_actions_context_quality_markdown(payload: dict[str, Any]) -> str:
+    risk = payload["risk_contract"]
     schema = payload["actions_csv_schema_audit"]
     mitigation = payload["derived_context_mitigation"]
     feature_audit = payload["training_feature_audit"]
@@ -227,14 +325,37 @@ def render_actions_context_quality_markdown(payload: dict[str, Any]) -> str:
         "",
         payload["client_statement"],
         "",
-        "## Explicit Dataset Fields",
+        "## Risk Contract",
         "",
-        f"- Explicit context status: `{schema.get('explicit_context_status')}`",
-        f"- Rows scanned: `{schema.get('rows_scanned')}`",
+        f"- Risk id: `{risk['risk_id']}`",
+        f"- Root cause: `{risk['root_cause']}`",
+        f"- Source table: `{risk['source_table']}`",
+        f"- Current delivery blocker: `{risk['current_delivery_blocker']}`",
+        f"- Model-quality risk: `{risk['model_quality_risk']}`",
+        f"- Blocks final strategy-quality claim without richer action context: `{risk['final_strategy_quality_claim_blocker_without_richer_action_context']}`",
         "",
-        "Missing explicit context fields:",
+        "Missing or reconstructed decision-time fields:",
         "",
     ]
+    lines.extend(f"- `{field}`" for field in risk["missing_or_reconstructed_decision_fields"])
+    lines.extend(["", "Decision-time reconstruction policy:", ""])
+    for field, policy in risk["decision_time_context_policy"].items():
+        lines.append(
+            f"- `{field}`: {policy['required_semantics']} Source: {policy['reconstruction_source']}. "
+            f"Target-row value allowed as feature: `{policy['target_row_value_allowed_as_feature']}`."
+        )
+    lines.extend(
+        [
+            "",
+            "## Explicit Dataset Fields",
+            "",
+            f"- Explicit context status: `{schema.get('explicit_context_status')}`",
+            f"- Rows scanned: `{schema.get('rows_scanned')}`",
+            "",
+            "Missing explicit context fields:",
+            "",
+        ]
+    )
     lines.extend(f"- `{field}`" for field in schema.get("missing_explicit_context_fields") or [])
     lines.extend(
         [
@@ -243,6 +364,7 @@ def render_actions_context_quality_markdown(payload: dict[str, Any]) -> str:
             "",
             f"- Status: `{mitigation['status']}`",
             f"- Uses target action amount as feature: `{mitigation['uses_target_action_amount_as_feature']}`",
+            f"- Target action context leakage guard: `{mitigation['target_action_context_leakage_guard']}`",
             f"- Uses future outcome fields: `{mitigation['uses_future_outcome_fields']}`",
             f"- Fully replaces explicit context: `{not mitigation['does_not_fully_replace_explicit_context']}`",
             f"- Current delivery blocker: `{mitigation['current_delivery_blocker']}`",

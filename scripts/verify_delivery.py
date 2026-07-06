@@ -1037,8 +1037,35 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     hole_upstream = hole_card_data_quality.get("upstream_data_quality_boundary") or {}
     hole_direct_audit = hole_cov.get("direct_players_csv_audit") or {}
     hole_promotion = hole_card_data_quality.get("promotion_boundary") or {}
+    hole_risk = hole_card_data_quality.get("risk_contract") or {}
+    hole_feature_policy = hole_risk.get("feature_policy") or {}
+    hole_strength = hole_card_data_quality.get("strength_signal_impact") or {}
     if hole_card_data_quality.get("overall_status") != "PASS":
         raise AssertionError(f"Hole-card data-quality contract did not pass: {hole_card_data_quality.get('overall_status')}")
+    if hole_risk.get("risk_id") != "hole_card_data_risk":
+        raise AssertionError("Hole-card data risk must be explicit in the delivery contract")
+    if hole_risk.get("root_cause") != "ocr_hole_card_extraction_missing_or_unreliable":
+        raise AssertionError("Hole-card root cause must remain OCR extraction quality")
+    if hole_risk.get("primary_dataset_column") != "players.cards":
+        raise AssertionError("Hole-card contract must bind the risk to players.cards")
+    if hole_risk.get("weakens_primary_poker_signal") is not True:
+        raise AssertionError("Hole-card risk must be declared as weakening the primary poker strength signal")
+    if hole_risk.get("current_delivery_blocker") is not False:
+        raise AssertionError("Hole-card risk must remain a component risk, not a current delivery blocker")
+    if hole_risk.get("final_strategy_quality_claim_blocker") is not True:
+        raise AssertionError("Hole-card risk must block final strategy-quality claims")
+    if hole_feature_policy.get("missing_or_invalid_cards") != "flag_and_route":
+        raise AssertionError("Missing or invalid hole cards must be flagged and routed")
+    if hole_feature_policy.get("do_not_impute_unknown_cards_as_known_private_cards") is not True:
+        raise AssertionError("Unknown hole cards must not be imputed as known private cards")
+    if hole_feature_policy.get("do_not_treat_missing_cards_as_reliable_zero_strength") is not True:
+        raise AssertionError("Missing hole cards must not be treated as reliable zero-strength evidence")
+    if hole_feature_policy.get("train_observed_card_and_public_context_slices_separately") is not True:
+        raise AssertionError("Observed-card and missing-card policy slices must remain separated")
+    if not {"strength_proxy", "made_hand_score", "draw_pressure"}.issubset(
+        set(hole_strength.get("affected_features") or [])
+    ):
+        raise AssertionError("Hole-card contract must list the affected strength features")
     if float(hole_cov.get("missing_hole_card_rate", 0.0)) <= float(hole_cov.get("complete_hole_card_rate", 1.0)):
         raise AssertionError("Hole-card audit must preserve missing-card dominance over complete-card coverage")
     if hole_direct_audit.get("status") != "PASS":
@@ -1082,8 +1109,47 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     leakage_request = data_leakage_contract.get("prediction_request_audit") or {}
     leakage_models = data_leakage_contract.get("model_artifact_audit") or {}
     leakage_sources = data_leakage_contract.get("source_usage_audit") or {}
+    leakage_risk = data_leakage_contract.get("leakage_risk_contract") or {}
+    leakage_policy = leakage_risk.get("feature_policy") or {}
+    leakage_field_definitions = leakage_risk.get("field_definitions") or {}
+    leakage_raw_schema = data_leakage_contract.get("raw_dataset_schema_audit") or {}
     if data_leakage_contract.get("overall_status") != "PASS":
         raise AssertionError(f"Data-leakage contract did not pass: {data_leakage_contract.get('overall_status')}")
+    forbidden_outcome_fields = {
+        "winner_positions",
+        "stack_delta",
+        "ending_stack",
+        "dealer_winner",
+        "dealer_pot",
+        "pot_from_stacks",
+    }
+    if set(data_leakage_contract.get("forbidden_outcome_fields") or []) != forbidden_outcome_fields:
+        raise AssertionError("Data-leakage contract must list the full forbidden outcome field set")
+    if leakage_risk.get("risk_id") != "post_outcome_feature_leakage":
+        raise AssertionError("Data-leakage risk id must remain explicit")
+    if leakage_risk.get("root_cause") != "post_hand_outcome_fields_available_in_raw_dataset_schema":
+        raise AssertionError("Data-leakage root cause must remain post-hand outcome fields in raw schema")
+    if leakage_risk.get("temporal_requirement") != "features_must_be_observable_before_target_action":
+        raise AssertionError("Training and prediction features must remain decision-time observable")
+    if set(leakage_risk.get("forbidden_fields") or []) != forbidden_outcome_fields:
+        raise AssertionError("Leakage risk contract forbidden fields must match the delivery contract")
+    if set(leakage_field_definitions) != forbidden_outcome_fields:
+        raise AssertionError("Every forbidden outcome field must have a temporal availability definition")
+    if leakage_field_definitions.get("pot_from_stacks", {}).get("availability") != "post_hand_reconstruction":
+        raise AssertionError("pot_from_stacks must remain classified as post-hand reconstruction")
+    for field in forbidden_outcome_fields - {"pot_from_stacks"}:
+        if leakage_field_definitions.get(field, {}).get("availability") != "post_hand":
+            raise AssertionError(f"{field} must remain classified as post-hand outcome data")
+    if leakage_policy.get("raw_dataset_schema_presence") != "allowed_for_audit_and_reporting_only":
+        raise AssertionError("Raw outcome fields may remain only for audit/reporting")
+    if leakage_policy.get("training_feature_use") != "forbidden":
+        raise AssertionError("Outcome fields must remain forbidden as training features")
+    if leakage_policy.get("prediction_request_use") != "forbidden":
+        raise AssertionError("Outcome fields must remain forbidden in prediction requests")
+    if leakage_policy.get("model_artifact_feature_use") != "forbidden":
+        raise AssertionError("Outcome fields must remain forbidden in model artifacts")
+    if leakage_policy.get("detected_violation") != "production_blocker":
+        raise AssertionError("Detected outcome-field leakage must remain a production blocker")
     if leakage_boundary.get("training_feature_use_allowed") is not False:
         raise AssertionError("Outcome-only fields must not be allowed as training features")
     if leakage_boundary.get("prediction_request_use_allowed") is not False:
@@ -1104,6 +1170,18 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError(f"Forbidden model artifact features detected: {leakage_models.get('forbidden_model_features_detected')}")
     if leakage_sources.get("forbidden_source_usages"):
         raise AssertionError(f"Forbidden outcome-field source usage detected: {leakage_sources.get('forbidden_source_usages')}")
+    if leakage_raw_schema.get("status") != "PASS":
+        raise AssertionError("Raw dataset schema audit must pass")
+    if leakage_raw_schema.get("presence_is_not_feature_approval") is not True:
+        raise AssertionError("Raw schema presence must not be treated as feature approval")
+    raw_schema_fields = {item.get("field") for item in leakage_raw_schema.get("outcome_fields_present_in_raw_schema") or []}
+    if not forbidden_outcome_fields.issubset(raw_schema_fields):
+        raise AssertionError("Raw schema audit must expose all outcome fields present in the CSV schema")
+    for item in leakage_raw_schema.get("outcome_fields_present_in_raw_schema") or []:
+        if item.get("presence_allowed") is not True:
+            raise AssertionError("Outcome fields in raw schema must remain allowed only for audit/reporting")
+        if item.get("allowed_use") != "audit_reporting_settlement_only":
+            raise AssertionError("Outcome fields in raw schema must not be approved for training use")
     if (data_leakage_contract.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError(f"Data-leakage invariants failed: {data_leakage_contract.get('invariants')}")
     normalized_actions_audit = normalized_action_contract.get("actions_csv_audit") or {}
@@ -1169,6 +1247,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         if example.get("observed") != expected or example.get("passed") is not True:
             raise AssertionError(f"Noisy action example failed normalization: {raw_action}")
     actions_schema = actions_context_quality.get("actions_csv_schema_audit") or {}
+    actions_risk = actions_context_quality.get("risk_contract") or {}
     actions_mitigation = actions_context_quality.get("derived_context_mitigation") or {}
     actions_features = actions_context_quality.get("training_feature_audit") or {}
     missing_action_fields = set(actions_schema.get("missing_explicit_context_fields") or [])
@@ -1182,6 +1261,33 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     }
     if actions_context_quality.get("overall_status") != "PASS":
         raise AssertionError(f"Actions-context quality contract did not pass: {actions_context_quality.get('overall_status')}")
+    if actions_risk.get("risk_id") != "actions_csv_betting_context_incomplete":
+        raise AssertionError("actions.csv betting-context risk id must remain explicit")
+    if actions_risk.get("root_cause") != "actions_csv_lacks_decision_time_betting_context_fields":
+        raise AssertionError("actions.csv betting-context root cause must remain explicit")
+    if actions_risk.get("source_table") != "actions.csv":
+        raise AssertionError("actions.csv betting-context risk must be tied to actions.csv")
+    if set(actions_risk.get("missing_or_reconstructed_decision_fields") or []) != required_action_fields:
+        raise AssertionError("actions.csv betting-context risk must list all missing or reconstructed decision fields")
+    actions_policy = actions_risk.get("decision_time_context_policy") or {}
+    if set(actions_policy) != required_action_fields:
+        raise AssertionError("actions.csv betting-context policy must cover every required decision-time field")
+    if actions_risk.get("target_row_values_are_labels_not_features") is not True:
+        raise AssertionError("Target-row action context values must remain labels/evaluation values, not prediction features")
+    for field in required_action_fields - {"action_order"}:
+        field_policy = actions_policy.get(field) or {}
+        if field_policy.get("target_row_value_allowed_as_feature") is not False:
+            raise AssertionError(f"{field} target-row value must not be allowed as a decision feature")
+        if not field_policy.get("required_semantics") or not field_policy.get("reconstruction_source"):
+            raise AssertionError(f"{field} action-context policy must define semantics and reconstruction source")
+    if actions_risk.get("mitigation_status") != "LEAKAGE_SAFE_RECONSTRUCTION_REQUIRED":
+        raise AssertionError("actions.csv betting-context risk must require leakage-safe reconstruction")
+    if actions_risk.get("current_delivery_blocker") is not False:
+        raise AssertionError("actions.csv betting-context risk must not block current delivery")
+    if actions_risk.get("model_quality_risk") is not True:
+        raise AssertionError("actions.csv betting-context risk must remain a model-quality risk")
+    if actions_risk.get("final_strategy_quality_claim_blocker_without_richer_action_context") is not True:
+        raise AssertionError("actions.csv betting-context risk must block final strategy-quality claims without richer action context")
     if actions_schema.get("explicit_context_status") != "INCOMPLETE_EXPLICIT_BETTING_CONTEXT":
         raise AssertionError("actions.csv explicit betting context must remain marked incomplete")
     if not required_action_fields.issubset(missing_action_fields):
@@ -1192,6 +1298,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Derived actions-context mitigation must remain implemented")
     if actions_mitigation.get("uses_target_action_amount_as_feature") is not False:
         raise AssertionError("Target action amount must not be used as a decision feature")
+    if actions_mitigation.get("target_action_context_leakage_guard") is not True:
+        raise AssertionError("Target-action context leakage guard must remain enabled")
     if actions_mitigation.get("uses_future_outcome_fields") is not False:
         raise AssertionError("Actions-context mitigation must not use future outcome fields")
     if actions_mitigation.get("does_not_fully_replace_explicit_context") is not True:
@@ -1200,6 +1308,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("actions.csv context limitation must not block current delivery")
     if actions_mitigation.get("model_quality_risk") is not True:
         raise AssertionError("actions.csv context limitation must remain a model-quality risk")
+    if actions_mitigation.get("final_strategy_quality_claim_blocker_without_richer_action_context") is not True:
+        raise AssertionError("actions.csv derived context must block final strategy-quality claims without richer action context")
     if actions_features.get("status") != "PASS":
         raise AssertionError("Training features must include leakage-safe derived betting-context features")
     if int(actions_features.get("examples_scanned") or 0) <= 0:
