@@ -131,7 +131,7 @@ def api_contract() -> dict[str, Any]:
         },
         "data_leakage_contract": {
             "endpoint": "/data-leakage-contract.json",
-            "description": "Blocks post-hand outcome fields from training, prediction, and model-artifact feature sets.",
+            "description": "Blocks post-hand outcome fields and raw final-board snapshots from training, prediction, and model-artifact feature sets.",
             "forbidden_outcome_fields": [
                 "winner_positions",
                 "stack_delta",
@@ -140,6 +140,11 @@ def api_contract() -> dict[str, Any]:
                 "dealer_pot",
                 "pot_from_stacks",
             ],
+            "raw_final_board_snapshot_fields": ["hands.csv::board_cards"],
+            "board_cards_boundary": (
+                "Prediction request board_cards are allowed only as community cards visible at decision time; "
+                "the final hands.csv board_cards snapshot is audit/truncation source data, not a direct feature."
+            ),
             "boundary": "These fields may exist in raw CSVs for reporting, but are not valid decision-time features.",
         },
         "normalized_action_contract": {

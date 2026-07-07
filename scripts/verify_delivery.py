@@ -59,7 +59,6 @@ def run_check(name: str, fn: Callable[[], str]) -> Check:
 
 def require_files(root: Path) -> str:
     required = [
-        "README.md",
         "requirements.txt",
         "configs/experiment.yaml",
         "configs/dataset/poker_csv.yaml",
@@ -1137,6 +1136,10 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     leakage_risk = data_leakage_contract.get("leakage_risk_contract") or {}
     leakage_policy = leakage_risk.get("feature_policy") or {}
     leakage_field_definitions = leakage_risk.get("field_definitions") or {}
+    final_board_contract = data_leakage_contract.get("final_board_snapshot_contract") or {}
+    final_board_policy = final_board_contract.get("feature_policy") or {}
+    final_board_mitigation = final_board_contract.get("required_mitigation") or {}
+    final_board_definitions = final_board_contract.get("field_definitions") or {}
     leakage_raw_schema = data_leakage_contract.get("raw_dataset_schema_audit") or {}
     if data_leakage_contract.get("overall_status") != "PASS":
         raise AssertionError(f"Data-leakage contract did not pass: {data_leakage_contract.get('overall_status')}")
@@ -1150,6 +1153,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     }
     if set(data_leakage_contract.get("forbidden_outcome_fields") or []) != forbidden_outcome_fields:
         raise AssertionError("Data-leakage contract must list the full forbidden outcome field set")
+    if data_leakage_contract.get("raw_final_board_snapshot_fields") != ["hands.csv::board_cards"]:
+        raise AssertionError("Data-leakage contract must list the raw final board snapshot source field")
     if leakage_risk.get("risk_id") != "post_outcome_feature_leakage":
         raise AssertionError("Data-leakage risk id must remain explicit")
     if leakage_risk.get("root_cause") != "post_hand_outcome_fields_available_in_raw_dataset_schema":
@@ -1175,12 +1180,52 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Outcome fields must remain forbidden in model artifacts")
     if leakage_policy.get("detected_violation") != "production_blocker":
         raise AssertionError("Detected outcome-field leakage must remain a production blocker")
+    if final_board_contract.get("risk_id") != "final_board_snapshot_leakage":
+        raise AssertionError("Final-board leakage risk id must remain explicit")
+    if final_board_contract.get("root_cause") != "hands_csv_board_cards_is_final_hand_snapshot":
+        raise AssertionError("Final-board leakage root cause must remain the final hands.csv board snapshot")
+    if (
+        final_board_contract.get("temporal_requirement")
+        != "board_features_must_be_truncated_to_cards_visible_at_target_street"
+    ):
+        raise AssertionError("Final-board leakage contract must require street-visible board truncation")
+    if final_board_contract.get("raw_final_board_snapshot_fields") != ["hands.csv::board_cards"]:
+        raise AssertionError("Final-board leakage contract must name hands.csv::board_cards")
+    if set(final_board_definitions) != {"hands.csv::board_cards"}:
+        raise AssertionError("Final-board leakage contract must define hands.csv::board_cards")
+    if final_board_definitions.get("hands.csv::board_cards", {}).get("availability") != "post_hand_final_snapshot":
+        raise AssertionError("hands.csv::board_cards must remain classified as a post-hand final snapshot")
+    if final_board_policy.get("raw_dataset_schema_presence") != "allowed_for_audit_and_street_truncation_only":
+        raise AssertionError("Raw final board may remain only for audit and street truncation")
+    if final_board_policy.get("direct_training_feature_use") != "forbidden":
+        raise AssertionError("Raw final board snapshot must not be allowed as a direct training feature")
+    if final_board_policy.get("prediction_request_board_cards") != "allowed_only_as_decision_time_visible_board":
+        raise AssertionError("Prediction request board_cards must remain decision-time visible only")
+    if final_board_policy.get("model_artifact_direct_final_board_feature_use") != "forbidden":
+        raise AssertionError("Raw final board snapshot must not appear as a direct model artifact feature")
+    if final_board_policy.get("detected_violation") != "production_blocker":
+        raise AssertionError("Detected final-board leakage must remain a production blocker")
+    if final_board_mitigation.get("truncate_final_board_by_street") is not True:
+        raise AssertionError("Final-board mitigation must truncate raw board cards by street")
+    expected_visible_counts = {
+        "preflop_visible_board_count": 0,
+        "flop_visible_board_count": 3,
+        "turn_visible_board_count": 4,
+        "river_visible_board_count": 5,
+    }
+    for key, expected in expected_visible_counts.items():
+        if final_board_mitigation.get(key) != expected:
+            raise AssertionError(f"Invalid final-board visible-card mitigation count: {key}")
     if leakage_boundary.get("training_feature_use_allowed") is not False:
         raise AssertionError("Outcome-only fields must not be allowed as training features")
     if leakage_boundary.get("prediction_request_use_allowed") is not False:
         raise AssertionError("Outcome-only fields must not be allowed in prediction requests")
     if leakage_boundary.get("model_artifact_feature_use_allowed") is not False:
         raise AssertionError("Outcome-only fields must not be allowed in model artifact features")
+    if leakage_boundary.get("direct_final_board_snapshot_feature_use_allowed") is not False:
+        raise AssertionError("Raw final board snapshot must not be allowed as a direct feature")
+    if leakage_boundary.get("decision_time_visible_board_cards_allowed") is not True:
+        raise AssertionError("Decision-time visible board cards must remain allowed")
     if leakage_boundary.get("dataset_schema_presence_allowed") is not True:
         raise AssertionError("Outcome-only fields may remain in raw dataset schema for audit/reporting")
     if leakage_boundary.get("production_blocker_if_detected") is not True:
@@ -1199,6 +1244,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Raw dataset schema audit must pass")
     if leakage_raw_schema.get("presence_is_not_feature_approval") is not True:
         raise AssertionError("Raw schema presence must not be treated as feature approval")
+    if leakage_raw_schema.get("final_board_snapshot_presence_is_not_feature_approval") is not True:
+        raise AssertionError("Raw final board schema presence must not be treated as feature approval")
     raw_schema_fields = {item.get("field") for item in leakage_raw_schema.get("outcome_fields_present_in_raw_schema") or []}
     if not forbidden_outcome_fields.issubset(raw_schema_fields):
         raise AssertionError("Raw schema audit must expose all outcome fields present in the CSV schema")
@@ -1207,6 +1254,18 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
             raise AssertionError("Outcome fields in raw schema must remain allowed only for audit/reporting")
         if item.get("allowed_use") != "audit_reporting_settlement_only":
             raise AssertionError("Outcome fields in raw schema must not be approved for training use")
+    final_board_schema_sources = {
+        item.get("source_field") for item in leakage_raw_schema.get("final_board_snapshot_fields_present_in_raw_schema") or []
+    }
+    if final_board_schema_sources != {"hands.csv::board_cards"}:
+        raise AssertionError("Raw schema audit must expose the final board snapshot field")
+    for item in leakage_raw_schema.get("final_board_snapshot_fields_present_in_raw_schema") or []:
+        if item.get("presence_allowed") is not True:
+            raise AssertionError("Raw final board presence must remain allowed for audit/truncation")
+        if item.get("allowed_use") != "audit_and_street_truncation_only":
+            raise AssertionError("Raw final board must not be approved for direct training use")
+        if item.get("direct_training_feature_use_allowed") is not False:
+            raise AssertionError("Raw final board direct training feature use must remain forbidden")
     if (data_leakage_contract.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError(f"Data-leakage invariants failed: {data_leakage_contract.get('invariants')}")
     normalized_actions_audit = normalized_action_contract.get("actions_csv_audit") or {}
@@ -2599,7 +2658,6 @@ def zip_contract(root: Path, zip_path: Path) -> str:
     required = {
         "models/poker_policy.joblib",
         "models/poker_policy_bundle.joblib",
-        "README.md",
         "activate_env.cmd",
         "install.ps1",
         "run_server.ps1",

@@ -13,6 +13,10 @@ FORBIDDEN_OUTCOME_FIELDS = (
     "pot_from_stacks",
 )
 
+RAW_FINAL_BOARD_SNAPSHOT_FIELDS = (
+    "hands.csv::board_cards",
+)
+
 OUTCOME_FIELD_DEFINITIONS: dict[str, dict[str, str]] = {
     "winner_positions": {
         "source_table": "hands.csv",
@@ -46,6 +50,18 @@ OUTCOME_FIELD_DEFINITIONS: dict[str, dict[str, str]] = {
     },
 }
 
+FINAL_BOARD_FIELD_DEFINITIONS: dict[str, dict[str, str]] = {
+    "hands.csv::board_cards": {
+        "source_table": "hands.csv",
+        "field": "board_cards",
+        "availability": "post_hand_final_snapshot",
+        "reason": (
+            "The hands.csv board_cards value is the final community-card snapshot. "
+            "For preflop, flop, and turn decisions it may include cards that were not visible yet."
+        ),
+    },
+}
+
 
 def forbidden_outcome_feature_names(feature_names: Iterable[str]) -> list[str]:
     return sorted(
@@ -73,4 +89,18 @@ def assert_no_outcome_feature_leakage(
         raise ValueError(
             f"Outcome-field data leakage detected in {context}: {joined}. "
             "Only decision-time observable features may be used for training or prediction."
+        )
+
+
+def assert_no_final_board_snapshot_leakage(
+    source_fields: Iterable[str],
+    *,
+    context: str,
+) -> None:
+    detected = sorted(set(str(field) for field in source_fields) & set(RAW_FINAL_BOARD_SNAPSHOT_FIELDS))
+    if detected:
+        joined = ", ".join(detected)
+        raise ValueError(
+            f"Final-board data leakage detected in {context}: {joined}. "
+            "Use only community cards visible before the target action; final hand snapshots are audit data."
         )

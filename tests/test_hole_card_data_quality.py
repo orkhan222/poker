@@ -3,7 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from poker_agent.hole_card_data_quality import build_hole_card_data_quality, validate_hole_card_data_quality
+from poker_agent.hole_card_data_quality import (
+    can_promote_standalone_policy_with_hole_cards,
+    build_hole_card_data_quality,
+    is_open_hole_card_data_quality_risk,
+    validate_hole_card_data_quality,
+)
 
 
 def test_hole_card_data_quality_keeps_limitation_open_with_routed_mitigation(tmp_path: Path) -> None:
@@ -129,6 +134,8 @@ def test_hole_card_data_quality_keeps_limitation_open_with_routed_mitigation(tmp
     assert payload["promotion_boundary"]["standalone_policy_promotion_allowed"] is False
     assert payload["promotion_boundary"]["model_promotion_blocker"] is True
     assert payload["promotion_boundary"]["current_deployment_blocker"] is False
+    assert is_open_hole_card_data_quality_risk(payload) is True
+    assert can_promote_standalone_policy_with_hole_cards(payload) is False
 
 
 def test_hole_card_data_quality_blocks_false_resolution_claim() -> None:
@@ -218,6 +225,8 @@ def test_hole_card_data_quality_blocks_false_strength_signal_reliability() -> No
 
     invariants = validate_hole_card_data_quality(payload)
 
+    assert is_open_hole_card_data_quality_risk(payload) is False
+    assert can_promote_standalone_policy_with_hole_cards(payload) is False
     assert invariants["status"] == "FAIL"
     assert "high_hole_card_missingness_must_degrade_strength_signal" in invariants["violations"]
     assert "high_strength_proxy_zero_rate_must_degrade_strength_signal" in invariants["violations"]
@@ -289,3 +298,56 @@ def test_hole_card_data_quality_endpoint_returns_contract() -> None:
     assert payload["overall_status"] == "PASS"
     assert payload["mitigation_boundary"]["mitigation_status"] == "MITIGATED_BY_ROUTED_POLICY_BUNDLE"
     assert payload["upstream_data_quality_boundary"]["upstream_data_quality_issue_resolved"] is False
+    assert is_open_hole_card_data_quality_risk(payload) is True
+    assert can_promote_standalone_policy_with_hole_cards(payload) is False
+
+
+def test_hole_card_data_quality_guard_allows_promotion_only_after_real_data_repair() -> None:
+    payload = {
+        "risk_contract": {
+            "risk_id": "hole_card_data_risk",
+            "primary_dataset_column": "players.cards",
+            "weakens_primary_poker_signal": True,
+            "final_strategy_quality_claim_blocker": False,
+            "feature_policy": {
+                "missing_or_invalid_cards": "flag_and_route",
+                "do_not_impute_unknown_cards_as_known_private_cards": True,
+                "do_not_treat_missing_cards_as_reliable_zero_strength": True,
+            },
+        },
+        "coverage_snapshot": {
+            "direct_players_csv_audit": {
+                "missing_hole_card_rate": 0.03,
+                "reliable_two_card_rate": 0.92,
+                "invalid_card_rate": 0.0,
+            }
+        },
+        "strength_signal_impact": {
+            "status": "RELIABLE",
+            "strength_proxy_zero_rate": 0.05,
+            "primary_hand_strength_signal_reliable_for_standalone_policy": True,
+        },
+        "mitigation_boundary": {
+            "mitigation_status": "MITIGATED_BY_ROUTED_POLICY_BUNDLE",
+            "mitigation_scope": "RUNTIME_RISK_REDUCTION_NOT_DATA_REPAIR",
+            "fully_solves_upstream_data_quality_issue": True,
+        },
+        "upstream_data_quality_boundary": {
+            "limitation_status": "RESOLVED",
+            "upstream_data_quality_issue_resolved": True,
+            "production_blocker_for_current_deployment": False,
+            "component_risk": False,
+        },
+        "promotion_boundary": {
+            "standalone_policy_promotion_allowed": True,
+            "model_promotion_blocker": False,
+            "current_deployment_blocker": False,
+        },
+    }
+
+    assert is_open_hole_card_data_quality_risk(payload) is False
+    assert can_promote_standalone_policy_with_hole_cards(payload) is True
+
+    payload["coverage_snapshot"]["direct_players_csv_audit"]["reliable_two_card_rate"] = 0.50
+    assert is_open_hole_card_data_quality_risk(payload) is False
+    assert can_promote_standalone_policy_with_hole_cards(payload) is False

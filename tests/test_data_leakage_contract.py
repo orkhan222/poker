@@ -11,7 +11,10 @@ from poker_agent.data_leakage_contract import (
 )
 from poker_agent.features import load_training_examples
 from poker_agent.api_contract import api_contract
-from poker_agent.leakage_guard import assert_no_outcome_feature_leakage
+from poker_agent.leakage_guard import (
+    assert_no_final_board_snapshot_leakage,
+    assert_no_outcome_feature_leakage,
+)
 
 
 def test_data_leakage_contract_passes_on_current_project() -> None:
@@ -26,6 +29,8 @@ def test_data_leakage_contract_passes_on_current_project() -> None:
     assert payload["source_usage_audit"]["forbidden_source_usages"] == []
     assert payload["leakage_boundary"]["training_feature_use_allowed"] is False
     assert payload["leakage_boundary"]["dataset_schema_presence_allowed"] is True
+    assert payload["leakage_boundary"]["direct_final_board_snapshot_feature_use_allowed"] is False
+    assert payload["leakage_boundary"]["decision_time_visible_board_cards_allowed"] is True
     risk = payload["leakage_risk_contract"]
     assert risk["risk_id"] == "post_outcome_feature_leakage"
     assert risk["root_cause"] == "post_hand_outcome_fields_available_in_raw_dataset_schema"
@@ -47,6 +52,32 @@ def test_data_leakage_contract_passes_on_current_project() -> None:
     assert {
         item["field"] for item in raw_schema["outcome_fields_present_in_raw_schema"]
     }.issuperset({"winner_positions", "dealer_winner", "dealer_pot", "ending_stack", "stack_delta", "pot_from_stacks"})
+    final_board = payload["final_board_snapshot_contract"]
+    assert final_board["risk_id"] == "final_board_snapshot_leakage"
+    assert final_board["root_cause"] == "hands_csv_board_cards_is_final_hand_snapshot"
+    assert final_board["temporal_requirement"] == "board_features_must_be_truncated_to_cards_visible_at_target_street"
+    assert final_board["raw_final_board_snapshot_fields"] == ["hands.csv::board_cards"]
+    assert final_board["feature_policy"]["direct_training_feature_use"] == "forbidden"
+    assert final_board["feature_policy"]["prediction_request_board_cards"] == "allowed_only_as_decision_time_visible_board"
+    assert final_board["feature_policy"]["detected_violation"] == "production_blocker"
+    assert final_board["required_mitigation"]["truncate_final_board_by_street"] is True
+    assert final_board["required_mitigation"]["preflop_visible_board_count"] == 0
+    assert final_board["required_mitigation"]["flop_visible_board_count"] == 3
+    assert final_board["required_mitigation"]["turn_visible_board_count"] == 4
+    assert final_board["required_mitigation"]["river_visible_board_count"] == 5
+    assert payload["raw_final_board_snapshot_fields"] == ["hands.csv::board_cards"]
+    assert raw_schema["final_board_snapshot_presence_is_not_feature_approval"] is True
+    assert raw_schema["final_board_snapshot_fields_present_in_raw_schema"] == [
+        {
+            "table": "hands.csv",
+            "field": "board_cards",
+            "source_field": "hands.csv::board_cards",
+            "availability": "post_hand_final_snapshot",
+            "presence_allowed": True,
+            "allowed_use": "audit_and_street_truncation_only",
+            "direct_training_feature_use_allowed": False,
+        }
+    ]
 
 
 def test_data_leakage_contract_is_exposed_through_api_contract() -> None:
@@ -57,9 +88,12 @@ def test_data_leakage_contract_is_exposed_through_api_contract() -> None:
 
     assert contract["endpoint"] == "/data-leakage-contract.json"
     assert "ending_stack" in contract["forbidden_outcome_fields"]
+    assert contract["raw_final_board_snapshot_fields"] == ["hands.csv::board_cards"]
+    assert "visible at decision time" in contract["board_cards_boundary"]
     assert payload["overall_status"] == "PASS"
     assert payload["leakage_boundary"]["training_feature_use_allowed"] is False
     assert payload["leakage_risk_contract"]["temporal_requirement"] == "features_must_be_observable_before_target_action"
+    assert payload["final_board_snapshot_contract"]["feature_policy"]["direct_training_feature_use"] == "forbidden"
 
 
 def test_data_leakage_contract_blocks_false_safe_claims() -> None:
@@ -163,6 +197,9 @@ def test_data_leakage_contract_blocks_false_safe_claims() -> None:
     assert "raw_schema_presence_must_not_equal_feature_approval" in invariants["violations"]
     assert "raw_outcome_field_presence_must_remain_allowed_for_audit" in invariants["violations"]
     assert "raw_outcome_field_allowed_use_must_be_audit_only" in invariants["violations"]
+    assert "final_board_leakage_risk_id_must_be_explicit" in invariants["violations"]
+    assert "direct_final_board_snapshot_must_not_be_feature" in invariants["violations"]
+    assert "raw_final_board_presence_must_not_equal_feature_approval" in invariants["violations"]
 
 
 def test_runtime_feature_guard_blocks_outcome_field_leakage() -> None:
@@ -173,6 +210,14 @@ def test_runtime_feature_guard_blocks_outcome_field_leakage() -> None:
                 "ending_stack": 100.0,
             },
             context="unit-test training features",
+        )
+
+
+def test_runtime_feature_guard_blocks_direct_final_board_snapshot_leakage() -> None:
+    with pytest.raises(ValueError, match="hands.csv::board_cards"):
+        assert_no_final_board_snapshot_leakage(
+            ["hands.csv::board_cards"],
+            context="unit-test training source fields",
         )
 
 

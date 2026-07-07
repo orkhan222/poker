@@ -431,6 +431,97 @@ def validate_hole_card_data_quality(payload: dict[str, Any]) -> dict[str, Any]:
     return {"status": "FAIL" if violations else "PASS", "violations": violations}
 
 
+def is_open_hole_card_data_quality_risk(payload: dict[str, Any]) -> bool:
+    risk = payload.get("risk_contract") or {}
+    feature_policy = risk.get("feature_policy") or {}
+    coverage = payload.get("coverage_snapshot") or {}
+    strength = payload.get("strength_signal_impact") or {}
+    mitigation = payload.get("mitigation_boundary") or {}
+    upstream = payload.get("upstream_data_quality_boundary") or {}
+    promotion = payload.get("promotion_boundary") or {}
+    direct_audit = coverage.get("direct_players_csv_audit") or {}
+
+    direct_reliable_two_card_rate = _as_float(direct_audit.get("reliable_two_card_rate"))
+    direct_missing_rate = _as_float(direct_audit.get("missing_hole_card_rate"))
+    direct_invalid_rate = _as_float(direct_audit.get("invalid_card_rate"))
+    strength_zero_rate = _as_float(strength.get("strength_proxy_zero_rate"))
+
+    if risk.get("risk_id") != "hole_card_data_risk":
+        return False
+    if risk.get("primary_dataset_column") != "players.cards":
+        return False
+    if risk.get("weakens_primary_poker_signal") is not True:
+        return False
+    if risk.get("final_strategy_quality_claim_blocker") is not True:
+        return False
+    if feature_policy.get("missing_or_invalid_cards") != "flag_and_route":
+        return False
+    if feature_policy.get("do_not_impute_unknown_cards_as_known_private_cards") is not True:
+        return False
+    if feature_policy.get("do_not_treat_missing_cards_as_reliable_zero_strength") is not True:
+        return False
+    if strength.get("status") != DEGRADED_STRENGTH_SIGNAL:
+        return False
+    if strength.get("primary_hand_strength_signal_reliable_for_standalone_policy") is not False:
+        return False
+    if mitigation.get("mitigation_status") != MITIGATED_BY_ROUTED_POLICY_BUNDLE:
+        return False
+    if mitigation.get("mitigation_scope") != "RUNTIME_RISK_REDUCTION_NOT_DATA_REPAIR":
+        return False
+    if mitigation.get("fully_solves_upstream_data_quality_issue") is not False:
+        return False
+    if upstream.get("limitation_status") != OPEN_DATA_QUALITY_LIMITATION:
+        return False
+    if upstream.get("upstream_data_quality_issue_resolved") is not False:
+        return False
+    if upstream.get("production_blocker_for_current_deployment") is not False:
+        return False
+    if upstream.get("component_risk") is not True:
+        return False
+    if promotion.get("standalone_policy_promotion_allowed") is not False:
+        return False
+    if promotion.get("model_promotion_blocker") is not True:
+        return False
+    if promotion.get("current_deployment_blocker") is not False:
+        return False
+
+    observed_data_risk = any(
+        [
+            direct_missing_rate is not None and direct_missing_rate >= MISSING_RATE_RISK_THRESHOLD,
+            direct_reliable_two_card_rate is not None
+            and direct_reliable_two_card_rate < RELIABLE_TWO_CARD_RATE_PROMOTION_THRESHOLD,
+            direct_invalid_rate is not None and direct_invalid_rate >= INVALID_CARD_RATE_PROMOTION_THRESHOLD,
+            strength_zero_rate is not None and strength_zero_rate >= STRENGTH_PROXY_ZERO_RATE_THRESHOLD,
+        ]
+    )
+    return observed_data_risk
+
+
+def can_promote_standalone_policy_with_hole_cards(payload: dict[str, Any]) -> bool:
+    if is_open_hole_card_data_quality_risk(payload):
+        return False
+
+    coverage = payload.get("coverage_snapshot") or {}
+    strength = payload.get("strength_signal_impact") or {}
+    upstream = payload.get("upstream_data_quality_boundary") or {}
+    promotion = payload.get("promotion_boundary") or {}
+    direct_audit = coverage.get("direct_players_csv_audit") or {}
+    direct_reliable_two_card_rate = _as_float(direct_audit.get("reliable_two_card_rate"))
+    direct_invalid_rate = _as_float(direct_audit.get("invalid_card_rate"))
+
+    if direct_reliable_two_card_rate is None or direct_invalid_rate is None:
+        return False
+    return all(
+        (
+            direct_reliable_two_card_rate >= RELIABLE_TWO_CARD_RATE_PROMOTION_THRESHOLD,
+            direct_invalid_rate < INVALID_CARD_RATE_PROMOTION_THRESHOLD,
+            strength.get("primary_hand_strength_signal_reliable_for_standalone_policy") is True,
+            upstream.get("upstream_data_quality_issue_resolved") is True,
+            promotion.get("standalone_policy_promotion_allowed") is True,
+        )
+    )
+
+
 def write_hole_card_data_quality(
     project_root: Path,
     out_path: Path,

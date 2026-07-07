@@ -7,8 +7,10 @@ from typing import Any
 
 from poker_agent.features import load_training_examples, request_to_features
 from poker_agent.leakage_guard import (
+    FINAL_BOARD_FIELD_DEFINITIONS,
     FORBIDDEN_OUTCOME_FIELDS,
     OUTCOME_FIELD_DEFINITIONS,
+    RAW_FINAL_BOARD_SNAPSHOT_FIELDS,
     forbidden_outcome_feature_names,
 )
 from poker_agent.model import load_policy
@@ -44,6 +46,32 @@ LEAKAGE_RISK_CONTRACT: dict[str, Any] = {
     ],
 }
 
+FINAL_BOARD_SNAPSHOT_CONTRACT: dict[str, Any] = {
+    "risk_id": "final_board_snapshot_leakage",
+    "root_cause": "hands_csv_board_cards_is_final_hand_snapshot",
+    "risk_statement": (
+        "hands.csv::board_cards stores the final board for the hand. For target actions before the river, "
+        "using this value directly would expose future community cards to the model."
+    ),
+    "temporal_requirement": "board_features_must_be_truncated_to_cards_visible_at_target_street",
+    "raw_final_board_snapshot_fields": list(RAW_FINAL_BOARD_SNAPSHOT_FIELDS),
+    "field_definitions": FINAL_BOARD_FIELD_DEFINITIONS,
+    "feature_policy": {
+        "raw_dataset_schema_presence": "allowed_for_audit_and_street_truncation_only",
+        "direct_training_feature_use": "forbidden",
+        "prediction_request_board_cards": "allowed_only_as_decision_time_visible_board",
+        "model_artifact_direct_final_board_feature_use": "forbidden",
+        "detected_violation": "production_blocker",
+    },
+    "required_mitigation": {
+        "truncate_final_board_by_street": True,
+        "preflop_visible_board_count": 0,
+        "flop_visible_board_count": 3,
+        "turn_visible_board_count": 4,
+        "river_visible_board_count": 5,
+    },
+}
+
 GUARDED_SOURCE_FILES = (
     "poker_agent/features.py",
     "scripts/build_decision_context_holdout.py",
@@ -68,18 +96,23 @@ def build_data_leakage_contract(project_root: Path, *, max_examples: int = 5000)
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "subject": "Outcome-field data-leakage prevention contract",
         "client_statement": (
-            "winner_positions, stack_delta, ending_stack, dealer_winner, dealer_pot, and "
-            "pot_from_stacks are outcome-only or post-hand fields. They must not be used as "
-            "training or prediction features because they would let the model observe future information."
+            "winner_positions, stack_delta, ending_stack, dealer_winner, dealer_pot, "
+            "pot_from_stacks, and the raw final hands.csv board_cards snapshot are not direct "
+            "decision-time features. They must not be used as training or prediction features because "
+            "they would let the model observe future information."
         ),
         "leakage_risk_contract": LEAKAGE_RISK_CONTRACT,
+        "final_board_snapshot_contract": FINAL_BOARD_SNAPSHOT_CONTRACT,
         "forbidden_outcome_fields": list(FORBIDDEN_OUTCOME_FIELDS),
+        "raw_final_board_snapshot_fields": list(RAW_FINAL_BOARD_SNAPSHOT_FIELDS),
         "leakage_boundary": {
             "status": OUTCOME_ONLY_FIELD_STATUS,
             "decision_time_observability_required": True,
             "training_feature_use_allowed": False,
             "prediction_request_use_allowed": False,
             "model_artifact_feature_use_allowed": False,
+            "direct_final_board_snapshot_feature_use_allowed": False,
+            "decision_time_visible_board_cards_allowed": True,
             "dataset_schema_presence_allowed": True,
             "reporting_and_audit_use_allowed": True,
             "current_deployment_blocker": False,
@@ -95,15 +128,18 @@ def build_data_leakage_contract(project_root: Path, *, max_examples: int = 5000)
             "Removed ending_stack fallback from decision-context holdout generation.",
             "Added a machine-readable leakage contract covering feature names, model artifacts, and guarded training sources.",
             "Added a temporal availability contract for outcome-only fields that may remain in raw CSVs only for audit/reporting.",
+            "Added a final-board snapshot contract: hands.csv::board_cards can be read only to derive street-visible board cards, not as a direct training feature.",
         ],
         "allowed_claims": [
             "Outcome-only fields may remain in the raw CSV schema for audit, reporting, and downstream settlement analysis.",
             "Training and prediction features are restricted to information observable before the target action.",
+            "Prediction request board_cards are valid only when they contain community cards visible at the submitted street.",
         ],
         "not_allowed_claims": [
             "winner_positions, stack_delta, ending_stack, dealer_winner, dealer_pot, or pot_from_stacks are safe training features.",
             "A model trained with post-hand outcome fields can be accepted as leakage-free.",
             "ending_stack can be used as a fallback for decision-time stack when starting_stack is missing.",
+            "The final hands.csv board_cards snapshot can be used directly for preflop, flop, or turn action prediction.",
         ],
     }
     payload["invariants"] = validate_data_leakage_contract(payload)
@@ -113,6 +149,7 @@ def build_data_leakage_contract(project_root: Path, *, max_examples: int = 5000)
 
 def audit_raw_dataset_schema(project_root: Path) -> dict[str, Any]:
     schema_hits: list[dict[str, Any]] = []
+    final_board_hits: list[dict[str, Any]] = []
     missing_tables: list[str] = []
     for table in sorted({item["source_table"] for item in OUTCOME_FIELD_DEFINITIONS.values()}):
         path = project_root / "data" / table
@@ -131,11 +168,26 @@ def audit_raw_dataset_schema(project_root: Path) -> dict[str, Any]:
                         "allowed_use": "audit_reporting_settlement_only",
                     }
                 )
+        for source_field, definition in FINAL_BOARD_FIELD_DEFINITIONS.items():
+            if definition["source_table"] == table and definition["field"] in header:
+                final_board_hits.append(
+                    {
+                        "table": table,
+                        "field": definition["field"],
+                        "source_field": source_field,
+                        "availability": definition["availability"],
+                        "presence_allowed": True,
+                        "allowed_use": "audit_and_street_truncation_only",
+                        "direct_training_feature_use_allowed": False,
+                    }
+                )
     return {
         "status": "PASS",
         "missing_tables": missing_tables,
         "outcome_fields_present_in_raw_schema": schema_hits,
+        "final_board_snapshot_fields_present_in_raw_schema": final_board_hits,
         "presence_is_not_feature_approval": True,
+        "final_board_snapshot_presence_is_not_feature_approval": True,
     }
 
 
@@ -248,6 +300,10 @@ def audit_training_source_usage(project_root: Path) -> dict[str, Any]:
 def validate_data_leakage_contract(payload: dict[str, Any]) -> dict[str, Any]:
     violations: list[str] = []
     risk = payload.get("leakage_risk_contract") or {}
+    final_board_contract = payload.get("final_board_snapshot_contract") or {}
+    final_board_policy = final_board_contract.get("feature_policy") or {}
+    final_board_mitigation = final_board_contract.get("required_mitigation") or {}
+    final_board_definitions = final_board_contract.get("field_definitions") or {}
     feature_policy = risk.get("feature_policy") or {}
     field_definitions = risk.get("field_definitions") or {}
     boundary = payload.get("leakage_boundary") or {}
@@ -280,6 +336,45 @@ def validate_data_leakage_contract(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("risk_contract_model_feature_use_must_be_forbidden")
     if feature_policy.get("detected_violation") != "production_blocker":
         violations.append("risk_contract_detected_violation_must_be_production_blocker")
+    if final_board_contract.get("risk_id") != "final_board_snapshot_leakage":
+        violations.append("final_board_leakage_risk_id_must_be_explicit")
+    if final_board_contract.get("root_cause") != "hands_csv_board_cards_is_final_hand_snapshot":
+        violations.append("final_board_root_cause_must_be_final_hand_snapshot")
+    if (
+        final_board_contract.get("temporal_requirement")
+        != "board_features_must_be_truncated_to_cards_visible_at_target_street"
+    ):
+        violations.append("final_board_temporal_requirement_must_require_street_truncation")
+    if set(final_board_contract.get("raw_final_board_snapshot_fields") or []) != set(RAW_FINAL_BOARD_SNAPSHOT_FIELDS):
+        violations.append("raw_final_board_snapshot_fields_must_match_contract")
+    if set(payload.get("raw_final_board_snapshot_fields") or []) != set(RAW_FINAL_BOARD_SNAPSHOT_FIELDS):
+        violations.append("payload_raw_final_board_snapshot_fields_must_match_contract")
+    if set(final_board_definitions) != set(RAW_FINAL_BOARD_SNAPSHOT_FIELDS):
+        violations.append("final_board_field_definitions_must_cover_raw_snapshot_fields")
+    for field, definition in final_board_definitions.items():
+        if definition.get("availability") != "post_hand_final_snapshot":
+            violations.append(f"final_board_temporal_availability_invalid:{field}")
+    if final_board_policy.get("raw_dataset_schema_presence") != "allowed_for_audit_and_street_truncation_only":
+        violations.append("raw_final_board_schema_presence_must_be_audit_and_truncation_only")
+    if final_board_policy.get("direct_training_feature_use") != "forbidden":
+        violations.append("direct_final_board_training_feature_use_must_be_forbidden")
+    if final_board_policy.get("prediction_request_board_cards") != "allowed_only_as_decision_time_visible_board":
+        violations.append("prediction_request_board_cards_must_be_visible_board_only")
+    if final_board_policy.get("model_artifact_direct_final_board_feature_use") != "forbidden":
+        violations.append("model_direct_final_board_feature_use_must_be_forbidden")
+    if final_board_policy.get("detected_violation") != "production_blocker":
+        violations.append("final_board_detected_violation_must_be_production_blocker")
+    if final_board_mitigation.get("truncate_final_board_by_street") is not True:
+        violations.append("final_board_mitigation_must_truncate_by_street")
+    expected_visible_counts = {
+        "preflop_visible_board_count": 0,
+        "flop_visible_board_count": 3,
+        "turn_visible_board_count": 4,
+        "river_visible_board_count": 5,
+    }
+    for key, expected in expected_visible_counts.items():
+        if final_board_mitigation.get(key) != expected:
+            violations.append(f"final_board_visible_count_invalid:{key}")
     if set(payload.get("forbidden_outcome_fields") or []) != set(FORBIDDEN_OUTCOME_FIELDS):
         violations.append("forbidden_outcome_fields_must_match_contract")
     if boundary.get("status") != OUTCOME_ONLY_FIELD_STATUS:
@@ -292,6 +387,10 @@ def validate_data_leakage_contract(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("outcome_fields_must_not_be_prediction_request_fields")
     if boundary.get("model_artifact_feature_use_allowed") is not False:
         violations.append("outcome_fields_must_not_be_model_artifact_features")
+    if boundary.get("direct_final_board_snapshot_feature_use_allowed") is not False:
+        violations.append("direct_final_board_snapshot_must_not_be_feature")
+    if boundary.get("decision_time_visible_board_cards_allowed") is not True:
+        violations.append("decision_time_visible_board_cards_must_remain_allowed")
     if boundary.get("dataset_schema_presence_allowed") is not True:
         violations.append("raw_dataset_schema_may_retain_outcome_fields")
     if boundary.get("reporting_and_audit_use_allowed") is not True:
@@ -321,11 +420,23 @@ def validate_data_leakage_contract(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("raw_dataset_schema_audit_must_pass")
     if raw_schema_audit.get("presence_is_not_feature_approval") is not True:
         violations.append("raw_schema_presence_must_not_equal_feature_approval")
+    if raw_schema_audit.get("final_board_snapshot_presence_is_not_feature_approval") is not True:
+        violations.append("raw_final_board_presence_must_not_equal_feature_approval")
     for item in raw_schema_audit.get("outcome_fields_present_in_raw_schema") or []:
         if item.get("presence_allowed") is not True:
             violations.append("raw_outcome_field_presence_must_remain_allowed_for_audit")
         if item.get("allowed_use") != "audit_reporting_settlement_only":
             violations.append("raw_outcome_field_allowed_use_must_be_audit_only")
+    final_board_schema_hits = raw_schema_audit.get("final_board_snapshot_fields_present_in_raw_schema") or []
+    if {item.get("source_field") for item in final_board_schema_hits} != set(RAW_FINAL_BOARD_SNAPSHOT_FIELDS):
+        violations.append("raw_final_board_schema_audit_must_cover_snapshot_field")
+    for item in final_board_schema_hits:
+        if item.get("presence_allowed") is not True:
+            violations.append("raw_final_board_presence_must_remain_allowed_for_truncation")
+        if item.get("allowed_use") != "audit_and_street_truncation_only":
+            violations.append("raw_final_board_allowed_use_must_be_truncation_only")
+        if item.get("direct_training_feature_use_allowed") is not False:
+            violations.append("raw_final_board_direct_training_feature_must_be_forbidden")
 
     return {"status": "FAIL" if violations else "PASS", "violations": violations}
 
@@ -348,6 +459,7 @@ def write_data_leakage_contract(
 
 def render_data_leakage_contract_markdown(payload: dict[str, Any]) -> str:
     risk = payload["leakage_risk_contract"]
+    final_board = payload["final_board_snapshot_contract"]
     boundary = payload["leakage_boundary"]
     feature_audit = payload["feature_name_audit"]
     request_audit = payload["prediction_request_audit"]
@@ -368,6 +480,15 @@ def render_data_leakage_contract_markdown(payload: dict[str, Any]) -> str:
         f"- Prediction request use: `{risk['feature_policy']['prediction_request_use']}`",
         f"- Model artifact feature use: `{risk['feature_policy']['model_artifact_feature_use']}`",
         f"- Detected violation: `{risk['feature_policy']['detected_violation']}`",
+        "",
+        "## Final Board Snapshot Boundary",
+        "",
+        f"- Risk ID: `{final_board['risk_id']}`",
+        f"- Root cause: `{final_board['root_cause']}`",
+        f"- Temporal requirement: `{final_board['temporal_requirement']}`",
+        f"- Direct training feature use: `{final_board['feature_policy']['direct_training_feature_use']}`",
+        f"- Prediction request board cards: `{final_board['feature_policy']['prediction_request_board_cards']}`",
+        f"- Required mitigation: `truncate_final_board_by_street={final_board['required_mitigation']['truncate_final_board_by_street']}`",
         "",
         "## Outcome Field Definitions",
         "",

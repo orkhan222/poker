@@ -1515,7 +1515,9 @@ def hole_card_data_quality_json() -> dict[str, Any]:
 @app.get("/data-leakage-contract.json", tags=["System"], summary="Outcome-field data-leakage boundary")
 def data_leakage_contract_json() -> dict[str, Any]:
     if DATA_LEAKAGE_CONTRACT_PATH.exists():
-        return json.loads(DATA_LEAKAGE_CONTRACT_PATH.read_text(encoding="utf-8"))
+        payload = json.loads(DATA_LEAKAGE_CONTRACT_PATH.read_text(encoding="utf-8"))
+        if "final_board_snapshot_contract" in payload:
+            return payload
     return build_data_leakage_contract(PROJECT_ROOT)
 
 
