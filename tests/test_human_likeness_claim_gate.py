@@ -75,6 +75,18 @@ def test_human_likeness_claim_gate_blocks_distribution_only_full_claim(tmp_path:
     assert payload["evidence_requirements"]["action_distribution"]["currently_sufficient_for_final_claim"] is False
     assert payload["evidence_requirements"]["bet_sizing"]["currently_sufficient_for_final_claim"] is False
     assert payload["evidence_requirements"]["timing"]["currently_sufficient_for_final_claim"] is False
+    assert (
+        payload["evidence_requirements"]["position_based_behavior"]["currently_sufficient_for_final_claim"]
+        is False
+    )
+    assert (
+        payload["evidence_requirements"]["street_level_strategy"]["currently_sufficient_for_final_claim"]
+        is False
+    )
+
+    proof_cases = {case["name"]: case for case in payload["proof_cases"]}
+    assert proof_cases["blocks_unreviewed_position_based_sufficiency"]["observed_status"] == "FAIL"
+    assert proof_cases["blocks_unreviewed_street_level_sufficiency"]["observed_status"] == "FAIL"
 
 
 def test_human_likeness_claim_gate_rejects_false_approval(tmp_path: Path) -> None:
@@ -94,6 +106,26 @@ def test_human_likeness_claim_gate_rejects_false_approval(tmp_path: Path) -> Non
     assert "human_likeness_must_not_be_marked_fully_proven" in invariants["violations"]
     assert "action_distribution_only_proof_must_be_rejected" in invariants["violations"]
     assert "human_likeness_claim_dimension_must_not_be_currently_sufficient:bet_sizing" in invariants["violations"]
+
+
+def test_human_likeness_claim_gate_requires_street_and_position_slices(tmp_path: Path) -> None:
+    _write_evidence(tmp_path / "reports")
+    payload = build_human_likeness_claim_gate(tmp_path)
+
+    payload["evidence_requirements"]["position_based_behavior"]["currently_sufficient_for_final_claim"] = True
+    payload["evidence_requirements"]["street_level_strategy"]["currently_sufficient_for_final_claim"] = True
+
+    invariants = validate_human_likeness_claim_gate(payload)
+
+    assert invariants["status"] == "FAIL"
+    assert (
+        "human_likeness_claim_dimension_must_not_be_currently_sufficient:position_based_behavior"
+        in invariants["violations"]
+    )
+    assert (
+        "human_likeness_claim_dimension_must_not_be_currently_sufficient:street_level_strategy"
+        in invariants["violations"]
+    )
 
 
 def test_write_human_likeness_claim_gate_outputs_reports(tmp_path: Path) -> None:

@@ -129,6 +129,7 @@ def require_files(root: Path) -> str:
         "configs/experiments/client_gpu_training_response.yaml",
         "configs/experiments/multi_agent_training_status.yaml",
         "configs/experiments/phase3_open_spiel_arena.yaml",
+        "configs/experiments/open_spiel_claim_contract.yaml",
         "configs/experiments/evaluation_metric_contract.yaml",
         "configs/experiments/test_execution_contract.yaml",
         "configs/experiments/strategy_stack_maturity.yaml",
@@ -251,6 +252,8 @@ def require_files(root: Path) -> str:
         "reports/multi_agent_training_status.md",
         "reports/phase3_open_spiel_arena.json",
         "reports/phase3_open_spiel_arena.md",
+        "reports/open_spiel_claim_contract.json",
+        "reports/open_spiel_claim_contract.md",
         "reports/evaluation_metric_contract.json",
         "reports/evaluation_metric_contract.md",
         "reports/test_execution_contract.json",
@@ -283,6 +286,7 @@ def require_files(root: Path) -> str:
         "scripts/build_client_gpu_training_response.py",
         "scripts/build_multi_agent_training_status.py",
         "scripts/build_phase3_open_spiel_arena.py",
+        "scripts/build_open_spiel_claim_contract.py",
         "scripts/build_evaluation_metric_contract.py",
         "scripts/build_test_execution_contract.py",
         "scripts/build_strategy_stack_maturity.py",
@@ -345,7 +349,10 @@ def require_files(root: Path) -> str:
         "poker_agent/today_training.py",
         "poker_agent/client_gpu_training_response.py",
         "poker_agent/multi_agent_training_status.py",
+        "poker_agent/rl_training_evidence_gate.py",
         "poker_agent/open_spiel_llm_arena.py",
+        "poker_agent/open_spiel_claim_contract.py",
+        "poker_agent/strategy_metric_gate.py",
         "poker_agent/evaluation_metric_contract.py",
         "poker_agent/test_execution_contract.py",
         "poker_agent/strategy_stack_maturity.py",
@@ -374,7 +381,10 @@ def require_files(root: Path) -> str:
         "tests/test_bet_timing_calibration.py",
         "tests/test_final_delivery_acceptance.py",
         "tests/test_multi_agent_training_status.py",
+        "tests/test_rl_training_evidence_gate.py",
         "tests/test_open_spiel_llm_arena.py",
+        "tests/test_open_spiel_claim_contract.py",
+        "tests/test_strategy_metric_gate.py",
         "tests/test_evaluation_metric_contract.py",
         "tests/test_test_execution_contract.py",
         "tests/test_strategy_stack_maturity.py",
@@ -447,6 +457,7 @@ def compile_sources(root: Path) -> str:
         "poker_agent/client_gpu_training_response.py",
         "poker_agent/multi_agent_training_status.py",
         "poker_agent/open_spiel_llm_arena.py",
+        "poker_agent/open_spiel_claim_contract.py",
         "poker_agent/strategy_stack_maturity.py",
         "poker_agent/llm_decision_context.py",
         "poker_agent/llm_decision_benchmark.py",
@@ -480,6 +491,7 @@ def compile_sources(root: Path) -> str:
         "scripts/build_client_gpu_training_response.py",
         "scripts/build_multi_agent_training_status.py",
         "scripts/build_phase3_open_spiel_arena.py",
+        "scripts/build_open_spiel_claim_contract.py",
         "scripts/build_evaluation_metric_contract.py",
         "scripts/build_strategy_stack_maturity.py",
         "scripts/build_llm_decision_context.py",
@@ -797,6 +809,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     client_gpu_response = _read_json(reports / "client_gpu_training_response.json")
     multi_agent_training_status = _read_json(reports / "multi_agent_training_status.json")
     phase3_open_spiel_arena = _read_json(reports / "phase3_open_spiel_arena.json")
+    open_spiel_claim_contract = _read_json(reports / "open_spiel_claim_contract.json")
     evaluation_metric_contract = _read_json(reports / "evaluation_metric_contract.json")
     test_execution_contract = _read_json(reports / "test_execution_contract.json")
     approval_boundary_payload = build_approval_boundary(root)
@@ -1631,6 +1644,18 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     if phase3_quality.get("is_reinforcement_learning_stage") is not True:
         raise AssertionError("Phase 3 OpenSpiel arena must be classified as the RL/self-play stage")
     phase3_rl_proof = phase3_open_spiel_arena.get("rl_training_proof_boundary") or {}
+    if phase3_rl_proof.get("gate_name") != "phase3_open_spiel_rl_training_evidence_gate":
+        raise AssertionError("Phase 3 OpenSpiel RL proof must use the reusable training evidence gate")
+    required_rl_evidence = {
+        "real_open_spiel_runtime",
+        "agent_only_arena",
+        "two_phase1_trained_policy_artifacts",
+        "long_run_simulation_volume",
+        "seed_stability",
+        "policy_update_training",
+    }
+    if set(phase3_rl_proof.get("required_evidence") or []) != required_rl_evidence:
+        raise AssertionError("Phase 3 OpenSpiel RL proof must require the complete evidence set")
     if phase3_rl_proof.get("status") != "TRAINING_PROOF_NOT_COMPLETED":
         raise AssertionError("Phase 3 OpenSpiel RL training proof must remain not completed until a real training run is executed")
     if phase3_rl_proof.get("real_open_spiel_runtime_required") is not True:
@@ -1680,14 +1705,56 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
             raise AssertionError("Pending Phase 3 OpenSpiel arena report must not allow metric claims")
         if "metrics" in phase3_open_spiel_arena:
             raise AssertionError("Pending Phase 3 OpenSpiel arena report must not include measured metrics")
+    if open_spiel_claim_contract.get("overall_status") != "PASS":
+        raise AssertionError(
+            f"OpenSpiel claim contract did not pass: {open_spiel_claim_contract.get('overall_status')}"
+        )
+    if (open_spiel_claim_contract.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(
+            f"OpenSpiel claim contract invariants failed: {open_spiel_claim_contract.get('invariants')}"
+        )
+    if open_spiel_claim_contract.get("gate_name") != "open_spiel_self_play_claim_contract":
+        raise AssertionError("OpenSpiel claim contract must use the explicit claim gate name")
+    if open_spiel_claim_contract.get("source_report") != "reports/phase3_open_spiel_arena.json":
+        raise AssertionError("OpenSpiel claim contract must be derived from the Phase 3 arena report")
+    if open_spiel_claim_contract.get("code_status") != "READY":
+        raise AssertionError("OpenSpiel claim contract must mark the arena code path as ready")
+    if open_spiel_claim_contract.get("arena_code_ready") is not True:
+        raise AssertionError("OpenSpiel claim contract must preserve the code-ready boundary")
+    if open_spiel_claim_contract.get("arena_type") != "AGENT_ONLY_OPEN_SPIEL_ARENA":
+        raise AssertionError("OpenSpiel claim contract must bind the agent-only arena")
+    if open_spiel_claim_contract.get("agent_only_table") is not True:
+        raise AssertionError("OpenSpiel claim contract must require an agent-only table")
+    if open_spiel_claim_contract.get("human_players_present") is not False:
+        raise AssertionError("OpenSpiel claim contract must not allow human players in the arena")
+    if set(open_spiel_claim_contract.get("required_evidence_before_self_play_claim") or []) != required_rl_evidence:
+        raise AssertionError("OpenSpiel claim contract must require the complete RL evidence set")
+    if open_spiel_claim_contract.get("self_play_win_rate_claim_allowed") is not False:
+        raise AssertionError("OpenSpiel self-play win-rate claims must remain blocked without full training proof")
+    if open_spiel_claim_contract.get("training_proof_completed") is not False:
+        raise AssertionError("OpenSpiel claim contract must keep training proof incomplete until executed")
+    if open_spiel_claim_contract.get("current_delivery_blocker") is not False:
+        raise AssertionError("OpenSpiel training-proof gap must not block current service delivery")
+    if open_spiel_claim_contract.get("model_quality_risk") is not True:
+        raise AssertionError("OpenSpiel training-proof gap must remain a model-quality risk")
+    if not open_spiel_claim_contract.get("missing_requirements"):
+        raise AssertionError("Blocked OpenSpiel self-play claim must list missing requirements")
+    open_spiel_claim_cases = open_spiel_claim_contract.get("proof_cases") or []
+    if not open_spiel_claim_cases:
+        raise AssertionError("OpenSpiel claim contract must include proof cases")
+    for case in open_spiel_claim_cases:
+        if case.get("result") != "PASS":
+            raise AssertionError(f"OpenSpiel claim proof case failed: {case}")
     if evaluation_metric_contract.get("overall_status") != "PASS":
         raise AssertionError(f"Evaluation metric contract did not pass: {evaluation_metric_contract.get('overall_status')}")
     if (evaluation_metric_contract.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError(f"Evaluation metric contract invariants failed: {evaluation_metric_contract.get('invariants')}")
-    if evaluation_metric_contract.get("boundary") != "ACCURACY_ALONE_NOT_SUFFICIENT":
-        raise AssertionError("Evaluation contract must block accuracy-only approval")
+    if evaluation_metric_contract.get("boundary") != "ACCURACY_AND_CROSS_ENTROPY_NOT_SUFFICIENT":
+        raise AssertionError("Evaluation contract must block accuracy and cross-entropy only approval")
     if evaluation_metric_contract.get("accuracy_alone_sufficient") is not False:
         raise AssertionError("Accuracy alone must not be sufficient for strategy-quality approval")
+    if evaluation_metric_contract.get("accuracy_and_cross_entropy_sufficient") is not False:
+        raise AssertionError("Accuracy and cross-entropy must not be sufficient for strategy-quality approval")
     required_metric_families = {
         "action_classification",
         "calibration",
@@ -1698,6 +1765,22 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     }
     if set(evaluation_metric_contract.get("required_metric_families") or []) != required_metric_families:
         raise AssertionError("Evaluation contract must require the full metric family set")
+    required_production_metrics = {
+        "accuracy",
+        "macro_f1",
+        "balanced_accuracy",
+        "calibration_ece",
+        "action_distribution_js_divergence",
+        "bet_size_mae",
+        "expected_value_delta_vs_baseline",
+        "win_rate",
+        "seed_stability",
+    }
+    if set(evaluation_metric_contract.get("required_production_metrics") or []) != required_production_metrics:
+        raise AssertionError("Evaluation contract must require the full production metric set")
+    diagnostic_metrics = set(evaluation_metric_contract.get("diagnostic_metrics_not_sufficient_for_final_claim") or [])
+    if not {"accuracy", "cross_entropy"}.issubset(diagnostic_metrics):
+        raise AssertionError("Evaluation contract must mark accuracy and cross-entropy as insufficient diagnostics")
     metric_families = evaluation_metric_contract.get("metric_families") or {}
     for family_name in required_metric_families:
         if (metric_families.get(family_name) or {}).get("required") is not True:
@@ -1706,9 +1789,18 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     for metric_name in ("accuracy", "macro_f1", "balanced_accuracy"):
         if action_metrics.get(metric_name) is None:
             raise AssertionError(f"Evaluation contract missing action-classification metric: {metric_name}")
-    calibration_metrics = ((metric_families.get("calibration") or {}).get("metrics") or {})
+    calibration_family = metric_families.get("calibration") or {}
+    if calibration_family.get("calibration_required_for_final_claim") is not True:
+        raise AssertionError("Evaluation contract must require calibration for final claims")
+    if calibration_family.get("cross_entropy_only_approval_allowed") is not False:
+        raise AssertionError("Evaluation contract must reject cross-entropy-only approval")
+    if calibration_family.get("diagnostic_loss_only_approval_allowed") is not False:
+        raise AssertionError("Evaluation contract must reject diagnostic-loss-only approval")
+    calibration_metrics = calibration_family.get("metrics") or {}
     if calibration_metrics.get("ece_10") is None:
         raise AssertionError("Evaluation contract must include calibration ECE")
+    if calibration_metrics.get("cross_entropy") is None:
+        raise AssertionError("Evaluation contract must include cross-entropy as a diagnostic metric")
     distribution_metrics = ((metric_families.get("action_distribution") or {}).get("metrics") or {})
     if distribution_metrics.get("js_divergence") is None:
         raise AssertionError("Evaluation contract must include action-distribution divergence")
@@ -1762,6 +1854,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     test_metric = test_execution_contract.get("metric_contract") or {}
     if test_metric.get("accuracy_alone_sufficient") is not False:
         raise AssertionError("Test execution contract must preserve the accuracy-only rejection")
+    if test_metric.get("accuracy_and_cross_entropy_sufficient") is not False:
+        raise AssertionError("Test execution contract must preserve the accuracy and cross-entropy rejection")
     if test_metric.get("final_strategy_quality_claim_allowed") is not False:
         raise AssertionError("Test execution contract must preserve final strategy-quality claim block")
     if test_execution_contract.get("current_delivery_blocker") is not False:
@@ -2476,6 +2570,7 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/experiments/client_gpu_training_response.yaml",
         "configs/experiments/multi_agent_training_status.yaml",
         "configs/experiments/phase3_open_spiel_arena.yaml",
+        "configs/experiments/open_spiel_claim_contract.yaml",
         "configs/experiments/evaluation_metric_contract.yaml",
         "configs/experiments/test_execution_contract.yaml",
         "configs/experiments/strategy_stack_maturity.yaml",
@@ -2535,6 +2630,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "configs/experiments/challenger_strategy_quality.yaml",
         "configs/experiments/final_strategy_quality_status.yaml",
         "configs/experiments/phase3_open_spiel_arena.yaml",
+        "configs/experiments/open_spiel_claim_contract.yaml",
         "configs/experiments/evaluation_metric_contract.yaml",
         "configs/experiments/test_execution_contract.yaml",
         "configs/experiments/human_likeness_evidence.yaml",
@@ -2614,6 +2710,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/multi_agent_training_status.md",
         "reports/phase3_open_spiel_arena.json",
         "reports/phase3_open_spiel_arena.md",
+        "reports/open_spiel_claim_contract.json",
+        "reports/open_spiel_claim_contract.md",
         "reports/evaluation_metric_contract.json",
         "reports/evaluation_metric_contract.md",
         "reports/test_execution_contract.json",
@@ -2645,7 +2743,10 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/today_training.py",
         "poker_agent/client_gpu_training_response.py",
         "poker_agent/multi_agent_training_status.py",
+        "poker_agent/rl_training_evidence_gate.py",
         "poker_agent/open_spiel_llm_arena.py",
+        "poker_agent/open_spiel_claim_contract.py",
+        "poker_agent/strategy_metric_gate.py",
         "poker_agent/evaluation_metric_contract.py",
         "poker_agent/test_execution_contract.py",
         "poker_agent/human_likeness_evidence.py",
@@ -2687,6 +2788,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/build_client_gpu_training_response.py",
         "scripts/build_multi_agent_training_status.py",
         "scripts/build_phase3_open_spiel_arena.py",
+        "scripts/build_open_spiel_claim_contract.py",
         "scripts/build_evaluation_metric_contract.py",
         "scripts/build_test_execution_contract.py",
         "scripts/build_human_likeness_evidence.py",
@@ -2716,7 +2818,10 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "tests/test_today_acceptance_training.py",
         "tests/test_client_gpu_training_response.py",
         "tests/test_multi_agent_training_status.py",
+        "tests/test_rl_training_evidence_gate.py",
         "tests/test_open_spiel_llm_arena.py",
+        "tests/test_open_spiel_claim_contract.py",
+        "tests/test_strategy_metric_gate.py",
         "tests/test_evaluation_metric_contract.py",
         "tests/test_test_execution_contract.py",
         "tests/test_human_likeness_evidence.py",

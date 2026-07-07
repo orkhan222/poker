@@ -11,6 +11,14 @@ from typing import Any, Protocol
 
 from poker_agent.action_planning import build_action_plan
 from poker_agent.agents import MLPolicyAgent
+from poker_agent.rl_training_evidence_gate import (
+    MINIMUM_RL_LONG_RUN_EPISODES,
+    MINIMUM_RL_STABILITY_SEEDS,
+    RL_TRAINING_PROOF_COMPLETED_STATUS,
+    RL_TRAINING_PROOF_PENDING_STATUS,
+    build_rl_training_evidence_gate,
+    validate_rl_training_evidence_gate,
+)
 from poker_agent.schemas import PredictionRequest, PredictionResponse
 
 
@@ -20,10 +28,6 @@ AGENT_ONLY_ARENA_STATUS = "AGENT_ONLY_OPEN_SPIEL_ARENA"
 RUNTIME_PENDING_STATUS = "READY_PENDING_OPEN_SPIEL_RUNTIME"
 RUN_COMPLETED_STATUS = "COMPLETED"
 METRICS_BLOCKED_STATUS = "BLOCKED_UNTIL_OPEN_SPIEL_RUNTIME_AND_PHASE1_ADAPTERS"
-RL_TRAINING_PROOF_PENDING_STATUS = "TRAINING_PROOF_NOT_COMPLETED"
-RL_TRAINING_PROOF_COMPLETED_STATUS = "TRAINING_PROOF_COMPLETED"
-MINIMUM_RL_STABILITY_SEEDS = 5
-MINIMUM_RL_LONG_RUN_EPISODES = 5_000
 
 
 class OpenSpielArenaError(RuntimeError):
@@ -490,65 +494,14 @@ def _rl_training_proof_boundary(
     independent_seed_count: int,
     policy_update_training_completed: bool,
 ) -> dict[str, Any]:
-    seed_stability_evaluated = int(independent_seed_count) >= MINIMUM_RL_STABILITY_SEEDS
-    long_run_completed = int(episodes) >= MINIMUM_RL_LONG_RUN_EPISODES
-    measured_win_rate_claim_allowed = all(
-        (
-            real_open_spiel_runtime_available,
-            phase1_trained_policy_artifacts_attached,
-            agent_only_table_verified,
-            seed_stability_evaluated,
-            long_run_completed,
-            policy_update_training_completed,
-        )
+    return build_rl_training_evidence_gate(
+        real_open_spiel_runtime_available=real_open_spiel_runtime_available,
+        phase1_trained_policy_artifacts_attached=phase1_trained_policy_artifacts_attached,
+        agent_only_table_verified=agent_only_table_verified,
+        episodes=episodes,
+        independent_seed_count=independent_seed_count,
+        policy_update_training_completed=policy_update_training_completed,
     )
-    missing_requirements = []
-    if not real_open_spiel_runtime_available:
-        missing_requirements.append("real_open_spiel_runtime")
-    if not phase1_trained_policy_artifacts_attached:
-        missing_requirements.append("two_phase1_trained_policy_artifacts")
-    if not agent_only_table_verified:
-        missing_requirements.append("agent_only_table")
-    if not seed_stability_evaluated:
-        missing_requirements.append("seed_stability")
-    if not long_run_completed:
-        missing_requirements.append("long_run_training_volume")
-    if not policy_update_training_completed:
-        missing_requirements.append("policy_update_training")
-    return {
-        "status": RL_TRAINING_PROOF_COMPLETED_STATUS
-        if measured_win_rate_claim_allowed
-        else RL_TRAINING_PROOF_PENDING_STATUS,
-        "real_open_spiel_runtime_required": True,
-        "real_open_spiel_runtime_available": real_open_spiel_runtime_available,
-        "phase1_trained_policy_artifacts_required": True,
-        "phase1_trained_policy_artifacts_attached": phase1_trained_policy_artifacts_attached,
-        "agent_only_table_required": True,
-        "agent_only_table_verified": agent_only_table_verified,
-        "seed_stability_required": True,
-        "minimum_independent_seeds": MINIMUM_RL_STABILITY_SEEDS,
-        "independent_seed_count": int(independent_seed_count),
-        "seed_stability_evaluated": seed_stability_evaluated,
-        "long_run_required": True,
-        "minimum_long_run_episodes": MINIMUM_RL_LONG_RUN_EPISODES,
-        "episodes": int(episodes),
-        "long_run_completed": long_run_completed,
-        "policy_update_training_required": True,
-        "policy_update_training_completed": policy_update_training_completed,
-        "measured_win_rate_claim_allowed": measured_win_rate_claim_allowed,
-        "current_delivery_blocker": False,
-        "model_quality_risk": not measured_win_rate_claim_allowed,
-        "missing_requirements": missing_requirements,
-        "allowed_current_claim": (
-            "The Phase 3 agent-only OpenSpiel arena code is ready for a measured run when the "
-            "runtime, Phase 1 adapters, seed-stability run, and long-run training profile are available."
-        ),
-        "blocked_claim": (
-            "Do not claim RL win-rate or production strategy quality from Phase 3 until real OpenSpiel "
-            "runtime execution, two trained Phase 1 policy artifacts, seed stability, long-run volume, "
-            "and policy-update training are all complete."
-        ),
-    }
 
 
 def build_phase3_open_spiel_proof_cases(payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -642,6 +595,9 @@ def validate_phase3_open_spiel_arena_report(payload: dict[str, Any]) -> dict[str
         violations.append("rl_training_proof_must_require_policy_update_training")
     if proof.get("current_delivery_blocker") is not False:
         violations.append("rl_training_proof_gap_must_not_block_current_delivery")
+    gate_validation = validate_rl_training_evidence_gate(proof)
+    if gate_validation["status"] != "PASS":
+        violations.extend(gate_validation["violations"])
     required_training_gates = (
         proof.get("real_open_spiel_runtime_available") is True,
         proof.get("phase1_trained_policy_artifacts_attached") is True,

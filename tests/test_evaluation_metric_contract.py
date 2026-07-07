@@ -128,16 +128,38 @@ def test_evaluation_metric_contract_requires_full_metric_bundle(tmp_path: Path) 
     payload = build_evaluation_metric_contract(tmp_path)
 
     assert payload["overall_status"] == "PASS"
-    assert payload["boundary"] == "ACCURACY_ALONE_NOT_SUFFICIENT"
+    assert payload["boundary"] == "ACCURACY_AND_CROSS_ENTROPY_NOT_SUFFICIENT"
     assert payload["accuracy_alone_sufficient"] is False
+    assert payload["accuracy_and_cross_entropy_sufficient"] is False
+    assert set(payload["required_production_metrics"]) == {
+        "accuracy",
+        "macro_f1",
+        "balanced_accuracy",
+        "calibration_ece",
+        "action_distribution_js_divergence",
+        "bet_size_mae",
+        "expected_value_delta_vs_baseline",
+        "win_rate",
+        "seed_stability",
+    }
+    assert set(payload["diagnostic_metrics_not_sufficient_for_final_claim"]) == {
+        "accuracy",
+        "cross_entropy",
+    }
     assert payload["metric_families"]["action_classification"]["metrics"]["accuracy"] == 0.72
     assert payload["metric_families"]["action_classification"]["metrics"]["macro_f1"] == 0.49
     assert payload["metric_families"]["calibration"]["metrics"]["ece_10"] == 0.18
+    assert payload["metric_families"]["calibration"]["metrics"]["cross_entropy"] == 0.84
+    assert payload["metric_families"]["calibration"]["cross_entropy_only_approval_allowed"] is False
+    assert payload["metric_families"]["calibration"]["diagnostic_loss_only_approval_allowed"] is False
     assert payload["metric_families"]["action_distribution"]["metrics"]["js_divergence"] == 0.0026
     assert payload["metric_families"]["bet_sizing"]["bet_size_mae_required_for_final_high_realism"] is True
     assert payload["metric_families"]["simulation_return"]["metrics"]["win_rate"] == 0.577
     assert payload["metric_families"]["simulation_return"]["metrics"]["expected_value_delta_vs_baseline"] == 0.82
     assert payload["metric_families"]["seed_stability"]["metrics"]["full_training_seed_stability_required"] is True
+    assert payload["strategy_metric_gate"]["gate_status"] == "BLOCKED"
+    assert payload["strategy_metric_gate"]["final_metric_bundle_passed"] is False
+    assert payload["strategy_metric_gate"]["blocked_approval_shortcuts"]["accuracy_plus_cross_entropy"] is True
     assert payload["final_metric_bundle_passed"] is False
     assert payload["final_strategy_quality_claim_allowed"] is False
     assert payload["current_delivery_blocker"] is False
@@ -159,6 +181,24 @@ def test_evaluation_metric_contract_blocks_accuracy_only_claim(tmp_path: Path) -
     assert "final_strategy_quality_claim_must_be_blocked_until_full_metric_bundle" in invariants["violations"]
 
 
+def test_evaluation_metric_contract_blocks_accuracy_and_cross_entropy_claim(tmp_path: Path) -> None:
+    _write_reports(tmp_path / "reports")
+    payload = build_evaluation_metric_contract(tmp_path)
+    payload["accuracy_and_cross_entropy_sufficient"] = True
+    payload["metric_families"]["calibration"]["cross_entropy_only_approval_allowed"] = True
+    payload["metric_families"]["calibration"]["diagnostic_loss_only_approval_allowed"] = True
+    payload["final_strategy_quality_claim_allowed"] = True
+    payload.pop("overall_status", None)
+
+    invariants = validate_evaluation_metric_contract(payload)
+
+    assert invariants["status"] == "FAIL"
+    assert "accuracy_and_cross_entropy_must_not_be_sufficient" in invariants["violations"]
+    assert "cross_entropy_only_must_not_be_sufficient" in invariants["violations"]
+    assert "diagnostic_loss_only_must_not_be_sufficient" in invariants["violations"]
+    assert "final_strategy_quality_claim_must_be_blocked_until_full_metric_bundle" in invariants["violations"]
+
+
 def test_evaluation_metric_contract_endpoint_returns_contract() -> None:
     from poker_agent.service import evaluation_metric_contract_json
 
@@ -166,4 +206,5 @@ def test_evaluation_metric_contract_endpoint_returns_contract() -> None:
 
     assert payload["overall_status"] == "PASS"
     assert payload["accuracy_alone_sufficient"] is False
+    assert payload["accuracy_and_cross_entropy_sufficient"] is False
     assert payload["final_strategy_quality_claim_allowed"] is False

@@ -36,6 +36,7 @@ from poker_agent.llm_role_boundary import build_llm_role_boundary
 from poker_agent.model_risk_register import build_model_risk_register
 from poker_agent.multi_agent_training_status import build_multi_agent_training_status
 from poker_agent.normalized_action_contract import build_normalized_action_contract
+from poker_agent.open_spiel_claim_contract import build_open_spiel_claim_contract
 from poker_agent.open_spiel_llm_arena import build_phase3_open_spiel_arena_report
 from poker_agent.phase2_selection_comparison import build_phase2_selection_comparison
 from poker_agent.production_approval import build_production_approval
@@ -211,6 +212,7 @@ TODAY_ACCEPTANCE_TRAINING_REPORT_PATH = PROJECT_ROOT / "reports" / "today_accept
 CLIENT_GPU_TRAINING_RESPONSE_PATH = PROJECT_ROOT / "reports" / "client_gpu_training_response.json"
 MULTI_AGENT_TRAINING_STATUS_PATH = PROJECT_ROOT / "reports" / "multi_agent_training_status.json"
 PHASE3_OPEN_SPIEL_ARENA_PATH = PROJECT_ROOT / "reports" / "phase3_open_spiel_arena.json"
+OPEN_SPIEL_CLAIM_CONTRACT_PATH = PROJECT_ROOT / "reports" / "open_spiel_claim_contract.json"
 RAW_MODEL_STATUS_PATH = PROJECT_ROOT / "reports" / "raw_model_status.json"
 RAW_MODEL_CHALLENGER_PATH = PROJECT_ROOT / "reports" / "raw_model_challenger.json"
 CHALLENGER_STRATEGY_QUALITY_PATH = PROJECT_ROOT / "reports" / "challenger_strategy_quality.json"
@@ -1244,6 +1246,17 @@ def phase3_open_spiel_arena_json() -> dict[str, Any]:
     if PHASE3_OPEN_SPIEL_ARENA_PATH.exists():
         return json.loads(PHASE3_OPEN_SPIEL_ARENA_PATH.read_text(encoding="utf-8"))
     return build_phase3_open_spiel_arena_report(PROJECT_ROOT)
+
+
+@app.get(
+    "/open-spiel-claim-contract.json",
+    tags=["System"],
+    summary="OpenSpiel/RL self-play claim boundary",
+)
+def open_spiel_claim_contract_json() -> dict[str, Any]:
+    if OPEN_SPIEL_CLAIM_CONTRACT_PATH.exists():
+        return json.loads(OPEN_SPIEL_CLAIM_CONTRACT_PATH.read_text(encoding="utf-8"))
+    return build_open_spiel_claim_contract(PROJECT_ROOT)
 
 
 @app.get(

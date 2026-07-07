@@ -22,6 +22,7 @@ def _write_reports(reports: Path) -> None:
             {
                 "overall_status": "PASS",
                 "accuracy_alone_sufficient": False,
+                "accuracy_and_cross_entropy_sufficient": False,
                 "final_metric_bundle_passed": False,
                 "final_strategy_quality_claim_allowed": False,
             }
@@ -54,6 +55,7 @@ def test_test_execution_contract_records_timeout_without_using_it_as_approval(tm
     assert payload["critical_validation"]["targets"] == list(CRITICAL_TEST_TARGETS)
     assert payload["delivery_verifier"]["status"] == "PASS"
     assert payload["metric_contract"]["accuracy_alone_sufficient"] is False
+    assert payload["metric_contract"]["accuracy_and_cross_entropy_sufficient"] is False
     assert payload["current_delivery_blocker"] is False
 
 
@@ -64,6 +66,7 @@ def test_test_execution_contract_blocks_false_validation_claims(tmp_path: Path) 
     payload["critical_validation"]["status"] = "FAIL"
     payload["delivery_verifier"]["status"] = "FAIL"
     payload["metric_contract"]["accuracy_alone_sufficient"] = True
+    payload["metric_contract"]["accuracy_and_cross_entropy_sufficient"] = True
 
     invariants = validate_test_execution_contract(payload)
 
@@ -72,6 +75,7 @@ def test_test_execution_contract_blocks_false_validation_claims(tmp_path: Path) 
     assert "critical_validation_must_pass" in invariants["violations"]
     assert "delivery_verifier_must_pass" in invariants["violations"]
     assert "accuracy_alone_must_remain_insufficient" in invariants["violations"]
+    assert "accuracy_and_cross_entropy_must_remain_insufficient" in invariants["violations"]
 
 
 def test_write_test_execution_contract_outputs_json_and_markdown(tmp_path: Path) -> None:

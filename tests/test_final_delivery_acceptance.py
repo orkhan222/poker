@@ -381,8 +381,9 @@ def _write_reports(reports: Path) -> None:
     (reports / "evaluation_metric_contract.json").write_text(
         json.dumps(
             {
-                "boundary": "ACCURACY_ALONE_NOT_SUFFICIENT",
+                "boundary": "ACCURACY_AND_CROSS_ENTROPY_NOT_SUFFICIENT",
                 "accuracy_alone_sufficient": False,
+                "accuracy_and_cross_entropy_sufficient": False,
                 "required_metric_families": [
                     "action_classification",
                     "calibration",
@@ -391,6 +392,18 @@ def _write_reports(reports: Path) -> None:
                     "simulation_return",
                     "seed_stability",
                 ],
+                "required_production_metrics": [
+                    "accuracy",
+                    "macro_f1",
+                    "balanced_accuracy",
+                    "calibration_ece",
+                    "action_distribution_js_divergence",
+                    "bet_size_mae",
+                    "expected_value_delta_vs_baseline",
+                    "win_rate",
+                    "seed_stability",
+                ],
+                "diagnostic_metrics_not_sufficient_for_final_claim": ["accuracy", "cross_entropy"],
                 "final_metric_bundle_passed": False,
                 "final_strategy_quality_claim_allowed": False,
                 "current_delivery_blocker": False,
@@ -628,8 +641,26 @@ def test_final_delivery_acceptance_passes_with_tracked_risks(tmp_path: Path) -> 
     assert payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["measured_win_rate_claim_allowed"] is False
     assert payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["current_delivery_blocker"] is False
     assert payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["model_quality_risk"] is True
-    assert payload["tracked_component_risks"]["evaluation_metric_coverage"]["boundary"] == "ACCURACY_ALONE_NOT_SUFFICIENT"
+    assert (
+        payload["tracked_component_risks"]["evaluation_metric_coverage"]["boundary"]
+        == "ACCURACY_AND_CROSS_ENTROPY_NOT_SUFFICIENT"
+    )
     assert payload["tracked_component_risks"]["evaluation_metric_coverage"]["accuracy_alone_sufficient"] is False
+    assert (
+        payload["tracked_component_risks"]["evaluation_metric_coverage"]["accuracy_and_cross_entropy_sufficient"]
+        is False
+    )
+    assert set(payload["tracked_component_risks"]["evaluation_metric_coverage"]["required_production_metrics"]) == {
+        "accuracy",
+        "macro_f1",
+        "balanced_accuracy",
+        "calibration_ece",
+        "action_distribution_js_divergence",
+        "bet_size_mae",
+        "expected_value_delta_vs_baseline",
+        "win_rate",
+        "seed_stability",
+    }
     assert payload["tracked_component_risks"]["evaluation_metric_coverage"]["final_metric_bundle_passed"] is False
     assert payload["tracked_component_risks"]["evaluation_metric_coverage"]["final_strategy_quality_claim_allowed"] is False
     assert payload["tracked_component_risks"]["evaluation_metric_coverage"]["model_quality_risk"] is True
@@ -699,6 +730,7 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["measured_win_rate_claim_allowed"] = True
     payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["model_quality_risk"] = False
     payload["tracked_component_risks"]["evaluation_metric_coverage"]["accuracy_alone_sufficient"] = True
+    payload["tracked_component_risks"]["evaluation_metric_coverage"]["accuracy_and_cross_entropy_sufficient"] = True
     payload["tracked_component_risks"]["evaluation_metric_coverage"]["final_metric_bundle_passed"] = True
     payload["tracked_component_risks"]["evaluation_metric_coverage"]["final_strategy_quality_claim_allowed"] = True
     payload["tracked_component_risks"]["evaluation_metric_coverage"]["model_quality_risk"] = False
@@ -759,6 +791,7 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     assert "phase3_rl_win_rate_claim_must_remain_blocked_until_training_proof" in invariants["violations"]
     assert "phase3_rl_training_gap_must_remain_model_quality_risk" in invariants["violations"]
     assert "accuracy_alone_must_not_be_sufficient_for_final_acceptance" in invariants["violations"]
+    assert "accuracy_and_cross_entropy_must_not_be_sufficient_for_final_acceptance" in invariants["violations"]
     assert "final_metric_bundle_must_not_be_marked_passed" in invariants["violations"]
     assert "final_strategy_quality_claim_must_remain_blocked_until_metric_bundle_passes" in invariants["violations"]
     assert "evaluation_metric_gap_must_remain_model_quality_risk" in invariants["violations"]

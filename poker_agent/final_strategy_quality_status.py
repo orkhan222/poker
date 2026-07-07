@@ -321,6 +321,52 @@ def validate_final_strategy_quality_status(payload: dict[str, Any]) -> dict[str,
     return {"status": "FAIL" if violations else "PASS", "violations": violations}
 
 
+def is_delivery_ready_but_competitive_claim_blocked(payload: dict[str, Any]) -> bool:
+    delivery = payload.get("delivery_boundary") or {}
+    deployment_vs_competitive = payload.get("deployment_vs_competitive_claim_boundary") or {}
+    final_quality = payload.get("final_strategy_quality_boundary") or {}
+    remaining = payload.get("remaining_work") or {}
+    components = deployment_vs_competitive.get("deployment_sufficient_components") or {}
+
+    required_components = {
+        "fastapi_service",
+        "docker_packaging",
+        "predict_endpoint",
+        "health_endpoint",
+        "reports_and_verifier",
+    }
+
+    if delivery.get("software_delivery_ready") is not True:
+        return False
+    if delivery.get("current_delivery_blocker") is not False:
+        return False
+    if deployment_vs_competitive.get("deployment_delivery_ready") is not True:
+        return False
+    if deployment_vs_competitive.get("deployment_claim_allowed") is not True:
+        return False
+    if any(components.get(component) is not True for component in required_components):
+        return False
+    if deployment_vs_competitive.get("competitive_poker_agent_claim_allowed") is not False:
+        return False
+    if deployment_vs_competitive.get("competitive_poker_agent_claim_state") != COMPETITIVE_AGENT_CLAIM_BLOCKED:
+        return False
+    if set(deployment_vs_competitive.get("required_before_competitive_claim") or []) != set(REQUIRED_WORK_ITEMS):
+        return False
+    if deployment_vs_competitive.get("current_delivery_blocker") is not False:
+        return False
+    if deployment_vs_competitive.get("deployed_strategy_stack_affected") is not False:
+        return False
+    if final_quality.get("status") != FINAL_STRATEGY_NOT_APPROVED:
+        return False
+    if final_quality.get("final_production_strategy_quality_approved") is not False:
+        return False
+    if final_quality.get("final_production_strategy_quality_claim_allowed") is not False:
+        return False
+    if set(remaining) != set(REQUIRED_WORK_ITEMS):
+        return False
+    return all((remaining.get(item) or {}).get("status") == REQUIRED for item in REQUIRED_WORK_ITEMS)
+
+
 def write_final_strategy_quality_status(
     project_root: Path,
     out_path: Path,

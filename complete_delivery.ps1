@@ -190,6 +190,10 @@ $ClientGpuTrainingResponseReport = Join-Path $ReportsDir "client_gpu_training_re
 $ClientGpuTrainingResponseMarkdown = Join-Path $ReportsDir "client_gpu_training_response.md"
 $MultiAgentTrainingStatusReport = Join-Path $ReportsDir "multi_agent_training_status.json"
 $MultiAgentTrainingStatusMarkdown = Join-Path $ReportsDir "multi_agent_training_status.md"
+$Phase3OpenSpielArenaReport = Join-Path $ReportsDir "phase3_open_spiel_arena.json"
+$Phase3OpenSpielArenaMarkdown = Join-Path $ReportsDir "phase3_open_spiel_arena.md"
+$OpenSpielClaimContractReport = Join-Path $ReportsDir "open_spiel_claim_contract.json"
+$OpenSpielClaimContractMarkdown = Join-Path $ReportsDir "open_spiel_claim_contract.md"
 $TodayTrainingModelOut = Join-Path $ProjectRoot "models\poker_policy_bundle.joblib"
 
 Write-Host "1/8 Auditing dataset..." -ForegroundColor Green
@@ -510,6 +514,19 @@ Write-Host "7f-3/8 Building multi-agent training status boundary..." -Foreground
     --project-root $ProjectRoot `
     --out $MultiAgentTrainingStatusReport `
     --markdown-out $MultiAgentTrainingStatusMarkdown
+
+Write-Host "7f-4/8 Building Phase 3 OpenSpiel agent-only arena boundary..." -ForegroundColor Green
+& $Python scripts\build_phase3_open_spiel_arena.py `
+    --project-root $ProjectRoot `
+    --out $Phase3OpenSpielArenaReport `
+    --markdown-out $Phase3OpenSpielArenaMarkdown
+
+Write-Host "7f-5/8 Building OpenSpiel/RL self-play claim contract..." -ForegroundColor Green
+& $Python scripts\build_open_spiel_claim_contract.py `
+    --project-root $ProjectRoot `
+    --out $OpenSpielClaimContractReport `
+    --markdown-out $OpenSpielClaimContractMarkdown
+
 Write-Host "7g/8 Building scope contract..." -ForegroundColor Green
 & $Python scripts\build_scope_contract.py `
     --project-root $ProjectRoot `
@@ -603,5 +620,7 @@ Write-Host "Client handoff: $ClientHandoffReport"
 Write-Host "Training cluster requirements: $TrainingClusterReport"
 Write-Host "Today acceptance training: $TodayTrainingReport"
 Write-Host "Multi-agent training status: $MultiAgentTrainingStatusReport"
+Write-Host "Phase 3 OpenSpiel arena: $Phase3OpenSpielArenaReport"
+Write-Host "OpenSpiel claim contract: $OpenSpielClaimContractReport"
 Write-Host "ZIP: $ZipPath"
 

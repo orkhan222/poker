@@ -392,12 +392,14 @@ def api_contract() -> dict[str, Any]:
         "evaluation_metric_contract": {
             "endpoint": "/evaluation-metric-contract.json",
             "description": (
-                "Defines the metric bundle required for strategy-quality claims. Accuracy alone is "
-                "explicitly insufficient."
+                "Defines the metric bundle required for strategy-quality claims. Accuracy and "
+                "cross-entropy are diagnostic metrics only; neither is sufficient for approval."
             ),
+            "accuracy_and_cross_entropy_sufficient": False,
+            "diagnostic_metrics_not_sufficient_for_final_claim": ["accuracy", "cross_entropy"],
             "required_metric_families": [
                 "action classification: accuracy, macro F1, balanced accuracy",
-                "calibration: ECE, probability quality",
+                "calibration: ECE, probability quality, cross-entropy as diagnostic loss",
                 "behavioral distribution: action-distribution divergence",
                 "bet sizing: bet-size MAE or reviewed bet-size labels",
                 "simulation return: win-rate and expected-value delta",

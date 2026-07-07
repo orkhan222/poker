@@ -5,10 +5,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from poker_agent.strategy_metric_gate import (
+    DIAGNOSTIC_METRICS_NOT_SUFFICIENT,
+    REQUIRED_PRODUCTION_METRICS,
+    evaluate_strategy_metric_gate,
+)
 
-EVALUATION_METRIC_CONTRACT_VERSION = "2026-07-03"
+
+EVALUATION_METRIC_CONTRACT_VERSION = "2026-07-07"
 METRIC_CONTRACT_STATUS = "METRIC_BUNDLE_REQUIRED"
-METRIC_CONTRACT_BOUNDARY = "ACCURACY_ALONE_NOT_SUFFICIENT"
+METRIC_CONTRACT_BOUNDARY = "ACCURACY_AND_CROSS_ENTROPY_NOT_SUFFICIENT"
 FINAL_CLAIM_BLOCKED_STATUS = "BLOCKED_UNTIL_FULL_METRIC_BUNDLE_PASSES"
 
 REQUIRED_METRIC_FAMILIES = (
@@ -72,6 +78,8 @@ def build_evaluation_metric_contract(project_root: Path) -> dict[str, Any]:
         },
         "max_ece_10": 0.10,
         "calibration_required_for_final_claim": True,
+        "cross_entropy_only_approval_allowed": False,
+        "diagnostic_loss_only_approval_allowed": False,
         "source_reports": [
             "reports/today_acceptance_production_gate.json",
             "reports/challenger_strategy_quality.json",
@@ -154,7 +162,8 @@ def build_evaluation_metric_contract(project_root: Path) -> dict[str, Any]:
         "simulation_return": simulation_return_family,
         "seed_stability": seed_stability_family,
     }
-    final_metric_bundle_passed = _final_metric_bundle_passed(metric_families)
+    strategy_metric_gate = evaluate_strategy_metric_gate(metric_families)
+    final_metric_bundle_passed = bool(strategy_metric_gate["final_metric_bundle_passed"])
 
     payload: dict[str, Any] = {
         "version": EVALUATION_METRIC_CONTRACT_VERSION,
@@ -163,8 +172,12 @@ def build_evaluation_metric_contract(project_root: Path) -> dict[str, Any]:
         "status": METRIC_CONTRACT_STATUS,
         "boundary": METRIC_CONTRACT_BOUNDARY,
         "accuracy_alone_sufficient": False,
+        "accuracy_and_cross_entropy_sufficient": False,
         "required_metric_families": list(REQUIRED_METRIC_FAMILIES),
+        "required_production_metrics": list(REQUIRED_PRODUCTION_METRICS),
+        "diagnostic_metrics_not_sufficient_for_final_claim": list(DIAGNOSTIC_METRICS_NOT_SUFFICIENT),
         "metric_families": metric_families,
+        "strategy_metric_gate": strategy_metric_gate,
         "final_metric_bundle_passed": final_metric_bundle_passed,
         "final_strategy_quality_claim_allowed": final_metric_bundle_passed,
         "final_strategy_quality_claim_status": (
@@ -178,6 +191,8 @@ def build_evaluation_metric_contract(project_root: Path) -> dict[str, Any]:
         ),
         "blocked_claims": [
             "Accuracy alone is sufficient for production strategy approval.",
+            "Accuracy and cross-entropy are sufficient for production strategy approval.",
+            "Cross-entropy alone is sufficient for production strategy approval.",
             "Final strategy quality is approved without macro F1 and balanced accuracy.",
             "Final strategy quality is approved without calibration/ECE.",
             "Final strategy quality is approved without action-distribution checks.",
@@ -218,6 +233,13 @@ def build_evaluation_metric_proof_cases(payload: dict[str, Any]) -> list[dict[st
     candidate["final_strategy_quality_claim_allowed"] = True
     record("blocks_accuracy_only_approval", candidate, "FAIL")
 
+    candidate = cloned()
+    candidate["accuracy_and_cross_entropy_sufficient"] = True
+    candidate["metric_families"]["calibration"]["cross_entropy_only_approval_allowed"] = True
+    candidate["metric_families"]["calibration"]["diagnostic_loss_only_approval_allowed"] = True
+    candidate["final_strategy_quality_claim_allowed"] = True
+    record("blocks_accuracy_and_cross_entropy_only_approval", candidate, "FAIL")
+
     for family_name in REQUIRED_METRIC_FAMILIES:
         candidate = cloned()
         candidate["metric_families"][family_name]["required"] = False
@@ -247,14 +269,22 @@ def validate_evaluation_metric_contract(payload: dict[str, Any]) -> dict[str, An
     if payload.get("status") != METRIC_CONTRACT_STATUS:
         violations.append("metric_contract_status_must_require_metric_bundle")
     if payload.get("boundary") != METRIC_CONTRACT_BOUNDARY:
-        violations.append("metric_contract_boundary_must_block_accuracy_only_approval")
+        violations.append("metric_contract_boundary_must_block_accuracy_and_cross_entropy_approval")
     if payload.get("accuracy_alone_sufficient") is not False:
         violations.append("accuracy_alone_must_not_be_sufficient")
+    if payload.get("accuracy_and_cross_entropy_sufficient") is not False:
+        violations.append("accuracy_and_cross_entropy_must_not_be_sufficient")
     if payload.get("current_delivery_blocker") is not False:
         violations.append("metric_contract_gap_must_not_block_current_delivery")
     required = set(payload.get("required_metric_families") or [])
     if required != set(REQUIRED_METRIC_FAMILIES):
         violations.append("required_metric_families_must_be_complete")
+    required_metrics = set(payload.get("required_production_metrics") or [])
+    if required_metrics != set(REQUIRED_PRODUCTION_METRICS):
+        violations.append("required_production_metrics_must_be_complete")
+    diagnostic_metrics = set(payload.get("diagnostic_metrics_not_sufficient_for_final_claim") or [])
+    if not set(DIAGNOSTIC_METRICS_NOT_SUFFICIENT).issubset(diagnostic_metrics):
+        violations.append("diagnostic_metrics_must_include_accuracy_and_cross_entropy")
     for family_name in REQUIRED_METRIC_FAMILIES:
         family = families.get(family_name) or {}
         if family.get("required") is not True:
@@ -272,8 +302,14 @@ def validate_evaluation_metric_contract(payload: dict[str, Any]) -> dict[str, An
     calibration_metrics = calibration.get("metrics") or {}
     if calibration.get("calibration_required_for_final_claim") is not True:
         violations.append("calibration_must_be_required_for_final_claim")
+    if calibration.get("cross_entropy_only_approval_allowed") is not False:
+        violations.append("cross_entropy_only_must_not_be_sufficient")
+    if calibration.get("diagnostic_loss_only_approval_allowed") is not False:
+        violations.append("diagnostic_loss_only_must_not_be_sufficient")
     if _as_float(calibration_metrics.get("ece_10")) is None:
         violations.append("calibration_ece_must_be_present")
+    if _as_float(calibration_metrics.get("cross_entropy")) is None:
+        violations.append("calibration_cross_entropy_diagnostic_must_be_present")
 
     distribution = families.get("action_distribution") or {}
     distribution_metrics = distribution.get("metrics") or {}
@@ -310,6 +346,11 @@ def validate_evaluation_metric_contract(payload: dict[str, Any]) -> dict[str, An
         violations.append("phase3_training_proof_must_not_be_marked_completed")
 
     final_passed = _final_metric_bundle_passed(families)
+    strategy_gate = payload.get("strategy_metric_gate") or {}
+    if strategy_gate.get("final_metric_bundle_passed") is not final_passed:
+        violations.append("strategy_metric_gate_status_must_match_metric_families")
+    if strategy_gate.get("final_strategy_quality_claim_allowed") is not final_passed:
+        violations.append("strategy_metric_gate_claim_status_must_match_metric_families")
     if payload.get("final_metric_bundle_passed") is not final_passed:
         violations.append("final_metric_bundle_status_must_match_metric_families")
     if not final_passed:
@@ -323,6 +364,10 @@ def validate_evaluation_metric_contract(payload: dict[str, Any]) -> dict[str, An
     blocked = set(payload.get("blocked_claims") or [])
     if "Accuracy alone is sufficient for production strategy approval." not in blocked:
         violations.append("blocked_claims_must_reject_accuracy_only_approval")
+    if "Accuracy and cross-entropy are sufficient for production strategy approval." not in blocked:
+        violations.append("blocked_claims_must_reject_accuracy_and_cross_entropy_approval")
+    if "Cross-entropy alone is sufficient for production strategy approval." not in blocked:
+        violations.append("blocked_claims_must_reject_cross_entropy_only_approval")
 
     return {"status": "FAIL" if violations else "PASS", "violations": violations}
 
@@ -345,7 +390,7 @@ def render_evaluation_metric_contract_markdown(payload: dict[str, Any]) -> str:
     lines = [
         "# Evaluation Metric Contract",
         "",
-        "Accuracy alone is not sufficient for strategy-quality approval.",
+        "Accuracy and cross-entropy are diagnostic metrics; they are not sufficient for strategy-quality approval.",
         "",
         f"- Status: `{payload['status']}`",
         f"- Boundary: `{payload['boundary']}`",
@@ -372,35 +417,7 @@ def render_evaluation_metric_contract_markdown(payload: dict[str, Any]) -> str:
 
 
 def _final_metric_bundle_passed(families: dict[str, Any]) -> bool:
-    action = families.get("action_classification") or {}
-    action_metrics = action.get("metrics") or {}
-    calibration = families.get("calibration") or {}
-    calibration_metrics = calibration.get("metrics") or {}
-    distribution = families.get("action_distribution") or {}
-    bet_sizing = families.get("bet_sizing") or {}
-    simulation = families.get("simulation_return") or {}
-    simulation_metrics = simulation.get("metrics") or {}
-    seed = families.get("seed_stability") or {}
-    seed_metrics = seed.get("metrics") or {}
-
-    return all(
-        [
-            all((families.get(name) or {}).get("required") is True for name in REQUIRED_METRIC_FAMILIES),
-            action.get("accuracy_only_approval_allowed") is False,
-            _meets(action_metrics.get("macro_f1"), 0.50),
-            _meets(action_metrics.get("balanced_accuracy"), 0.50),
-            _meets_max(calibration_metrics.get("ece_10"), 0.10),
-            distribution.get("larger_clean_real_gameplay_revalidation_required") is False,
-            bet_sizing.get("final_high_realism_claim_allowed") is True,
-            _meets(simulation_metrics.get("win_rate"), 0.52),
-            _as_float(simulation_metrics.get("expected_value_delta_vs_baseline")) is not None
-            and float(simulation_metrics["expected_value_delta_vs_baseline"]) > 0.0,
-            seed_metrics.get("full_training_seed_stability_required") is True,
-            seed_metrics.get("phase3_seed_stability_evaluated") is True,
-            seed.get("full_production_scale_training_status") == "COMPLETED",
-            seed.get("phase3_training_proof_status") == "TRAINING_PROOF_COMPLETED",
-        ]
-    )
+    return bool(evaluate_strategy_metric_gate(families)["final_metric_bundle_passed"])
 
 
 def _first_number(*values: Any) -> Any:

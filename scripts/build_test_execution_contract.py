@@ -20,7 +20,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--full-pytest-status", default="TIMEOUT", choices=("PASS", "FAIL", "TIMEOUT", "NOT_RUN"))
     parser.add_argument("--full-pytest-timeout-seconds", default=124, type=int)
     parser.add_argument("--critical-tests-status", default="PASS", choices=("PASS", "FAIL", "NOT_RUN"))
-    parser.add_argument("--critical-tests-passed", default=16, type=int)
+    parser.add_argument("--critical-tests-passed", default=26, type=int)
     return parser.parse_args()
 
 

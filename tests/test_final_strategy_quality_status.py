@@ -5,6 +5,7 @@ from pathlib import Path
 
 from poker_agent.final_strategy_quality_status import (
     build_final_strategy_quality_status,
+    is_delivery_ready_but_competitive_claim_blocked,
     validate_final_strategy_quality_status,
 )
 
@@ -142,6 +143,7 @@ def test_final_strategy_quality_status_blocks_final_claim_but_keeps_delivery_rea
         "production_scale_multi_agent_training",
     }
     assert all(item["status"] == "REQUIRED" for item in payload["remaining_work"].values())
+    assert is_delivery_ready_but_competitive_claim_blocked(payload) is True
 
 
 def test_final_strategy_quality_status_rejects_false_approval(tmp_path: Path) -> None:
@@ -160,6 +162,7 @@ def test_final_strategy_quality_status_rejects_false_approval(tmp_path: Path) ->
 
     invariants = validate_final_strategy_quality_status(payload)
 
+    assert is_delivery_ready_but_competitive_claim_blocked(payload) is False
     assert invariants["status"] == "FAIL"
     assert "final_production_strategy_quality_must_not_be_approved" in invariants["violations"]
     assert "final_production_strategy_quality_claim_must_be_blocked" in invariants["violations"]
@@ -182,3 +185,20 @@ def test_final_strategy_quality_status_endpoint_returns_contract() -> None:
     assert payload["deployment_vs_competitive_claim_boundary"]["deployment_claim_allowed"] is True
     assert payload["deployment_vs_competitive_claim_boundary"]["competitive_poker_agent_claim_allowed"] is False
     assert payload["final_strategy_quality_boundary"]["final_production_strategy_quality_approved"] is False
+    assert is_delivery_ready_but_competitive_claim_blocked(payload) is True
+
+
+def test_delivery_strategy_boundary_requires_every_hardening_work_item(tmp_path: Path) -> None:
+    _write_reports(tmp_path / "reports")
+    payload = build_final_strategy_quality_status(tmp_path)
+
+    assert is_delivery_ready_but_competitive_claim_blocked(payload) is True
+
+    payload["remaining_work"]["production_scale_multi_agent_training"]["status"] = "COMPLETE"
+    assert is_delivery_ready_but_competitive_claim_blocked(payload) is False
+
+    payload = build_final_strategy_quality_status(tmp_path)
+    payload["deployment_vs_competitive_claim_boundary"]["deployment_sufficient_components"][
+        "docker_packaging"
+    ] = False
+    assert is_delivery_ready_but_competitive_claim_blocked(payload) is False

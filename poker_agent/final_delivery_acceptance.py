@@ -19,7 +19,7 @@ ACTIONS_CONTEXT_BOUNDARY = "DERIVED_BETTING_CONTEXT_NOT_FULL_EXPLICIT_ACTION_CON
 STACK_EVENT_CONTEXT_BOUNDARY = "RAW_STACK_EVENTS_REQUIRE_DERIVED_DECISION_CONTEXT"
 NORMALIZED_ACTION_BOUNDARY = "RAW_OCR_ACTIONS_REQUIRE_CANONICAL_LABEL_NORMALIZATION"
 PHASE3_OPEN_SPIEL_RL_BOUNDARY = "OPEN_SPIEL_RL_TRAINING_PROOF_REQUIRED"
-EVALUATION_METRIC_BOUNDARY = "ACCURACY_ALONE_NOT_SUFFICIENT"
+EVALUATION_METRIC_BOUNDARY = "ACCURACY_AND_CROSS_ENTROPY_NOT_SUFFICIENT"
 TEST_EXECUTION_BOUNDARY = "FULL_PYTEST_TIMEOUT_IS_NOT_DELIVERY_APPROVAL"
 HUMAN_LIKENESS_EVIDENCE_BOUNDARY = "ACTION_DISTRIBUTION_ALONE_IS_NOT_FULL_HUMAN_LIKENESS_PROOF"
 PHASE2_SELECTION_BOUNDARY = "PHASE_2_SELECTION_REQUIRES_COMMON_HOLDOUT_AND_SIMULATION"
@@ -355,7 +355,15 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "evaluation_metric_coverage": {
                 "boundary": EVALUATION_METRIC_BOUNDARY,
                 "accuracy_alone_sufficient": evaluation_metric_contract.get("accuracy_alone_sufficient"),
+                "accuracy_and_cross_entropy_sufficient": evaluation_metric_contract.get(
+                    "accuracy_and_cross_entropy_sufficient"
+                ),
                 "required_metric_families": evaluation_metric_contract.get("required_metric_families") or [],
+                "required_production_metrics": evaluation_metric_contract.get("required_production_metrics") or [],
+                "diagnostic_metrics_not_sufficient_for_final_claim": evaluation_metric_contract.get(
+                    "diagnostic_metrics_not_sufficient_for_final_claim"
+                )
+                or [],
                 "final_metric_bundle_passed": evaluation_metric_contract.get("final_metric_bundle_passed"),
                 "final_strategy_quality_claim_allowed": evaluation_metric_contract.get(
                     "final_strategy_quality_claim_allowed"
@@ -461,6 +469,8 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "Full production-scale multi-agent training has been completed by the current acceptance run.",
             "Phase 3 OpenSpiel/RL win-rate proof is complete without real pyspiel runtime, two trained Phase 1 policy artifacts, seed stability, long-run volume, and policy-update training.",
             "Accuracy alone is sufficient for final production strategy-quality approval.",
+            "Accuracy and cross-entropy are sufficient for final production strategy-quality approval.",
+            "Cross-entropy alone is sufficient for final production strategy-quality approval.",
             "The full pytest suite completed successfully when the recorded run timed out.",
             "A timed-out full pytest run is used as delivery approval evidence.",
             "Human-likeness is fully proven by action distribution alone.",
@@ -612,9 +622,11 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
     if phase3_rl.get("model_quality_risk") is not True:
         violations.append("phase3_rl_training_gap_must_remain_model_quality_risk")
     if evaluation_metrics.get("boundary") != EVALUATION_METRIC_BOUNDARY:
-        violations.append("evaluation_metric_boundary_must_block_accuracy_only_approval")
+        violations.append("evaluation_metric_boundary_must_block_accuracy_and_cross_entropy_approval")
     if evaluation_metrics.get("accuracy_alone_sufficient") is not False:
         violations.append("accuracy_alone_must_not_be_sufficient_for_final_acceptance")
+    if evaluation_metrics.get("accuracy_and_cross_entropy_sufficient") is not False:
+        violations.append("accuracy_and_cross_entropy_must_not_be_sufficient_for_final_acceptance")
     required_metric_families = {
         "action_classification",
         "calibration",
@@ -625,6 +637,22 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
     }
     if set(evaluation_metrics.get("required_metric_families") or []) != required_metric_families:
         violations.append("evaluation_metric_families_must_be_complete")
+    required_production_metrics = {
+        "accuracy",
+        "macro_f1",
+        "balanced_accuracy",
+        "calibration_ece",
+        "action_distribution_js_divergence",
+        "bet_size_mae",
+        "expected_value_delta_vs_baseline",
+        "win_rate",
+        "seed_stability",
+    }
+    if set(evaluation_metrics.get("required_production_metrics") or []) != required_production_metrics:
+        violations.append("evaluation_required_production_metrics_must_be_complete")
+    diagnostic_metrics = set(evaluation_metrics.get("diagnostic_metrics_not_sufficient_for_final_claim") or [])
+    if not {"accuracy", "cross_entropy"}.issubset(diagnostic_metrics):
+        violations.append("evaluation_diagnostic_metrics_must_include_accuracy_and_cross_entropy")
     metric_families = evaluation_metrics.get("metric_families") or {}
     for family_name in required_metric_families:
         if (metric_families.get(family_name) or {}).get("required") is not True:
@@ -1006,6 +1034,7 @@ def render_final_delivery_acceptance_markdown(payload: dict[str, Any]) -> str:
         f"- Phase 3 measured win-rate claim allowed: `{risks['phase3_open_spiel_rl_training']['measured_win_rate_claim_allowed']}`",
         f"- Evaluation metric boundary: `{risks['evaluation_metric_coverage']['boundary']}`",
         f"- Accuracy alone sufficient: `{risks['evaluation_metric_coverage']['accuracy_alone_sufficient']}`",
+        f"- Accuracy and cross-entropy sufficient: `{risks['evaluation_metric_coverage']['accuracy_and_cross_entropy_sufficient']}`",
         f"- Final metric bundle passed: `{risks['evaluation_metric_coverage']['final_metric_bundle_passed']}`",
         f"- Full pytest status: `{risks['test_execution_coverage']['full_pytest_status']}`",
         f"- Full pytest used as approval: `{risks['test_execution_coverage']['full_pytest_used_as_delivery_approval']}`",

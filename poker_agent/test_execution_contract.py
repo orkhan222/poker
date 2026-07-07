@@ -12,6 +12,9 @@ FULL_SUITE_STATUS_TIMEOUT = "TIMEOUT"
 CRITICAL_VALIDATION_STATUS_PASS = "PASS"
 
 CRITICAL_TEST_TARGETS = (
+    "tests/test_strategy_metric_gate.py",
+    "tests/test_rl_training_evidence_gate.py",
+    "tests/test_open_spiel_claim_contract.py",
     "tests/test_evaluation_metric_contract.py",
     "tests/test_final_delivery_acceptance.py",
     "tests/test_open_spiel_llm_arena.py",
@@ -25,7 +28,7 @@ def build_test_execution_contract(
     full_pytest_status: str = FULL_SUITE_STATUS_TIMEOUT,
     full_pytest_timeout_seconds: int = 124,
     critical_tests_status: str = CRITICAL_VALIDATION_STATUS_PASS,
-    critical_tests_passed: int = 16,
+    critical_tests_passed: int = 26,
 ) -> dict[str, Any]:
     reports = project_root / "reports"
     delivery_verification = _read_optional_json(reports / "delivery_verification.json")
@@ -184,7 +187,7 @@ def write_test_execution_contract(
     full_pytest_status: str = FULL_SUITE_STATUS_TIMEOUT,
     full_pytest_timeout_seconds: int = 124,
     critical_tests_status: str = CRITICAL_VALIDATION_STATUS_PASS,
-    critical_tests_passed: int = 16,
+    critical_tests_passed: int = 26,
 ) -> dict[str, Any]:
     payload = build_test_execution_contract(
         project_root,

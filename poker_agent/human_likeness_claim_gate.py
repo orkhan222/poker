@@ -76,6 +76,14 @@ def build_human_likeness_claim_gate_proof_cases(payload: dict[str, Any]) -> list
     candidate["evidence_requirements"]["bet_sizing"]["currently_sufficient_for_final_claim"] = True
     record("blocks_unreviewed_bet_sizing_sufficiency", candidate, "FAIL")
 
+    candidate = json.loads(json.dumps(payload))
+    candidate["evidence_requirements"]["position_based_behavior"]["currently_sufficient_for_final_claim"] = True
+    record("blocks_unreviewed_position_based_sufficiency", candidate, "FAIL")
+
+    candidate = json.loads(json.dumps(payload))
+    candidate["evidence_requirements"]["street_level_strategy"]["currently_sufficient_for_final_claim"] = True
+    record("blocks_unreviewed_street_level_sufficiency", candidate, "FAIL")
+
     return cases
 
 
