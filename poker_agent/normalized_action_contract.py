@@ -18,9 +18,13 @@ RAW_ACTION_SOURCE_STATUS = "RAW_OCR_OR_DEALER_TEXT"
 NOISY_ACTION_CONTRACT_EXAMPLES = (
     ("ra1se", "raise"),
     ("Plyr3 ra1se $4.50", "raise"),
+    ("P1ayer7 ra1sed 4.50", "raise"),
     ("cail", "call"),
+    ("ca1l", "call"),
     ("bett", "bet"),
+    ("bettt", "bet"),
     ("all-in", "all_in"),
+    ("a11-in", "all_in"),
     ("all in", "all_in"),
     ("checks", "check"),
     ("f0ld", "fold"),

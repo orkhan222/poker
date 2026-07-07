@@ -24,6 +24,7 @@ ACTION_ALIASES = {
     "folds": "fold",
     "foid": "fold",
     "ca11": "call",
+    "ca1l": "call",
     "cal1": "call",
     "cail": "call",
     "calls": "call",
@@ -32,15 +33,20 @@ ACTION_ALIASES = {
     "ch3ck": "check",
     "checks": "check",
     "bett": "bet",
+    "bettt": "bet",
     "bets": "bet",
     "b3t": "bet",
     "ra1se": "raise",
+    "ra1sed": "raise",
+    "r4ise": "raise",
     "ralse": "raise",
     "raises": "raise",
     "raised": "raise",
     "all-in": "all_in",
     "all in": "all_in",
     "allin": "all_in",
+    "a11in": "all_in",
+    "a11 in": "all_in",
     "all_in": "all_in",
     "jam": "all_in",
     "jams": "all_in",
@@ -70,6 +76,16 @@ class ActionNormalizationResult:
 
 def normalize_action(raw_action: Any) -> str:
     return normalize_action_result(raw_action).canonical_action
+
+
+def assert_canonical_decision_action(action: Any, *, context: str) -> str:
+    canonical = "" if action is None else str(action)
+    if canonical not in CANONICAL_ACTIONS:
+        raise ValueError(
+            f"Non-canonical action label in {context}: {canonical!r}. "
+            "Raw OCR/dealer labels must be normalized to fold/call/check/bet/raise/all_in before use."
+        )
+    return canonical
 
 
 def normalize_action_result(raw_action: Any) -> ActionNormalizationResult:

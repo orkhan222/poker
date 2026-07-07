@@ -6,10 +6,13 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
+from poker_agent.action_normalization import assert_canonical_decision_action
 from poker_agent.action_normalization import normalize_action as normalize_action_label
 from poker_agent.leakage_guard import assert_no_outcome_feature_leakage
 from poker_agent.schemas import PredictionRequest
 from poker_agent.schemas import VALID_ACTIONS
+from poker_agent.stack_context import assert_stack_decision_context_feature_contract
+from poker_agent.stack_context import build_stack_decision_context
 
 
 RANK_TO_VALUE = {
@@ -364,22 +367,18 @@ def betting_context_features(
     explicit_min_raise_available: bool = False,
     explicit_legal_actions_available: bool = False,
 ) -> dict[str, float]:
-    pot_base = max(running_pot, highest_commit, 1.0)
-    stack_base = max(stack + hero_commit, 1.0)
-    effective_stack = max(stack, 0.0)
-    pot_after_call = max(running_pot + to_call, pot_base, 1.0)
-    raise_pressure = min(min_raise / max(stack, 1.0), 1.0) if stack > 0 else 0.0
-    call_pressure = min(to_call / pot_base, 1.0) if pot_base > 0 else 0.0
-    pot_pressure = min(pot_base / max(pot_base + effective_stack, 1.0), 1.0)
-    spr_after_call = (
-        max(effective_stack - to_call, 0.0) / pot_after_call
-        if pot_after_call > 0
-        else 0.0
+    stack_context = build_stack_decision_context(
+        running_pot=running_pot,
+        highest_commit=highest_commit,
+        hero_commit=hero_commit,
+        decision_stack=stack,
+        to_call=to_call,
+        min_raise=min_raise,
     )
     last_aggressor_group = normalize_position_group(last_aggressor_position) if last_aggressor_position else "none"
     street_order = action_count if street_action_index is None else street_action_index
 
-    return {
+    features = {
         "street_action_count": float(action_count),
         "hand_action_order": float(hand_action_count),
         "street_action_order": float(street_order),
@@ -391,21 +390,11 @@ def betting_context_features(
         "street_fold_count": float(fold_count),
         "street_aggression_ratio": aggressive_count / action_count if action_count else 0.0,
         "players_acted_ratio": len(players_acted) / max(player_count, 1),
-        "hero_commitment_ratio": min(hero_commit / stack_base, 1.0),
-        "table_commitment_pressure": min(highest_commit / pot_base, 1.0),
+        "hero_commitment_ratio": stack_context.hero_commitment_ratio,
+        "table_commitment_pressure": stack_context.table_commitment_pressure,
         "facing_bet_or_raise": 1.0 if to_call > 0 else 0.0,
-        "call_price_ratio": min(to_call / max(stack, 1.0), 1.0) if stack > 0 else 0.0,
-        "raise_pressure": raise_pressure,
-        "stack_event_context_reconstructed": 1.0,
-        "stack_event_target_bet_size_used_as_feature": 0.0,
-        "reconstructed_effective_stack": effective_stack,
-        "reconstructed_effective_stack_to_pot": min(effective_stack / pot_base, 100.0),
-        "reconstructed_spr_after_call": min(spr_after_call, 100.0),
-        "reconstructed_current_street_bet_size": highest_commit,
-        "reconstructed_current_street_bet_to_pot": min(highest_commit / pot_base, 1.0),
-        "reconstructed_pot_pressure": pot_pressure,
-        "reconstructed_call_pressure": call_pressure,
-        "reconstructed_raise_pressure": raise_pressure,
+        "call_price_ratio": stack_context.call_price_ratio,
+        "raise_pressure": stack_context.raise_pressure,
         "last_aggressor_is_hero": 1.0 if last_aggressor_position and last_aggressor_position == hero_position else 0.0,
         "explicit_action_amount_available": 1.0 if explicit_amount_available else 0.0,
         "explicit_to_call_available": 1.0 if explicit_to_call_available else 0.0,
@@ -417,6 +406,9 @@ def betting_context_features(
         "legal_actions_derived": 1.0 if not explicit_legal_actions_available else 0.0,
         f"last_aggressor_group={last_aggressor_group}": 1.0,
     }
+    features.update(stack_context.as_feature_dict())
+    assert_stack_decision_context_feature_contract(features, context="betting context features")
+    return features
 
 
 def request_to_features(request: PredictionRequest) -> dict[str, float]:
@@ -640,6 +632,11 @@ def load_training_examples(
             action = normalize_action(row.get("action", ""))
             if merge_all_in and action == "all_in":
                 action = "raise"
+            if action in VALID_ACTIONS:
+                action = assert_canonical_decision_action(
+                    action,
+                    context=f"training label hand_id={row.get('hand_id', '')} frame_id={row.get('frame_id', '')}",
+                )
             position = row.get("player_position", "")
             street = row.get("street", "preflop")
             frame_id = safe_int(row.get("frame_id"))

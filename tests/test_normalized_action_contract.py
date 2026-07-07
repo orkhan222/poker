@@ -3,7 +3,11 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
+import pytest
+
+from poker_agent.action_normalization import assert_canonical_decision_action
 from poker_agent.action_normalization import normalize_action, normalize_action_result
+from poker_agent.features import load_training_examples
 from poker_agent.normalized_action_contract import (
     CANONICAL_ACTIONS,
     build_normalized_action_contract,
@@ -16,9 +20,13 @@ def test_noisy_ocr_actions_normalize_to_canonical_labels() -> None:
     cases = {
         "ra1se": "raise",
         "Plyr3 ra1se $4.50": "raise",
+        "P1ayer7 ra1sed 4.50": "raise",
         "cail": "call",
+        "ca1l": "call",
         "bett": "bet",
+        "bettt": "bet",
         "all-in": "all_in",
+        "a11-in": "all_in",
         "all in": "all_in",
         "checks": "check",
         "f0ld": "fold",
@@ -29,6 +37,55 @@ def test_noisy_ocr_actions_normalize_to_canonical_labels() -> None:
         assert result.canonical_action == expected
         assert result.is_decision_action is True
         assert normalize_action(raw) == expected
+
+
+def test_raw_ocr_action_labels_are_rejected_without_normalization() -> None:
+    with pytest.raises(ValueError, match="Non-canonical action label"):
+        assert_canonical_decision_action("ra1se", context="unit test")
+
+    assert assert_canonical_decision_action("raise", context="unit test") == "raise"
+
+
+def test_training_examples_emit_only_canonical_action_labels(tmp_path: Path) -> None:
+    _write_csv(
+        tmp_path / "actions.csv",
+        ["hand_id", "frame_id", "player_position", "action", "street"],
+        [
+            {"hand_id": "h1", "frame_id": "1", "player_position": "BTN", "action": "ra1se", "street": "preflop"},
+            {"hand_id": "h1", "frame_id": "2", "player_position": "BB", "action": "cail", "street": "preflop"},
+            {"hand_id": "h1", "frame_id": "3", "player_position": "BTN", "action": "bett", "street": "flop"},
+            {"hand_id": "h1", "frame_id": "4", "player_position": "BB", "action": "all-in", "street": "flop"},
+        ],
+    )
+    _write_csv(
+        tmp_path / "players.csv",
+        ["hand_id", "position", "cards", "starting_stack"],
+        [
+            {"hand_id": "h1", "position": "BTN", "cards": "AS KD", "starting_stack": "100"},
+            {"hand_id": "h1", "position": "BB", "cards": "QS QH", "starting_stack": "100"},
+        ],
+    )
+    _write_csv(tmp_path / "hands.csv", ["hand_id", "board_cards"], [{"hand_id": "h1", "board_cards": "2C 7D QS"}])
+    _write_csv(
+        tmp_path / "stack_events.csv",
+        ["hand_id", "frame_id", "player_position", "diff"],
+        [
+            {"hand_id": "h1", "frame_id": "1", "player_position": "BTN", "diff": "-4"},
+            {"hand_id": "h1", "frame_id": "2", "player_position": "BB", "diff": "-4"},
+            {"hand_id": "h1", "frame_id": "3", "player_position": "BTN", "diff": "-6"},
+            {"hand_id": "h1", "frame_id": "4", "player_position": "BB", "diff": "-40"},
+        ],
+    )
+
+    examples = load_training_examples(
+        tmp_path,
+        require_hole_cards=False,
+        missing_hole_cards="flag",
+        merge_all_in=False,
+    )
+    labels = [label for _, label in examples]
+
+    assert labels == ["raise", "call", "bet", "all_in"]
 
 
 def test_normalized_action_contract_passes_for_project_dataset() -> None:

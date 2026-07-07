@@ -117,6 +117,7 @@ def require_files(root: Path) -> str:
         "configs/experiments/llm_architecture_comparison.yaml",
         "configs/experiments/phase2_selection_comparison.yaml",
         "configs/experiments/llm_role_boundary.yaml",
+        "configs/experiments/llm_policy_experimental.yaml",
         "configs/experiments/qlora_next_stage.yaml",
         "configs/experiments/production_runtime_monitoring.yaml",
         "configs/experiments/project_completion.yaml",
@@ -173,6 +174,8 @@ def require_files(root: Path) -> str:
         "reports/phase2_selection_comparison.md",
         "reports/llm_role_boundary.json",
         "reports/llm_role_boundary.md",
+        "reports/llm_policy_experimental.json",
+        "reports/llm_policy_experimental.md",
         "reports/qlora_next_stage.json",
         "reports/qlora_next_stage.md",
         "reports/production_runtime_monitoring.json",
@@ -289,6 +292,7 @@ def require_files(root: Path) -> str:
         "scripts/build_llm_decision_gate.py",
         "scripts/build_llm_architecture_comparison.py",
         "scripts/build_llm_role_boundary.py",
+        "scripts/build_llm_policy_experimental.py",
         "scripts/build_qlora_next_stage.py",
         "scripts/build_production_runtime_monitoring.py",
         "scripts/build_scope_contract.py",
@@ -330,6 +334,7 @@ def require_files(root: Path) -> str:
         "poker_agent/normalized_action_contract.py",
         "poker_agent/actions_context_quality.py",
         "poker_agent/stack_event_context_quality.py",
+        "poker_agent/stack_context.py",
         "poker_agent/scenario_sanity.py",
         "poker_agent/raw_model_status.py",
         "poker_agent/raw_model_challenger.py",
@@ -347,6 +352,7 @@ def require_files(root: Path) -> str:
         "poker_agent/llm_decision_context.py",
         "poker_agent/llm_decision_benchmark.py",
         "poker_agent/llm_role_boundary.py",
+        "poker_agent/llm_policy_experimental.py",
         "poker_agent/qlora_next_stage.py",
         "poker_agent/production_runtime_monitoring.py",
         "poker_agent/llm_decision_gate.py",
@@ -376,6 +382,7 @@ def require_files(root: Path) -> str:
         "tests/test_llm_decision_gate.py",
         "tests/test_llm_architecture_comparison.py",
         "tests/test_llm_role_boundary.py",
+        "tests/test_llm_policy_experimental.py",
         "tests/test_qlora_next_stage.py",
         "tests/test_production_runtime_monitoring.py",
         "tests/test_final_delivery_acceptance.py",
@@ -393,6 +400,7 @@ def require_files(root: Path) -> str:
         "tests/test_normalized_action_contract.py",
         "tests/test_actions_context_quality.py",
         "tests/test_stack_event_context_quality.py",
+        "tests/test_stack_context.py",
         "tests/test_scenario_sanity.py",
         "tests/test_raw_model_status.py",
         "tests/test_raw_model_challenger.py",
@@ -401,6 +409,7 @@ def require_files(root: Path) -> str:
         "tests/test_data_leakage_contract.py",
         "tests/test_actions_context_quality.py",
         "tests/test_stack_event_context_quality.py",
+        "tests/test_stack_context.py",
     ]
     missing = [path for path in required if not (root / path).exists()]
     if missing:
@@ -441,6 +450,7 @@ def compile_sources(root: Path) -> str:
         "poker_agent/strategy_stack_maturity.py",
         "poker_agent/llm_decision_context.py",
         "poker_agent/llm_decision_benchmark.py",
+        "poker_agent/llm_policy_experimental.py",
         "poker_agent/llm_decision_gate.py",
         "poker_agent/llm_architecture_comparison.py",
         "poker_agent/project_completion.py",
@@ -474,6 +484,7 @@ def compile_sources(root: Path) -> str:
         "scripts/build_strategy_stack_maturity.py",
         "scripts/build_llm_decision_context.py",
         "scripts/build_llm_role_boundary.py",
+        "scripts/build_llm_policy_experimental.py",
         "scripts/build_project_completion.py",
         "scripts/build_final_delivery_acceptance.py",
         "scripts/build_final_strategy_quality_status.py",
@@ -755,6 +766,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     architecture_comparison = _read_json(reports / "llm_architecture_comparison.json")
     phase2_selection_comparison = _read_json(reports / "phase2_selection_comparison.json")
     llm_role_boundary = _read_json(reports / "llm_role_boundary.json")
+    llm_policy_experimental = _read_json(reports / "llm_policy_experimental.json")
     qlora_next_stage = _read_json(reports / "qlora_next_stage.json")
     production_runtime_monitoring = _read_json(reports / "production_runtime_monitoring.json")
     decision_holdout = _read_json(reports / "decision_context_holdout.json")
@@ -1319,6 +1331,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     if (actions_context_quality.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError(f"Actions-context invariants failed: {actions_context_quality.get('invariants')}")
     stack_schema = stack_event_context_quality.get("stack_events_schema_audit") or {}
+    stack_risk = stack_event_context_quality.get("risk_contract") or {}
     stack_raw_boundary = stack_event_context_quality.get("raw_stack_event_boundary") or {}
     stack_mitigation = stack_event_context_quality.get("derived_context_mitigation") or {}
     stack_features = stack_event_context_quality.get("training_feature_audit") or {}
@@ -1326,6 +1339,35 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     stack_proof_cases = {case.get("name"): case for case in stack_event_context_quality.get("proof_cases") or []}
     if stack_event_context_quality.get("overall_status") != "PASS":
         raise AssertionError(f"Stack-event context quality contract did not pass: {stack_event_context_quality.get('overall_status')}")
+    if stack_risk.get("risk_id") != "raw_stack_events_require_decision_context_derivation":
+        raise AssertionError("Stack-event context risk id must remain explicit")
+    if stack_risk.get("root_cause") != "stack_events_csv_stores_stack_changes_not_decision_time_features":
+        raise AssertionError("Stack-event context root cause must remain explicit")
+    if stack_risk.get("source_table") != "stack_events.csv":
+        raise AssertionError("Stack-event context risk must be tied to stack_events.csv")
+    if stack_risk.get("implementation_module") != "poker_agent.stack_context.build_stack_decision_context":
+        raise AssertionError("Stack-event context must reference the concrete stack decision context implementation")
+    if stack_risk.get("raw_events_are_source_data_not_policy_features") is not True:
+        raise AssertionError("Raw stack events must remain source data, not direct policy features")
+    if stack_risk.get("target_action_stack_delta_is_label_context_not_feature") is not True:
+        raise AssertionError("Target action stack delta must remain label/evaluation context, not a prediction feature")
+    if stack_risk.get("current_delivery_blocker") is not False:
+        raise AssertionError("Stack-event context risk must not block current delivery")
+    if stack_risk.get("model_quality_risk") is not True:
+        raise AssertionError("Stack-event context risk must remain a model-quality risk")
+    if stack_risk.get("final_strategy_quality_claim_blocker_without_explicit_stack_context") is not True:
+        raise AssertionError("Stack-event context risk must block final strategy claims without explicit stack context")
+    stack_policy = stack_risk.get("derivation_policy") or {}
+    if set(stack_policy) != {"pot", "effective_stack", "spr", "bet_size", "pressure"}:
+        raise AssertionError("Stack-event derivation policy must cover pot, effective_stack, SPR, bet_size, and pressure")
+    stack_required_features = set(stack_features.get("required_stack_context_features_present") or [])
+    for context_name, policy in stack_policy.items():
+        if not policy.get("required_semantics") or not policy.get("source"):
+            raise AssertionError(f"Stack-event derivation policy for {context_name} must define semantics and source")
+        if policy.get("target_action_delta_allowed") is not False:
+            raise AssertionError(f"Stack-event derivation policy for {context_name} must forbid target action deltas")
+        if not set(policy.get("derived_features") or []).issubset(stack_required_features):
+            raise AssertionError(f"Stack-event derivation policy for {context_name} references missing derived features")
     if stack_schema.get("status") != "PASS":
         raise AssertionError("stack_events.csv audit must pass")
     if int(stack_schema.get("rows_scanned") or 0) <= 0:
@@ -1348,10 +1390,16 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Stack-event context gap must remain model-quality risk")
     if stack_mitigation.get("status") != "IMPLEMENTED_FROM_PRE_ACTION_STACK_DELTAS":
         raise AssertionError("Derived stack-event context mitigation must remain implemented")
+    if stack_mitigation.get("implementation_module") != "poker_agent.stack_context.build_stack_decision_context":
+        raise AssertionError("Derived stack-event context mitigation must reference the concrete implementation")
     if stack_mitigation.get("uses_target_action_stack_delta_as_feature") is not False:
         raise AssertionError("Derived stack context must not use target action stack delta")
+    if stack_mitigation.get("target_action_stack_delta_leakage_guard") is not True:
+        raise AssertionError("Target stack-delta leakage guard must remain enabled")
     if stack_mitigation.get("uses_post_hand_outcome_fields") is not False:
         raise AssertionError("Derived stack context must not use post-hand outcome fields")
+    if stack_mitigation.get("final_strategy_quality_claim_blocker_without_explicit_stack_context") is not True:
+        raise AssertionError("Derived stack context must block final strategy claims without explicit stack context")
     if stack_features.get("status") != "PASS":
         raise AssertionError("Training features must include derived stack-event context features")
     if float(stack_sample_features.get("stack_event_target_bet_size_used_as_feature", 0.0) or 0.0) != 0.0:
@@ -1836,9 +1884,12 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     llm_event_layer = llm_role.get("event_normalization_layer") or {}
     llm_context_layer = llm_role.get("decision_context_layer") or {}
     llm_term_boundary = llm_role_boundary.get("term_boundary") or {}
+    llm_controlled_acceptance = llm_role_boundary.get("controlled_layer_acceptance") or {}
+    llm_scope_boundary = llm_role_boundary.get("scope_disambiguation_contract") or {}
     llm_role_taxonomy = llm_role_boundary.get("role_taxonomy") or {}
     llm_autonomous_boundary = llm_role_boundary.get("autonomous_llm_agent_boundary") or {}
     llm_proof_cases = {case.get("name"): case for case in llm_role_boundary.get("proof_cases") or []}
+    llm_claim_cases = {case.get("name"): case for case in llm_role_boundary.get("claim_validation_examples") or []}
     if llm_role_boundary.get("overall_status") != "PASS":
         raise AssertionError(f"LLM role boundary did not pass: {llm_role_boundary.get('overall_status')}")
     if llm_role.get("status") != "CONTROLLED_DECISION_CONTEXT_AND_EVENT_NORMALIZATION_LAYER":
@@ -1849,26 +1900,95 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("LLM-based agent term must require role-specific qualification")
     if llm_term_boundary.get("must_not_imply_fully_autonomous_policy") is not True:
         raise AssertionError("LLM-based agent term must not imply autonomous poker policy")
+    if llm_term_boundary.get("ambiguous_unqualified_usage_allowed") is not False:
+        raise AssertionError("Unqualified ambiguous LLM-agent usage must remain blocked")
+    if llm_controlled_acceptance.get("status") != "CONTROLLED_EVENT_CONTEXT_LAYER_APPROVED":
+        raise AssertionError("Controlled LLM layer must be explicitly approved for the current delivery")
+    if llm_controlled_acceptance.get("approved_for_current_delivery") is not True:
+        raise AssertionError("Controlled LLM event/context layer must remain approved for current delivery")
+    if set(llm_controlled_acceptance.get("approved_delivery_scope") or []) != {"event_normalization", "decision_context"}:
+        raise AssertionError("Controlled LLM approval must be limited to event_normalization and decision_context")
+    if set(llm_controlled_acceptance.get("research_only_scope") or []) != {"candidate_ranking"}:
+        raise AssertionError("Candidate ranking must remain research-only in the LLM boundary")
+    excluded_llm_scope = set(llm_controlled_acceptance.get("excluded_delivery_scope") or [])
+    if "real_policy_agent" not in excluded_llm_scope:
+        raise AssertionError("Real LLM policy agent must remain excluded from current delivery scope")
+    if "fully_autonomous_poker_playing_llm_policy" not in excluded_llm_scope:
+        raise AssertionError("Fully autonomous poker-playing LLM policy must remain excluded from current delivery scope")
+    if llm_controlled_acceptance.get("fully_autonomous_poker_playing_llm_policy_status") != "FULLY_AUTONOMOUS_LLM_POLICY_NOT_APPROVED":
+        raise AssertionError("Fully autonomous LLM policy status must remain not approved")
+    if llm_controlled_acceptance.get("fully_autonomous_poker_playing_llm_policy_approved") is not False:
+        raise AssertionError("Fully autonomous LLM policy must not be approved by the controlled-layer contract")
+    if llm_controlled_acceptance.get("fully_autonomous_policy_claim_allowed") is not False:
+        raise AssertionError("Fully autonomous LLM policy claim must remain blocked by the controlled-layer contract")
+    if llm_controlled_acceptance.get("production_blocker_for_current_delivery") is not False:
+        raise AssertionError("Controlled LLM boundary must not block current delivery")
+    if llm_controlled_acceptance.get("future_policy_agent_requires_separate_approval") is not True:
+        raise AssertionError("Future LLM policy-agent work must require separate approval")
     required_llm_roles = {
         "event_normalization",
         "decision_context",
         "candidate_ranking",
         "real_policy_agent",
     }
+    required_llm_role_types = {
+        "event_normalization": "EVENT_NORMALIZER",
+        "decision_context": "DECISION_CONTEXT_AGENT",
+        "candidate_ranking": "CANDIDATE_RANKER",
+        "real_policy_agent": "POLICY_AGENT",
+    }
+    if llm_scope_boundary.get("status") != "EXPLICITLY_DISAMBIGUATED":
+        raise AssertionError("LLM scope must be explicitly disambiguated")
+    if llm_scope_boundary.get("llm_based_agent_requires_explicit_role") is not True:
+        raise AssertionError("LLM-based agent must require an explicit role")
+    if llm_scope_boundary.get("ambiguous_llm_agent_term_allowed") is not False:
+        raise AssertionError("Ambiguous LLM-agent term must not be allowed")
+    if set(llm_scope_boundary.get("required_roles") or []) != required_llm_roles:
+        raise AssertionError("LLM scope required roles must match the role taxonomy")
+    if (llm_scope_boundary.get("role_type_mapping") or {}) != required_llm_role_types:
+        raise AssertionError("LLM role type mapping must explicitly separate all role types")
+    if set(llm_scope_boundary.get("current_delivery_controlled_roles") or []) != {"event_normalization", "decision_context"}:
+        raise AssertionError("LLM controlled delivery roles must be event_normalization and decision_context")
+    if set(llm_scope_boundary.get("current_delivery_research_roles") or []) != {"candidate_ranking"}:
+        raise AssertionError("LLM research delivery role must be candidate_ranking")
+    if set(llm_scope_boundary.get("not_current_delivery_roles") or []) != {"real_policy_agent"}:
+        raise AssertionError("Real policy agent must remain outside current delivery roles")
     if set(llm_role_taxonomy) != required_llm_roles:
         raise AssertionError("LLM role taxonomy must explicitly separate event normalization, decision context, candidate ranking, and real policy agent")
+    for role_name, role_type in required_llm_role_types.items():
+        role_payload = llm_role_taxonomy.get(role_name) or {}
+        if role_payload.get("role_type") != role_type:
+            raise AssertionError(f"LLM role type mismatch for {role_name}")
+        if not role_payload.get("input_contract"):
+            raise AssertionError(f"LLM role input contract missing for {role_name}")
+        if not role_payload.get("output_contract"):
+            raise AssertionError(f"LLM role output contract missing for {role_name}")
+        if "may_select_final_poker_action" not in role_payload:
+            raise AssertionError(f"LLM policy-action capability missing for {role_name}")
     if (llm_role_taxonomy.get("event_normalization") or {}).get("status") != "CONTROLLED_COMPONENT":
         raise AssertionError("LLM event-normalization role must remain a controlled component")
     if (llm_role_taxonomy.get("event_normalization") or {}).get("can_emit_policy_action") is not False:
         raise AssertionError("LLM event-normalization role must not be a policy-action emitter")
+    if (llm_role_taxonomy.get("event_normalization") or {}).get("may_select_final_poker_action") is not False:
+        raise AssertionError("LLM event-normalization role must not select final poker actions")
     if (llm_role_taxonomy.get("decision_context") or {}).get("status") != "CONTROLLED_COMPONENT":
         raise AssertionError("LLM decision-context role must remain a controlled component")
+    if (llm_role_taxonomy.get("decision_context") or {}).get("may_select_final_poker_action") is not False:
+        raise AssertionError("LLM decision-context role must not be marked as the final poker-action selector")
     if (llm_role_taxonomy.get("candidate_ranking") or {}).get("status") != "RESEARCH_BASELINE_COMPONENT":
         raise AssertionError("LLM candidate-ranking role must remain a research baseline component")
+    if (llm_role_taxonomy.get("candidate_ranking") or {}).get("may_rank_candidates") is not True:
+        raise AssertionError("LLM candidate-ranking role must explicitly rank candidates")
+    if (llm_role_taxonomy.get("candidate_ranking") or {}).get("may_select_final_poker_action") is not False:
+        raise AssertionError("LLM candidate-ranking role must not select the final poker policy action")
     if (llm_role_taxonomy.get("candidate_ranking") or {}).get("production_policy_approved") is not False:
         raise AssertionError("LLM candidate ranking must not be marked production-approved as a policy")
     if (llm_role_taxonomy.get("real_policy_agent") or {}).get("status") != "NOT_CURRENT_DELIVERY_SCOPE":
         raise AssertionError("Real LLM policy agent must remain outside current delivery scope")
+    if (llm_role_taxonomy.get("real_policy_agent") or {}).get("role_type") != "POLICY_AGENT":
+        raise AssertionError("Real LLM policy agent must be the only role typed as POLICY_AGENT")
+    if (llm_role_taxonomy.get("real_policy_agent") or {}).get("may_select_final_poker_action") is not True:
+        raise AssertionError("Real LLM policy agent definition must be the only final-action role")
     if (llm_role_taxonomy.get("real_policy_agent") or {}).get("implemented") is not False:
         raise AssertionError("Real LLM policy agent must not be marked implemented")
     if (llm_role_taxonomy.get("real_policy_agent") or {}).get("production_policy_approved") is not False:
@@ -1894,9 +2014,11 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     for required_case in (
         "base_contract_is_valid",
         "blocks_llm_based_agent_as_autonomous_policy",
+        "blocks_ambiguous_llm_agent_scope",
         "blocks_event_normalization_as_policy_agent",
         "blocks_candidate_ranking_as_deployed_policy",
         "blocks_real_policy_agent_current_scope_claim",
+        "blocks_autonomous_policy_under_controlled_layer_acceptance",
         "blocks_missing_role_taxonomy",
     ):
         if (llm_proof_cases.get(required_case) or {}).get("passed") is not True:
@@ -1905,6 +2027,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("LLM role base proof case must observe PASS")
     for blocked_case in (
         "blocks_llm_based_agent_as_autonomous_policy",
+        "blocks_ambiguous_llm_agent_scope",
         "blocks_event_normalization_as_policy_agent",
         "blocks_candidate_ranking_as_deployed_policy",
         "blocks_real_policy_agent_current_scope_claim",
@@ -1912,6 +2035,68 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     ):
         if (llm_proof_cases.get(blocked_case) or {}).get("observed_status") != "FAIL":
             raise AssertionError(f"LLM role blocked proof case must observe FAIL: {blocked_case}")
+    for required_claim_case, expected_status in {
+        "blocks_unqualified_llm_based_agent_production_claim": "FAIL",
+        "blocks_event_normalizer_as_policy_agent": "FAIL",
+        "allows_decision_context_research_claim": "PASS",
+        "blocks_candidate_ranker_as_deployed_policy": "FAIL",
+        "blocks_real_policy_agent_current_delivery_claim": "FAIL",
+    }.items():
+        claim_case = llm_claim_cases.get(required_claim_case) or {}
+        if claim_case.get("passed") is not True:
+            raise AssertionError(f"LLM claim validation case did not pass: {required_claim_case}")
+        if claim_case.get("observed_status") != expected_status:
+            raise AssertionError(f"LLM claim validation case observed wrong status: {required_claim_case}")
+
+    experimental_guardrails = llm_policy_experimental.get("guardrails") or {}
+    experimental_proof_cases = {case.get("name"): case for case in llm_policy_experimental.get("proof_cases") or []}
+    if llm_policy_experimental.get("overall_status") != "PASS":
+        raise AssertionError(
+            f"Experimental LLM policy contract did not pass: {llm_policy_experimental.get('overall_status')}"
+        )
+    if llm_policy_experimental.get("status") != "EXPERIMENTAL_LLM_POLICY_RESEARCH_ONLY":
+        raise AssertionError("Experimental LLM policy must remain research-only")
+    if llm_policy_experimental.get("role_type") != "POLICY_AGENT":
+        raise AssertionError("Experimental LLM policy must be explicitly typed as a policy adapter")
+    if llm_policy_experimental.get("production_policy_approved") is not False:
+        raise AssertionError("Experimental LLM policy must not be marked production-approved")
+    if llm_policy_experimental.get("autonomous_policy_claim_allowed") is not False:
+        raise AssertionError("Experimental LLM policy must not allow autonomous policy claims")
+    if llm_policy_experimental.get("served_by_predict_endpoint") is not False:
+        raise AssertionError("Experimental LLM policy must not be served by /predict")
+    if llm_policy_experimental.get("deployed_strategy_stack_affected") is not False:
+        raise AssertionError("Experimental LLM policy must not affect the deployed strategy stack")
+    if llm_policy_experimental.get("current_delivery_blocker") is not False:
+        raise AssertionError("Experimental LLM policy must not block the current delivery")
+    if llm_policy_experimental.get("requires_stakeholder_approval_before_production") is not True:
+        raise AssertionError("Experimental LLM policy must require stakeholder approval before production")
+    for guardrail in (
+        "formal_in_context_learning_required",
+        "legal_action_filtering_required",
+        "strict_json_output_required",
+        "probability_normalization_required",
+        "confidence_threshold_required",
+        "deterministic_fallback_required",
+    ):
+        if experimental_guardrails.get(guardrail) is not True:
+            raise AssertionError(f"Experimental LLM policy missing guardrail: {guardrail}")
+    if experimental_guardrails.get("schema_bypass_allowed") is not False:
+        raise AssertionError("Experimental LLM policy must not allow schema bypass")
+    if experimental_guardrails.get("unconstrained_action_generation_allowed") is not False:
+        raise AssertionError("Experimental LLM policy must not allow unconstrained action generation")
+    for required_case in (
+        "base_contract_is_valid",
+        "blocks_production_approval_without_gates",
+        "blocks_serving_by_public_predict_endpoint",
+        "blocks_autonomous_unconstrained_policy_claim",
+        "blocks_missing_approval_and_gate_contract",
+    ):
+        if (experimental_proof_cases.get(required_case) or {}).get("passed") is not True:
+            raise AssertionError(f"Experimental LLM policy proof case did not pass: {required_case}")
+    if (llm_policy_experimental.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(
+            f"Experimental LLM policy invariants failed: {llm_policy_experimental.get('invariants')}"
+        )
 
     qlora_boundary = qlora_next_stage.get("stage_boundary") or {}
     qlora_targets = qlora_next_stage.get("target_use_cases") or {}
@@ -2284,6 +2469,7 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/experiments/llm_decision_candidate_gate.yaml",
         "configs/experiments/llm_architecture_comparison.yaml",
         "configs/experiments/phase2_selection_comparison.yaml",
+        "configs/experiments/llm_policy_experimental.yaml",
         "configs/experiments/project_completion.yaml",
         "configs/experiments/training_cluster_requirements.yaml",
         "configs/experiments/today_acceptance_training.yaml",
@@ -2345,6 +2531,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "configs/experiments/llm_decision_candidate_gate.yaml",
         "configs/experiments/llm_architecture_comparison.yaml",
         "configs/experiments/phase2_selection_comparison.yaml",
+        "configs/experiments/llm_policy_experimental.yaml",
         "configs/experiments/challenger_strategy_quality.yaml",
         "configs/experiments/final_strategy_quality_status.yaml",
         "configs/experiments/phase3_open_spiel_arena.yaml",
@@ -2383,6 +2570,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/llm_architecture_comparison.md",
         "reports/phase2_selection_comparison.json",
         "reports/phase2_selection_comparison.md",
+        "reports/llm_policy_experimental.json",
+        "reports/llm_policy_experimental.md",
         "reports/policy_acceptance.json",
         "reports/production_self_play.json",
         "reports/deployed_strategy_gate.json",
@@ -2467,6 +2656,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/normalized_action_contract.py",
         "poker_agent/actions_context_quality.py",
         "poker_agent/stack_event_context_quality.py",
+        "poker_agent/stack_context.py",
         "poker_agent/scenario_sanity.py",
         "poker_agent/strategy_stack_maturity.py",
         "poker_agent/approval_boundary.py",
@@ -2475,6 +2665,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/llm_decision_gate.py",
         "poker_agent/llm_architecture_comparison.py",
         "poker_agent/phase2_selection_comparison.py",
+        "poker_agent/llm_policy_experimental.py",
         "poker_agent/project_completion.py",
         "poker_agent/final_delivery_acceptance.py",
         "poker_agent/final_strategy_quality_status.py",
@@ -2512,6 +2703,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/build_llm_decision_gate.py",
         "scripts/build_llm_architecture_comparison.py",
         "scripts/build_phase2_selection_comparison.py",
+        "scripts/build_llm_policy_experimental.py",
         "scripts/build_project_completion.py",
         "scripts/build_final_delivery_acceptance.py",
         "scripts/build_final_strategy_quality_status.py",
@@ -2534,8 +2726,10 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "tests/test_normalized_action_contract.py",
         "tests/test_actions_context_quality.py",
         "tests/test_stack_event_context_quality.py",
+        "tests/test_stack_context.py",
         "tests/test_scenario_sanity.py",
         "tests/test_phase2_selection_comparison.py",
+        "tests/test_llm_policy_experimental.py",
         "tests/test_challenger_strategy_quality.py",
         "tests/test_final_strategy_quality_status.py",
         "tests/test_strategy_stack_maturity.py",

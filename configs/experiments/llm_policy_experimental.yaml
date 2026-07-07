@@ -1,0 +1,23 @@
+name: llm_policy_experimental
+description: Research-only LLM policy adapter contract with legal-action and production-boundary guardrails.
+seed: 7
+command:
+  module: scripts.build_llm_policy_experimental
+  args:
+    project_root: .
+    out: reports/llm_policy_experimental.json
+    markdown_out: reports/llm_policy_experimental.md
+runtime:
+  deterministic: true
+  production_policy_approved: false
+  served_by_predict_endpoint: false
+acceptance:
+  current_delivery_blocker: false
+  autonomous_policy_claim_allowed: false
+  required_before_production:
+    - stakeholder_architecture_approval
+    - heldout_action_alignment
+    - macro_f1_and_balanced_accuracy_gate
+    - calibration_ece_gate
+    - open_spiel_agent_only_self_play
+    - seed_stability

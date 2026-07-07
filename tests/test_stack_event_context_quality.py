@@ -6,6 +6,11 @@ from pathlib import Path
 from poker_agent.api_contract import api_contract
 from poker_agent.features import load_training_examples
 from poker_agent.stack_event_context_quality import (
+    STACK_CONTEXT_IMPLEMENTATION_MODULE,
+    STACK_CONTEXT_DERIVATION_POLICY,
+    STACK_EVENT_RISK_ID,
+    STACK_EVENT_ROOT_CAUSE,
+    STACK_EVENT_SOURCE_TABLE,
     build_stack_event_context_quality,
     validate_stack_event_context_quality,
 )
@@ -15,11 +20,29 @@ def test_stack_event_context_quality_passes_on_current_project() -> None:
     project_root = Path(__file__).resolve().parents[1]
 
     payload = build_stack_event_context_quality(project_root, max_examples=200)
+    risk = payload["risk_contract"]
 
     assert payload["overall_status"] == "PASS"
+    assert risk["risk_id"] == STACK_EVENT_RISK_ID
+    assert risk["root_cause"] == STACK_EVENT_ROOT_CAUSE
+    assert risk["source_table"] == STACK_EVENT_SOURCE_TABLE
+    assert risk["implementation_module"] == STACK_CONTEXT_IMPLEMENTATION_MODULE
+    assert risk["raw_events_are_source_data_not_policy_features"] is True
+    assert risk["target_action_stack_delta_is_label_context_not_feature"] is True
+    assert risk["current_delivery_blocker"] is False
+    assert risk["model_quality_risk"] is True
+    assert risk["final_strategy_quality_claim_blocker_without_explicit_stack_context"] is True
+    assert set(risk["derivation_policy"]) == set(STACK_CONTEXT_DERIVATION_POLICY)
+    for context_name in ["pot", "effective_stack", "spr", "bet_size", "pressure"]:
+        policy = risk["derivation_policy"][context_name]
+        assert policy["required_semantics"]
+        assert policy["source"]
+        assert policy["target_action_delta_allowed"] is False
+        assert policy["derived_features"]
     assert payload["raw_stack_event_boundary"]["raw_stack_events_are_direct_policy_features"] is False
     assert payload["raw_stack_event_boundary"]["decision_time_derivation_required"] is True
     assert payload["derived_context_mitigation"]["status"] == "IMPLEMENTED_FROM_PRE_ACTION_STACK_DELTAS"
+    assert payload["derived_context_mitigation"]["implementation_module"] == STACK_CONTEXT_IMPLEMENTATION_MODULE
     assert payload["derived_context_mitigation"]["uses_target_action_stack_delta_as_feature"] is False
     assert payload["training_feature_audit"]["status"] == "PASS"
     assert "reconstructed_effective_stack" in payload["training_feature_audit"]["required_stack_context_features_present"]
@@ -45,6 +68,7 @@ def test_stack_event_context_quality_is_exposed_through_api_contract() -> None:
     payload = stack_event_context_quality_json()
 
     assert contract["endpoint"] == "/stack-event-context-quality.json"
+    assert contract["implementation_module"] == STACK_CONTEXT_IMPLEMENTATION_MODULE
     assert "reconstructed_effective_stack" in contract["required_derived_features"]
     assert payload["overall_status"] == "PASS"
     assert payload["raw_stack_event_boundary"]["target_action_stack_delta_allowed_as_feature"] is False
@@ -56,6 +80,25 @@ def test_stack_event_context_quality_blocks_raw_event_overclaim() -> None:
             "status": "PASS",
             "rows_scanned": 10,
             "negative_diff_rows": 3,
+        },
+        "risk_contract": {
+            "risk_id": "wrong",
+            "root_cause": "wrong",
+            "source_table": "stack_events.csv",
+            "implementation_module": "wrong",
+            "raw_events_are_source_data_not_policy_features": False,
+            "target_action_stack_delta_is_label_context_not_feature": False,
+            "current_delivery_blocker": False,
+            "model_quality_risk": False,
+            "final_strategy_quality_claim_blocker_without_explicit_stack_context": False,
+            "derivation_policy": {
+                "pot": {
+                    "required_semantics": "",
+                    "source": "",
+                    "target_action_delta_allowed": True,
+                    "derived_features": ["unknown_feature"],
+                }
+            },
         },
         "raw_stack_event_boundary": {
             "status": "RAW_EVENTS_REQUIRE_DECISION_CONTEXT_DERIVATION",
@@ -69,10 +112,13 @@ def test_stack_event_context_quality_blocks_raw_event_overclaim() -> None:
         "derived_context_mitigation": {
             "status": "IMPLEMENTED_FROM_PRE_ACTION_STACK_DELTAS",
             "implemented": True,
+            "implementation_module": "wrong",
             "uses_target_action_stack_delta_as_feature": True,
+            "target_action_stack_delta_leakage_guard": False,
             "uses_post_hand_outcome_fields": True,
             "current_delivery_blocker": False,
             "model_quality_risk": False,
+            "final_strategy_quality_claim_blocker_without_explicit_stack_context": False,
         },
         "training_feature_audit": {
             "status": "PASS",
@@ -87,10 +133,18 @@ def test_stack_event_context_quality_blocks_raw_event_overclaim() -> None:
     invariants = validate_stack_event_context_quality(payload)
 
     assert invariants["status"] == "FAIL"
+    assert "stack_event_risk_id_must_match_contract" in invariants["violations"]
+    assert "stack_context_implementation_module_must_be_explicit" in invariants["violations"]
+    assert "stack_events_must_be_source_data_not_policy_features" in invariants["violations"]
+    assert "target_action_stack_delta_must_be_label_context_not_feature" in invariants["violations"]
+    assert "stack_context_derivation_policy_must_cover_required_context" in invariants["violations"]
+    assert "stack_context_policy_must_forbid_target_delta_for_pot" in invariants["violations"]
     assert "raw_stack_events_must_not_be_direct_policy_features" in invariants["violations"]
     assert "stack_events_must_require_decision_time_derivation" in invariants["violations"]
     assert "target_action_stack_delta_must_not_be_feature" in invariants["violations"]
     assert "derived_stack_context_must_not_use_target_action_delta" in invariants["violations"]
+    assert "derived_stack_context_must_reference_stack_context_module" in invariants["violations"]
+    assert "target_action_stack_delta_leakage_guard_must_be_enabled" in invariants["violations"]
     assert "stack_event_context_gap_must_remain_model_quality_risk" in invariants["violations"]
     assert "target_stack_delta_leakage_guard_must_be_zero" in invariants["violations"]
 

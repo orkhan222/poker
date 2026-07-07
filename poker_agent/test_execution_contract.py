@@ -56,6 +56,9 @@ def build_test_execution_contract(
         "metric_contract": {
             "status": evaluation_metric.get("overall_status"),
             "accuracy_alone_sufficient": evaluation_metric.get("accuracy_alone_sufficient"),
+            "accuracy_and_cross_entropy_sufficient": evaluation_metric.get(
+                "accuracy_and_cross_entropy_sufficient"
+            ),
             "final_metric_bundle_passed": evaluation_metric.get("final_metric_bundle_passed"),
             "final_strategy_quality_claim_allowed": evaluation_metric.get("final_strategy_quality_claim_allowed"),
         },
@@ -72,6 +75,7 @@ def build_test_execution_contract(
             "Full pytest completed successfully when the run timed out.",
             "A timed-out full pytest run can be used as delivery approval.",
             "Accuracy-only metrics can approve final strategy quality.",
+            "Accuracy and cross-entropy can approve final strategy quality.",
             "Final strategy quality is approved while the metric bundle remains incomplete.",
         ],
         "allowed_claim": (
@@ -120,6 +124,10 @@ def build_test_execution_proof_cases(payload: dict[str, Any]) -> list[dict[str, 
     candidate["metric_contract"]["accuracy_alone_sufficient"] = True
     record("blocks_accuracy_only_metric_claim", candidate, "FAIL")
 
+    candidate = json.loads(json.dumps(payload))
+    candidate["metric_contract"]["accuracy_and_cross_entropy_sufficient"] = True
+    record("blocks_accuracy_and_cross_entropy_metric_claim", candidate, "FAIL")
+
     return cases
 
 
@@ -152,6 +160,8 @@ def validate_test_execution_contract(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("evaluation_metric_contract_must_pass")
     if metric.get("accuracy_alone_sufficient") is not False:
         violations.append("accuracy_alone_must_remain_insufficient")
+    if metric.get("accuracy_and_cross_entropy_sufficient") is not False:
+        violations.append("accuracy_and_cross_entropy_must_remain_insufficient")
     if metric.get("final_strategy_quality_claim_allowed") is not False:
         violations.append("final_strategy_quality_claim_must_remain_blocked")
     if payload.get("current_delivery_blocker") is not False:
@@ -211,6 +221,7 @@ def render_test_execution_contract_markdown(payload: dict[str, Any]) -> str:
         f"- Delivery verifier status: `{verifier['status']}`",
         f"- Metric contract status: `{metric['status']}`",
         f"- Accuracy alone sufficient: `{metric['accuracy_alone_sufficient']}`",
+        f"- Accuracy and cross-entropy sufficient: `{metric['accuracy_and_cross_entropy_sufficient']}`",
         f"- Final strategy-quality claim allowed: `{metric['final_strategy_quality_claim_allowed']}`",
         f"- Current delivery blocker: `{payload['current_delivery_blocker']}`",
         "",

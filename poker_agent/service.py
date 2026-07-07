@@ -31,6 +31,7 @@ from poker_agent.final_strategy_quality_status import build_final_strategy_quali
 from poker_agent.human_likeness_claim_gate import build_human_likeness_claim_gate
 from poker_agent.human_likeness_evidence import build_human_likeness_evidence
 from poker_agent.llm_decision_context import build_decision_context_report
+from poker_agent.llm_policy_experimental import build_experimental_llm_policy_contract
 from poker_agent.llm_role_boundary import build_llm_role_boundary
 from poker_agent.model_risk_register import build_model_risk_register
 from poker_agent.multi_agent_training_status import build_multi_agent_training_status
@@ -204,6 +205,7 @@ LLM_DECISION_GATE_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_gate.js
 LLM_CANDIDATE_RANKER_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_candidate_ranker_qwen25.json"
 LLM_ARCHITECTURE_COMPARISON_PATH = PROJECT_ROOT / "reports" / "llm_architecture_comparison.json"
 LLM_ROLE_BOUNDARY_PATH = PROJECT_ROOT / "reports" / "llm_role_boundary.json"
+LLM_POLICY_EXPERIMENTAL_PATH = PROJECT_ROOT / "reports" / "llm_policy_experimental.json"
 QLORA_NEXT_STAGE_PATH = PROJECT_ROOT / "reports" / "qlora_next_stage.json"
 TODAY_ACCEPTANCE_TRAINING_REPORT_PATH = PROJECT_ROOT / "reports" / "today_acceptance_training.json"
 CLIENT_GPU_TRAINING_RESPONSE_PATH = PROJECT_ROOT / "reports" / "client_gpu_training_response.json"
@@ -1342,6 +1344,17 @@ def llm_role_boundary_json() -> dict[str, Any]:
     if LLM_ROLE_BOUNDARY_PATH.exists():
         return json.loads(LLM_ROLE_BOUNDARY_PATH.read_text(encoding="utf-8"))
     return build_llm_role_boundary(PROJECT_ROOT)
+
+
+@app.get(
+    "/llm-policy-experimental.json",
+    tags=["System"],
+    summary="Experimental LLM policy adapter boundary",
+)
+def llm_policy_experimental_json() -> dict[str, Any]:
+    if LLM_POLICY_EXPERIMENTAL_PATH.exists():
+        return json.loads(LLM_POLICY_EXPERIMENTAL_PATH.read_text(encoding="utf-8"))
+    return build_experimental_llm_policy_contract(PROJECT_ROOT)
 
 
 @app.get("/qlora-next-stage.json", tags=["System"], summary="QLoRA next-stage improvement boundary")
