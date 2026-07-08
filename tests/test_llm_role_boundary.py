@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from poker_agent.llm_role_boundary import (
+    build_role_permissions_matrix,
     build_llm_role_boundary,
     validate_llm_agent_claim,
     validate_llm_role_boundary,
@@ -77,6 +78,20 @@ def test_llm_role_boundary_keeps_llm_as_controlled_layer(tmp_path: Path) -> None
     assert payload["term_boundary"]["status"] == "LLM_BASED_AGENT_IS_UMBRELLA_TERM"
     assert payload["term_boundary"]["must_not_imply_fully_autonomous_policy"] is True
     assert payload["term_boundary"]["ambiguous_unqualified_usage_allowed"] is False
+    assert payload["recommended_production_architecture"]["status"] == "SCHEMA_ROUTED_HYBRID_CONTROLLED_LAYER"
+    assert payload["recommended_production_architecture"]["priority"] == "CONTROLLED_CONTEXT_EVENT_LAYER_FIRST"
+    assert payload["recommended_production_architecture"]["approved_for_current_delivery"] is True
+    assert payload["recommended_production_architecture"]["production_policy_claim_allowed"] is False
+    assert payload["recommended_production_architecture"]["fully_autonomous_llm_agent_claim_allowed"] is False
+    assert payload["recommended_production_architecture"]["final_policy_owner"] == "deployed_routed_policy_stack"
+    assert (
+        payload["recommended_production_architecture"]["llm_position"]
+        == "controlled_fallback_before_schema_validation_for_event_context_layer"
+    )
+    assert (
+        "LLM fallback for ambiguous event/context cases"
+        in payload["recommended_production_architecture"]["pipeline"]
+    )
     assert payload["scope_disambiguation_contract"]["status"] == "EXPLICITLY_DISAMBIGUATED"
     assert payload["scope_disambiguation_contract"]["ambiguous_llm_agent_term_allowed"] is False
     assert payload["scope_disambiguation_contract"]["role_type_mapping"] == {
@@ -85,6 +100,13 @@ def test_llm_role_boundary_keeps_llm_as_controlled_layer(tmp_path: Path) -> None
         "candidate_ranking": "CANDIDATE_RANKER",
         "real_policy_agent": "POLICY_AGENT",
     }
+    assert payload["role_permissions_matrix"] == build_role_permissions_matrix()
+    assert payload["role_permissions_matrix"]["event_normalization"]["may_emit_deployed_policy_action"] is False
+    assert payload["role_permissions_matrix"]["decision_context"]["may_build_decision_context"] is True
+    assert payload["role_permissions_matrix"]["candidate_ranking"]["may_rank_candidates"] is True
+    assert payload["role_permissions_matrix"]["candidate_ranking"]["may_emit_deployed_policy_action"] is False
+    assert payload["role_permissions_matrix"]["real_policy_agent"]["current_delivery_scope"] is False
+    assert payload["role_permissions_matrix"]["real_policy_agent"]["production_policy_approved"] is False
     assert payload["current_llm_role"]["status"] == "CONTROLLED_DECISION_CONTEXT_AND_EVENT_NORMALIZATION_LAYER"
     assert set(payload["role_taxonomy"]) == {
         "event_normalization",
@@ -118,6 +140,8 @@ def test_llm_role_boundary_keeps_llm_as_controlled_layer(tmp_path: Path) -> None
     assert proof_cases["blocks_autonomous_policy_under_controlled_layer_acceptance"]["observed_status"] == "FAIL"
     assert proof_cases["blocks_candidate_ranking_as_deployed_policy"]["observed_status"] == "FAIL"
     assert proof_cases["blocks_real_policy_agent_current_scope_claim"]["observed_status"] == "FAIL"
+    assert proof_cases["blocks_autonomous_architecture_as_recommended_production_path"]["observed_status"] == "FAIL"
+    assert proof_cases["blocks_candidate_ranker_permission_escalation"]["observed_status"] == "FAIL"
     claim_cases = {case["name"]: case for case in payload["claim_validation_examples"]}
     assert claim_cases["blocks_unqualified_llm_based_agent_production_claim"]["observed_status"] == "FAIL"
     assert claim_cases["blocks_event_normalizer_as_policy_agent"]["observed_status"] == "FAIL"
@@ -232,6 +256,7 @@ def test_llm_role_boundary_blocks_false_autonomous_llm_claim() -> None:
     assert "llm_based_agent_term_must_remain_umbrella_term" in invariants["violations"]
     assert "llm_scope_must_be_explicitly_disambiguated" in invariants["violations"]
     assert "real_policy_agent_must_remain_out_of_current_scope" in invariants["violations"]
+    assert "llm_recommended_architecture_must_remain_schema_routed_hybrid_controlled_layer" in invariants["violations"]
 
 
 def test_llm_role_boundary_endpoint_returns_contract() -> None:
@@ -252,6 +277,11 @@ def test_llm_role_boundary_endpoint_returns_contract() -> None:
     assert contract["fully_autonomous_poker_playing_llm_policy_approved"] is False
     assert contract["fully_autonomous_policy_claim_allowed"] is False
     assert contract["current_delivery_approval"] == "controlled_event_context_layer_only"
+    assert contract["recommended_production_architecture"] == "SCHEMA_ROUTED_HYBRID_CONTROLLED_LAYER"
+    assert contract["architecture_priority"] == "CONTROLLED_CONTEXT_EVENT_LAYER_FIRST"
+    assert contract["llm_position"] == "controlled_fallback_before_schema_validation_for_event_context_layer"
+    assert contract["final_policy_owner"] == "deployed_routed_policy_stack"
+    assert contract["not_recommended_first"] == "fully_autonomous_poker_playing_llm_policy"
     assert contract["ambiguous_llm_agent_term_allowed"] is False
     assert contract["unqualified_production_claim_allowed"] is False
     assert contract["claim_validator"] == "poker_agent.llm_role_boundary.validate_llm_agent_claim"
@@ -265,8 +295,15 @@ def test_llm_role_boundary_endpoint_returns_contract() -> None:
     assert contract["role_types"]["decision_context"] == "DECISION_CONTEXT_AGENT"
     assert contract["role_types"]["candidate_ranking"] == "CANDIDATE_RANKER"
     assert contract["role_types"]["real_policy_agent"] == "POLICY_AGENT"
+    assert contract["role_permissions_matrix"]["event_normalization"]["may_emit_deployed_policy_action"] is False
+    assert contract["role_permissions_matrix"]["decision_context"]["may_build_decision_context"] is True
+    assert contract["role_permissions_matrix"]["candidate_ranking"]["may_rank_candidates"] is True
+    assert contract["role_permissions_matrix"]["candidate_ranking"]["production_policy_approved"] is False
+    assert contract["role_permissions_matrix"]["real_policy_agent"]["may_select_final_poker_action"] is True
+    assert contract["role_permissions_matrix"]["real_policy_agent"]["production_policy_approved"] is False
     assert payload["overall_status"] == "PASS"
     assert payload["controlled_layer_acceptance"]["status"] == "CONTROLLED_EVENT_CONTEXT_LAYER_APPROVED"
+    assert payload["recommended_production_architecture"]["status"] == "SCHEMA_ROUTED_HYBRID_CONTROLLED_LAYER"
     assert payload["controlled_layer_acceptance"]["fully_autonomous_policy_claim_allowed"] is False
     assert payload["current_llm_role"]["status"] == "CONTROLLED_DECISION_CONTEXT_AND_EVENT_NORMALIZATION_LAYER"
     assert payload["role_taxonomy"]["real_policy_agent"]["production_policy_approved"] is False

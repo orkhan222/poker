@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from poker_agent.action_normalization import assert_canonical_decision_action
-from poker_agent.action_normalization import normalize_action, normalize_action_result
+from poker_agent.action_normalization import normalize_action, normalize_action_record, normalize_action_result
 from poker_agent.features import load_training_examples
 from poker_agent.normalized_action_contract import (
     CANONICAL_ACTIONS,
@@ -44,6 +44,32 @@ def test_raw_ocr_action_labels_are_rejected_without_normalization() -> None:
         assert_canonical_decision_action("ra1se", context="unit test")
 
     assert assert_canonical_decision_action("raise", context="unit test") == "raise"
+
+
+def test_action_record_enrichment_keeps_raw_label_and_adds_canonical_label() -> None:
+    row = {
+        "hand_id": "h1",
+        "frame_id": "17",
+        "player_position": "BTN",
+        "action": "Plyr3 ra1se $4.50",
+        "street": "preflop",
+    }
+
+    normalized = normalize_action_record(row)
+
+    assert normalized["action"] == "Plyr3 ra1se $4.50"
+    assert normalized["raw_action"] == "Plyr3 ra1se $4.50"
+    assert normalized["canonical_action"] == "raise"
+    assert normalized["action_normalization_status"] == "canonical"
+    assert normalized["action_normalization_method"] in {
+        "phrase",
+        "token_alias",
+        "ocr_digit_alias",
+        "ocr_digit_canonical",
+        "fuzzy",
+    }
+    assert normalized["action_normalization_confidence"] > 0.0
+    assert normalized["is_decision_action"] is True
 
 
 def test_training_examples_emit_only_canonical_action_labels(tmp_path: Path) -> None:

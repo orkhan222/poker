@@ -15,6 +15,7 @@ STACK_EVENT_RISK_ID = "raw_stack_events_require_decision_context_derivation"
 STACK_EVENT_ROOT_CAUSE = "stack_events_csv_stores_stack_changes_not_decision_time_features"
 STACK_EVENT_SOURCE_TABLE = "stack_events.csv"
 STACK_CONTEXT_IMPLEMENTATION_MODULE = "poker_agent.stack_context.build_stack_decision_context"
+STACK_CONTEXT_PRE_ACTION_HELPER = "poker_agent.stack_context.derive_stack_decision_context_from_events"
 RAW_STACK_EVENT_STATUS = "RAW_EVENTS_REQUIRE_DECISION_CONTEXT_DERIVATION"
 DERIVED_STACK_CONTEXT_STATUS = "IMPLEMENTED_FROM_PRE_ACTION_STACK_DELTAS"
 
@@ -44,6 +45,7 @@ REQUIRED_STACK_DERIVED_FEATURES = (
     "raise_pressure",
     "stack_event_context_reconstructed",
     "stack_event_target_bet_size_used_as_feature",
+    "reconstructed_pot",
     "reconstructed_effective_stack",
     "reconstructed_effective_stack_to_pot",
     "reconstructed_spr_after_call",
@@ -57,7 +59,7 @@ REQUIRED_STACK_DERIVED_FEATURES = (
 STACK_CONTEXT_DERIVATION_POLICY: dict[str, dict[str, Any]] = {
     "pot": {
         "required_semantics": "Pot size available before the target decision.",
-        "derived_features": ["pot", "pot_odds", "reconstructed_pot_pressure"],
+        "derived_features": ["pot", "pot_odds", "reconstructed_pot", "reconstructed_pot_pressure"],
         "source": "running total of prior negative stack contribution events",
         "target_action_delta_allowed": False,
     },
@@ -109,6 +111,7 @@ def build_stack_event_context_quality(project_root: Path, *, max_examples: int =
             "root_cause": STACK_EVENT_ROOT_CAUSE,
             "source_table": STACK_EVENT_SOURCE_TABLE,
             "implementation_module": STACK_CONTEXT_IMPLEMENTATION_MODULE,
+            "pre_action_event_derivation_helper": STACK_CONTEXT_PRE_ACTION_HELPER,
             "raw_event_semantics": "stack changes after observed table events",
             "required_decision_context": list(STACK_CONTEXT_DERIVATION_POLICY),
             "derivation_policy": STACK_CONTEXT_DERIVATION_POLICY,
@@ -137,6 +140,7 @@ def build_stack_event_context_quality(project_root: Path, *, max_examples: int =
             "status": DERIVED_STACK_CONTEXT_STATUS,
             "implemented": True,
             "implementation_module": STACK_CONTEXT_IMPLEMENTATION_MODULE,
+            "pre_action_event_derivation_helper": STACK_CONTEXT_PRE_ACTION_HELPER,
             "derived_from": [
                 "negative stack diff contribution events",
                 "frame-nearest pre-action stack deltas",
@@ -330,6 +334,8 @@ def validate_stack_event_context_quality(payload: dict[str, Any]) -> dict[str, A
         violations.append("derived_stack_context_must_be_implemented")
     if mitigation.get("implementation_module") != STACK_CONTEXT_IMPLEMENTATION_MODULE:
         violations.append("derived_stack_context_must_reference_stack_context_module")
+    if mitigation.get("pre_action_event_derivation_helper") != STACK_CONTEXT_PRE_ACTION_HELPER:
+        violations.append("derived_stack_context_must_reference_pre_action_event_helper")
     if mitigation.get("uses_target_action_stack_delta_as_feature") is not False:
         violations.append("derived_stack_context_must_not_use_target_action_delta")
     if mitigation.get("target_action_stack_delta_leakage_guard") is not True:

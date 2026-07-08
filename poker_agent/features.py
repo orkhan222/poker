@@ -393,8 +393,10 @@ def betting_context_features(
         "hero_commitment_ratio": stack_context.hero_commitment_ratio,
         "table_commitment_pressure": stack_context.table_commitment_pressure,
         "facing_bet_or_raise": 1.0 if to_call > 0 else 0.0,
+        "facing_bet_derived": 1.0,
         "call_price_ratio": stack_context.call_price_ratio,
         "raise_pressure": stack_context.raise_pressure,
+        "last_aggressor_known": 1.0 if last_aggressor_position else 0.0,
         "last_aggressor_is_hero": 1.0 if last_aggressor_position and last_aggressor_position == hero_position else 0.0,
         "explicit_action_amount_available": 1.0 if explicit_amount_available else 0.0,
         "explicit_to_call_available": 1.0 if explicit_to_call_available else 0.0,
@@ -404,6 +406,7 @@ def betting_context_features(
         "betting_context_reconstructed": 1.0,
         "action_order_derived": 1.0,
         "legal_actions_derived": 1.0 if not explicit_legal_actions_available else 0.0,
+        "last_aggressor_derived": 1.0,
         f"last_aggressor_group={last_aggressor_group}": 1.0,
     }
     features.update(stack_context.as_feature_dict())

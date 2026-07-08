@@ -14,6 +14,8 @@ RESEARCH_BASELINE = "RESEARCH_BASELINE_NOT_PRODUCTION_POLICY"
 LLM_BASED_AGENT_TERM = "LLM_BASED_AGENT_IS_UMBRELLA_TERM"
 CONTROLLED_LAYER_APPROVED = "CONTROLLED_EVENT_CONTEXT_LAYER_APPROVED"
 AUTONOMOUS_LLM_POLICY_NOT_APPROVED = "FULLY_AUTONOMOUS_LLM_POLICY_NOT_APPROVED"
+RECOMMENDED_PRODUCTION_ARCHITECTURE = "SCHEMA_ROUTED_HYBRID_CONTROLLED_LAYER"
+CONTROLLED_CONTEXT_EVENT_LAYER_FIRST = "CONTROLLED_CONTEXT_EVENT_LAYER_FIRST"
 CONTROLLED_COMPONENT = "CONTROLLED_COMPONENT"
 RESEARCH_COMPONENT = "RESEARCH_BASELINE_COMPONENT"
 NOT_CURRENT_SCOPE = "NOT_CURRENT_DELIVERY_SCOPE"
@@ -62,6 +64,53 @@ def validate_llm_agent_claim(claim: dict[str, Any], boundary: dict[str, Any]) ->
         "resolved_role": role_name,
         "resolved_role_type": role_type,
         "violations": violations,
+    }
+
+
+def build_role_permissions_matrix() -> dict[str, dict[str, Any]]:
+    return {
+        "event_normalization": {
+            "role_type": EVENT_NORMALIZER_ROLE,
+            "current_delivery_scope": True,
+            "may_normalize_events": True,
+            "may_build_decision_context": False,
+            "may_rank_candidates": False,
+            "may_select_final_poker_action": False,
+            "may_emit_deployed_policy_action": False,
+            "production_policy_approved": False,
+        },
+        "decision_context": {
+            "role_type": DECISION_CONTEXT_ROLE,
+            "current_delivery_scope": True,
+            "may_normalize_events": False,
+            "may_build_decision_context": True,
+            "may_rank_candidates": False,
+            "may_select_final_poker_action": False,
+            "may_emit_deployed_policy_action": False,
+            "production_policy_approved": False,
+        },
+        "candidate_ranking": {
+            "role_type": CANDIDATE_RANKER_ROLE,
+            "current_delivery_scope": "research_baseline_only",
+            "may_normalize_events": False,
+            "may_build_decision_context": False,
+            "may_rank_candidates": True,
+            "may_select_final_poker_action": False,
+            "may_emit_deployed_policy_action": False,
+            "production_policy_approved": False,
+        },
+        "real_policy_agent": {
+            "role_type": POLICY_AGENT_ROLE,
+            "current_delivery_scope": False,
+            "may_normalize_events": False,
+            "may_build_decision_context": False,
+            "may_rank_candidates": True,
+            "may_select_final_poker_action": True,
+            "may_emit_deployed_policy_action": False,
+            "production_policy_approved": False,
+            "requires_separate_stakeholder_approval": True,
+            "requires_independent_simulation_gate": True,
+        },
     }
 
 
@@ -129,6 +178,31 @@ def build_llm_role_boundary(project_root: Path) -> dict[str, Any]:
                 "a standalone autonomous poker policy."
             ),
         },
+        "recommended_production_architecture": {
+            "status": RECOMMENDED_PRODUCTION_ARCHITECTURE,
+            "priority": CONTROLLED_CONTEXT_EVENT_LAYER_FIRST,
+            "approved_for_current_delivery": True,
+            "production_policy_claim_allowed": False,
+            "fully_autonomous_llm_agent_claim_allowed": False,
+            "why": (
+                "The current bottleneck is data quality and state reconstruction, not an unconstrained LLM "
+                "strategy engine. A schema-routed hybrid keeps deterministic parsing first, uses the LLM only "
+                "for controlled ambiguous context/event handling, and preserves explicit validation gates."
+            ),
+            "pipeline": [
+                "OCR/dealer logs",
+                "deterministic parser",
+                "candidate generator",
+                "LLM fallback for ambiguous event/context cases",
+                "JSON schema validation",
+                "event stream",
+                "feature builder",
+                "deployed routed policy stack",
+            ],
+            "llm_position": "controlled_fallback_before_schema_validation_for_event_context_layer",
+            "final_policy_owner": "deployed_routed_policy_stack",
+            "not_recommended_first": "fully_autonomous_poker_playing_llm_policy",
+        },
         "scope_disambiguation_contract": {
             "status": "EXPLICITLY_DISAMBIGUATED",
             "llm_based_agent_requires_explicit_role": True,
@@ -156,6 +230,7 @@ def build_llm_role_boundary(project_root: Path) -> dict[str, Any]:
                 "production monitoring and rollback",
             ],
         },
+        "role_permissions_matrix": build_role_permissions_matrix(),
         "role_taxonomy": {
             "event_normalization": {
                 "role_type": EVENT_NORMALIZER_ROLE,
@@ -301,7 +376,9 @@ def validate_llm_role_boundary(payload: dict[str, Any]) -> dict[str, Any]:
     role = payload.get("current_llm_role") or {}
     term = payload.get("term_boundary") or {}
     acceptance = payload.get("controlled_layer_acceptance") or {}
+    recommended_architecture = payload.get("recommended_production_architecture") or {}
     scope = payload.get("scope_disambiguation_contract") or {}
+    permissions = payload.get("role_permissions_matrix") or {}
     taxonomy = payload.get("role_taxonomy") or {}
     event_role = taxonomy.get("event_normalization") or {}
     context_role = taxonomy.get("decision_context") or {}
@@ -345,12 +422,43 @@ def validate_llm_role_boundary(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("controlled_llm_layer_boundary_must_not_block_delivery")
     if acceptance.get("future_policy_agent_requires_separate_approval") is not True:
         violations.append("future_llm_policy_agent_must_require_separate_approval")
+    if recommended_architecture.get("status") != RECOMMENDED_PRODUCTION_ARCHITECTURE:
+        violations.append("llm_recommended_architecture_must_remain_schema_routed_hybrid_controlled_layer")
+    if recommended_architecture.get("priority") != CONTROLLED_CONTEXT_EVENT_LAYER_FIRST:
+        violations.append("llm_architecture_priority_must_remain_controlled_context_event_layer_first")
+    if recommended_architecture.get("approved_for_current_delivery") is not True:
+        violations.append("llm_recommended_architecture_must_be_approved_for_current_delivery")
+    if recommended_architecture.get("production_policy_claim_allowed") is not False:
+        violations.append("llm_recommended_architecture_must_not_allow_production_policy_claim")
+    if recommended_architecture.get("fully_autonomous_llm_agent_claim_allowed") is not False:
+        violations.append("llm_recommended_architecture_must_not_allow_autonomous_claim")
+    if recommended_architecture.get("final_policy_owner") != "deployed_routed_policy_stack":
+        violations.append("llm_final_policy_owner_must_remain_deployed_routed_policy_stack")
+    if recommended_architecture.get("not_recommended_first") != "fully_autonomous_poker_playing_llm_policy":
+        violations.append("llm_autonomous_policy_must_remain_not_recommended_first")
+    if "LLM fallback for ambiguous event/context cases" not in set(recommended_architecture.get("pipeline") or []):
+        violations.append("llm_architecture_must_place_llm_as_controlled_ambiguous_case_fallback")
     required_role_types = {
         "event_normalization": EVENT_NORMALIZER_ROLE,
         "decision_context": DECISION_CONTEXT_ROLE,
         "candidate_ranking": CANDIDATE_RANKER_ROLE,
         "real_policy_agent": POLICY_AGENT_ROLE,
     }
+    expected_permissions = build_role_permissions_matrix()
+    if set(permissions) != set(expected_permissions):
+        violations.append("llm_role_permissions_matrix_must_cover_all_roles")
+    for role_name, expected in expected_permissions.items():
+        actual = permissions.get(role_name) or {}
+        for key, expected_value in expected.items():
+            if actual.get(key) != expected_value:
+                violations.append(f"llm_role_permission_mismatch:{role_name}.{key}")
+    for role_name, actual in permissions.items():
+        if role_name != "real_policy_agent" and actual.get("may_select_final_poker_action") is not False:
+            violations.append(f"llm_non_policy_role_must_not_select_final_action:{role_name}")
+        if actual.get("may_emit_deployed_policy_action") is not False:
+            violations.append(f"llm_role_must_not_emit_deployed_policy_action:{role_name}")
+        if actual.get("production_policy_approved") is not False:
+            violations.append(f"llm_role_must_not_be_production_policy_approved:{role_name}")
     if scope.get("status") != "EXPLICITLY_DISAMBIGUATED":
         violations.append("llm_scope_must_be_explicitly_disambiguated")
     if scope.get("llm_based_agent_requires_explicit_role") is not True:
@@ -586,6 +694,18 @@ def build_llm_role_boundary_proof_cases(payload: dict[str, Any]) -> list[dict[st
     cases.append(_llm_role_proof_case("blocks_autonomous_policy_under_controlled_layer_acceptance", mutated, "FAIL"))
 
     mutated = deepcopy(payload)
+    mutated["recommended_production_architecture"]["status"] = "FULLY_AUTONOMOUS_POKER_PLAYING_LLM_POLICY"
+    mutated["recommended_production_architecture"]["production_policy_claim_allowed"] = True
+    mutated["recommended_production_architecture"]["fully_autonomous_llm_agent_claim_allowed"] = True
+    mutated["recommended_production_architecture"]["final_policy_owner"] = "llm_policy_agent"
+    cases.append(_llm_role_proof_case("blocks_autonomous_architecture_as_recommended_production_path", mutated, "FAIL"))
+
+    mutated = deepcopy(payload)
+    mutated["role_permissions_matrix"]["candidate_ranking"]["may_emit_deployed_policy_action"] = True
+    mutated["role_permissions_matrix"]["candidate_ranking"]["production_policy_approved"] = True
+    cases.append(_llm_role_proof_case("blocks_candidate_ranker_permission_escalation", mutated, "FAIL"))
+
+    mutated = deepcopy(payload)
     del mutated["role_taxonomy"]["candidate_ranking"]
     cases.append(_llm_role_proof_case("blocks_missing_role_taxonomy", mutated, "FAIL"))
 
@@ -625,6 +745,7 @@ def render_llm_role_boundary_markdown(payload: dict[str, Any]) -> str:
     taxonomy = payload["role_taxonomy"]
     scope = payload["scope_disambiguation_contract"]
     acceptance = payload["controlled_layer_acceptance"]
+    recommended = payload["recommended_production_architecture"]
     lines = [
         "# LLM Role Boundary Contract",
         "",
@@ -657,6 +778,17 @@ def render_llm_role_boundary_markdown(payload: dict[str, Any]) -> str:
         f"- Fully autonomous policy claim allowed: `{acceptance['fully_autonomous_policy_claim_allowed']}`",
         f"- Production blocker for current delivery: `{acceptance['production_blocker_for_current_delivery']}`",
         f"- Future policy-agent approval required: `{acceptance['future_policy_agent_requires_separate_approval']}`",
+        "",
+        "## Recommended Production Architecture",
+        "",
+        f"- Status: `{recommended['status']}`",
+        f"- Priority: `{recommended['priority']}`",
+        f"- Approved for current delivery: `{recommended['approved_for_current_delivery']}`",
+        f"- Production policy claim allowed: `{recommended['production_policy_claim_allowed']}`",
+        f"- Fully autonomous LLM claim allowed: `{recommended['fully_autonomous_llm_agent_claim_allowed']}`",
+        f"- LLM position: `{recommended['llm_position']}`",
+        f"- Final policy owner: `{recommended['final_policy_owner']}`",
+        f"- Not recommended first: `{recommended['not_recommended_first']}`",
         "",
         "## Scope Disambiguation",
         "",

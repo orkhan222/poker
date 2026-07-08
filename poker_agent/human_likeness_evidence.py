@@ -56,6 +56,12 @@ def build_human_likeness_evidence(project_root: Path) -> dict[str, Any]:
             "current_status": bet_current.get("timing_and_bet_size_status"),
             "current_scope_metric": "decision_time_mae",
             "current_scope_value": bet_current.get("decision_time_mae"),
+            "timing_policy_type": timing_boundary.get("timing_policy_type"),
+            "real_human_timing_labels_available": timing_boundary.get("real_human_timing_labels_available"),
+            "requires_real_human_timing_labels": timing_boundary.get("requires_real_human_timing_labels"),
+            "heuristic_timing_counts_as_full_human_likeness_proof": timing_boundary.get(
+                "heuristic_timing_counts_as_full_human_likeness_proof"
+            ),
             "final_proof_allowed": False,
             "remaining_requirement": "Calibrate decision timing against reviewed real human timing labels.",
             "source_report": "reports/bet_timing_calibration.json",
@@ -103,6 +109,12 @@ def build_human_likeness_evidence(project_root: Path) -> dict[str, Any]:
             "requires_more_real_player_behavior_labels": bet_boundary.get("requires_more_real_player_behavior_labels"),
             "timing_human_likeness_final_proof_allowed": timing_boundary.get(
                 "final_production_human_likeness_proof_allowed"
+            ),
+            "timing_alone_final_claim_allowed": timing_boundary.get(
+                "final_human_likeness_claim_allowed_from_timing_alone"
+            ),
+            "heuristic_timing_counts_as_full_human_likeness_proof": timing_boundary.get(
+                "heuristic_timing_counts_as_full_human_likeness_proof"
             ),
             "real_human_timing_labels_available": timing_boundary.get("real_human_timing_labels_available"),
         },
@@ -204,6 +216,17 @@ def validate_human_likeness_evidence(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("real_player_behavior_labels_must_remain_required")
     if upstream.get("timing_human_likeness_final_proof_allowed") is not False:
         violations.append("timing_final_human_likeness_proof_must_remain_blocked")
+    if upstream.get("timing_alone_final_claim_allowed") is not False:
+        violations.append("timing_alone_final_human_likeness_claim_must_remain_blocked")
+    if upstream.get("heuristic_timing_counts_as_full_human_likeness_proof") is not False:
+        violations.append("heuristic_timing_must_not_count_as_full_human_likeness_proof")
+    timing_dimension = dimensions.get("timing") or {}
+    if timing_dimension.get("requires_real_human_timing_labels") is not True:
+        violations.append("timing_dimension_must_require_real_human_timing_labels")
+    if timing_dimension.get("real_human_timing_labels_available") is not False:
+        violations.append("timing_dimension_must_not_claim_real_human_timing_labels_available")
+    if timing_dimension.get("heuristic_timing_counts_as_full_human_likeness_proof") is not False:
+        violations.append("timing_dimension_must_not_accept_heuristic_timing_as_full_proof")
 
     blocked = set(payload.get("blocked_claims") or [])
     if "Human-likeness is fully proven by action distribution alone." not in blocked:

@@ -13,6 +13,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from poker_agent.agents import MLPolicyAgent, RuleBasedAgent
 from poker_agent.api_contract import api_contract
+from poker_agent.actions_dataset_export_contract import build_actions_dataset_export_contract
 from poker_agent.actions_context_quality import build_actions_context_quality
 from poker_agent.behavioral_revalidation import build_behavioral_revalidation
 from poker_agent.behavioral_revalidation_proof import build_behavioral_revalidation_proof
@@ -223,6 +224,7 @@ HOLE_CARD_DATA_QUALITY_PATH = PROJECT_ROOT / "reports" / "hole_card_data_quality
 DATA_LEAKAGE_CONTRACT_PATH = PROJECT_ROOT / "reports" / "data_leakage_contract.json"
 NORMALIZED_ACTION_CONTRACT_PATH = PROJECT_ROOT / "reports" / "normalized_action_contract.json"
 ACTION_CONTEXT_QUALITY_PATH = PROJECT_ROOT / "reports" / "actions_context_quality.json"
+ACTIONS_DATASET_EXPORT_CONTRACT_PATH = PROJECT_ROOT / "reports" / "actions_dataset_export_contract.json"
 STACK_EVENT_CONTEXT_QUALITY_PATH = PROJECT_ROOT / "reports" / "stack_event_context_quality.json"
 BET_TIMING_CALIBRATION_PATH = PROJECT_ROOT / "reports" / "bet_timing_calibration.json"
 FINAL_DELIVERY_ACCEPTANCE_PATH = PROJECT_ROOT / "reports" / "final_delivery_acceptance.json"
@@ -1533,6 +1535,13 @@ def actions_context_quality_json() -> dict[str, Any]:
     if ACTION_CONTEXT_QUALITY_PATH.exists():
         return json.loads(ACTION_CONTEXT_QUALITY_PATH.read_text(encoding="utf-8"))
     return build_actions_context_quality(PROJECT_ROOT)
+
+
+@app.get("/actions-dataset-export-contract.json", tags=["System"], summary="actions.csv future dataset export contract")
+def actions_dataset_export_contract_json() -> dict[str, Any]:
+    if ACTIONS_DATASET_EXPORT_CONTRACT_PATH.exists():
+        return json.loads(ACTIONS_DATASET_EXPORT_CONTRACT_PATH.read_text(encoding="utf-8"))
+    return build_actions_dataset_export_contract(PROJECT_ROOT)
 
 
 @app.get("/stack-event-context-quality.json", tags=["System"], summary="stack_events.csv decision-context boundary")

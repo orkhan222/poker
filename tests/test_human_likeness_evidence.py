@@ -47,6 +47,9 @@ def _write_reports(reports: Path) -> None:
                 "timing_label_quality_boundary": {
                     "final_production_human_likeness_proof_allowed": False,
                     "real_human_timing_labels_available": False,
+                    "requires_real_human_timing_labels": True,
+                    "heuristic_timing_counts_as_full_human_likeness_proof": False,
+                    "final_human_likeness_claim_allowed_from_timing_alone": False,
                 },
             }
         ),
@@ -67,6 +70,11 @@ def test_human_likeness_evidence_blocks_distribution_only_claim(tmp_path: Path) 
     assert set(payload["required_behavior_dimensions"]) == set(REQUIRED_BEHAVIOR_DIMENSIONS)
     assert payload["behavior_dimensions"]["bet_sizing"]["final_proof_allowed"] is False
     assert payload["behavior_dimensions"]["timing"]["final_proof_allowed"] is False
+    assert payload["behavior_dimensions"]["timing"]["requires_real_human_timing_labels"] is True
+    assert payload["behavior_dimensions"]["timing"]["real_human_timing_labels_available"] is False
+    assert payload["behavior_dimensions"]["timing"]["heuristic_timing_counts_as_full_human_likeness_proof"] is False
+    assert payload["upstream_boundaries"]["timing_alone_final_claim_allowed"] is False
+    assert payload["upstream_boundaries"]["heuristic_timing_counts_as_full_human_likeness_proof"] is False
     assert payload["behavior_dimensions"]["position_based_behavior"]["required"] is True
     assert payload["behavior_dimensions"]["street_level_strategy"]["required"] is True
 

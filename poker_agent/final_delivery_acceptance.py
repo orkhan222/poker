@@ -59,6 +59,7 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
     normalized_training_audit = normalized_action.get("training_label_audit") or {}
     actions_schema = actions_context.get("actions_csv_schema_audit") or {}
     actions_mitigation = actions_context.get("derived_context_mitigation") or {}
+    actions_export_contract = actions_context.get("dataset_export_contract") or {}
     stack_raw_boundary = stack_event_context.get("raw_stack_event_boundary") or {}
     stack_mitigation = stack_event_context.get("derived_context_mitigation") or {}
     behavioral_boundary = behavioral.get("revalidation_boundary") or {}
@@ -243,6 +244,17 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
                 "does_not_fully_replace_explicit_context": actions_mitigation.get(
                     "does_not_fully_replace_explicit_context"
                 ),
+                "dataset_export_status": actions_export_contract.get("status"),
+                "future_dataset_explicit_export_required": actions_export_contract.get(
+                    "explicit_export_required"
+                ),
+                "future_dataset_required_explicit_fields": actions_export_contract.get(
+                    "required_explicit_fields"
+                )
+                or [],
+                "reconstructed_context_allowed_for_current_delivery": actions_export_contract.get(
+                    "reconstructed_context_allowed_for_current_delivery"
+                ),
                 "current_delivery_blocker": actions_mitigation.get("current_delivery_blocker"),
                 "model_quality_risk": actions_mitigation.get("model_quality_risk"),
             },
@@ -282,9 +294,25 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
                 "timing_human_likeness_final_proof_allowed": (bet_timing.get("current_delivery_scope") or {}).get(
                     "timing_human_likeness_final_proof_allowed"
                 ),
+                "timing_evidence_status": (bet_timing.get("current_delivery_scope") or {}).get(
+                    "timing_evidence_status"
+                ),
                 "requires_more_real_player_behavior_labels": bet_boundary.get("requires_more_real_player_behavior_labels"),
                 "final_high_realism_claim_allowed": bet_boundary.get("final_high_realism_claim_allowed"),
                 "timing_label_quality_status": (bet_timing.get("timing_label_quality_boundary") or {}).get("status"),
+                "timing_label_boundary": (bet_timing.get("timing_label_quality_boundary") or {}).get("boundary"),
+                "requires_real_human_timing_labels": (bet_timing.get("timing_label_quality_boundary") or {}).get(
+                    "requires_real_human_timing_labels"
+                ),
+                "uses_real_human_timing_labels": (bet_timing.get("timing_label_quality_boundary") or {}).get(
+                    "uses_real_human_timing_labels"
+                ),
+                "heuristic_timing_counts_as_full_human_likeness_proof": (
+                    bet_timing.get("timing_label_quality_boundary") or {}
+                ).get("heuristic_timing_counts_as_full_human_likeness_proof"),
+                "final_human_likeness_claim_allowed_from_timing_alone": (
+                    bet_timing.get("timing_label_quality_boundary") or {}
+                ).get("final_human_likeness_claim_allowed_from_timing_alone"),
                 "timing_label_current_delivery_blocker": (bet_timing.get("timing_label_quality_boundary") or {}).get(
                     "current_delivery_blocker"
                 ),
@@ -462,7 +490,7 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "Real production traffic is approved before observability is enabled.",
             "Hole-card data quality is fully solved upstream.",
             "actions.csv is a complete explicit betting-context dataset.",
-            "Derived betting context fully replaces amount, to_call, pot_before_action, min_raise, legal_actions, and action_order labels.",
+            "Derived betting context fully replaces amount, to_call, pot_before_action, min_raise, legal_actions, action_order, last_aggressor, and facing_bet labels.",
             "Raw stack events are sufficient policy features without decision-time pot/effective-stack/SPR derivation.",
             "Target action stack deltas can be used as features for predicting that same action.",
             "Bet-sizing and timing are fully calibrated for all production-realism conditions.",
@@ -509,7 +537,7 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "Run QLoRA or larger-LLM fine-tuning as a separate next-stage milestone for noisy OCR/dealer-log normalization, structured extraction, candidate ranking, and JSON/schema compliance improvement.",
             "Enable external production telemetry storage, alerting, rollback procedures, and live drift tracking before real-traffic rollout.",
             "Collect larger reviewed real gameplay labels for timing, bet size, hole-card visibility, and action distribution slices.",
-            "Instrument actions.csv with explicit amount, to_call, pot_before_action, min_raise, legal_actions, and action_order fields.",
+            "Instrument actions.csv with explicit amount, to_call, pot_before_action, min_raise, legal_actions, action_order, last_aggressor, and facing_bet fields.",
             "Keep raw OCR/dealer action text and canonical action labels separate in every future dataset export.",
             "Persist explicit pre-action pot, effective_stack, SPR, current_bet_size, and min_raise labels alongside stack event logs.",
             "Run a separate full production-scale multi-agent training cycle under an approved A100/H100 cluster profile.",
@@ -863,10 +891,20 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
         "min_raise",
         "legal_actions",
         "action_order",
+        "last_aggressor",
+        "facing_bet",
     }
     missing_action_fields = set(actions_context.get("missing_explicit_context_fields") or [])
     if not required_action_fields.issubset(missing_action_fields):
         violations.append("actions_context_must_list_missing_explicit_fields")
+    if actions_context.get("dataset_export_status") != "EXPLICIT_BETTING_CONTEXT_REQUIRED_FOR_NEXT_DATASET_EXPORT":
+        violations.append("future_actions_dataset_export_must_require_explicit_context")
+    if actions_context.get("future_dataset_explicit_export_required") is not True:
+        violations.append("future_actions_dataset_explicit_export_required_must_be_true")
+    if set(actions_context.get("future_dataset_required_explicit_fields") or []) != required_action_fields:
+        violations.append("future_actions_dataset_required_fields_must_match_contract")
+    if actions_context.get("reconstructed_context_allowed_for_current_delivery") is not True:
+        violations.append("reconstructed_actions_context_must_remain_allowed_for_current_delivery")
     if actions_context.get("limitation_status") != "OPEN_DATASET_LIMITATION":
         violations.append("actions_context_limitation_must_remain_open")
     if actions_context.get("derived_context_status") != "IMPLEMENTED_FROM_PRE_ACTION_EVENT_STREAM":
@@ -911,12 +949,24 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
         violations.append("real_human_timing_labels_must_not_be_claimed_available")
     if bet.get("timing_human_likeness_final_proof_allowed") is not False:
         violations.append("timing_human_likeness_final_proof_must_be_blocked")
+    if bet.get("timing_evidence_status") != "HEURISTIC_TIMING_ONLY_NOT_FINAL_HUMAN_LIKENESS_PROOF":
+        violations.append("timing_evidence_must_remain_heuristic_not_final_proof")
     if bet.get("requires_more_real_player_behavior_labels") is not True:
         violations.append("bet_timing_must_require_more_real_player_labels_for_higher_realism")
     if bet.get("final_high_realism_claim_allowed") is not False:
         violations.append("final_high_realism_bet_timing_claim_must_be_blocked")
     if bet.get("timing_label_quality_status") != "TIMING_LABEL_QUALITY_UNCERTAIN":
         violations.append("timing_label_quality_boundary_must_remain_uncertain")
+    if bet.get("timing_label_boundary") != "REAL_HUMAN_TIMING_LABELS_REQUIRED_FOR_FULL_HUMAN_LIKENESS_PROOF":
+        violations.append("timing_label_boundary_must_require_real_human_timing_labels")
+    if bet.get("requires_real_human_timing_labels") is not True:
+        violations.append("real_human_timing_labels_must_remain_required_for_full_proof")
+    if bet.get("uses_real_human_timing_labels") is not False:
+        violations.append("real_human_timing_labels_must_not_be_claimed_used")
+    if bet.get("heuristic_timing_counts_as_full_human_likeness_proof") is not False:
+        violations.append("heuristic_timing_must_not_count_as_full_human_likeness_proof")
+    if bet.get("final_human_likeness_claim_allowed_from_timing_alone") is not False:
+        violations.append("timing_alone_must_not_allow_final_human_likeness_claim")
     if bet.get("timing_label_current_delivery_blocker") is not False:
         violations.append("timing_label_quality_gap_must_not_block_current_delivery")
     if bet.get("timing_label_model_quality_risk") is not True:

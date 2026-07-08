@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Any
@@ -86,6 +87,26 @@ def assert_canonical_decision_action(action: Any, *, context: str) -> str:
             "Raw OCR/dealer labels must be normalized to fold/call/check/bet/raise/all_in before use."
         )
     return canonical
+
+
+def normalize_action_record(
+    record: Mapping[str, Any],
+    *,
+    action_field: str = "action",
+    normalized_field: str = "canonical_action",
+    raw_field: str = "raw_action",
+) -> dict[str, Any]:
+    """Return a row copy with explicit canonical action metadata."""
+    result = normalize_action_result(record.get(action_field))
+    enriched = dict(record)
+    if raw_field and raw_field not in enriched:
+        enriched[raw_field] = result.raw_action
+    enriched[normalized_field] = result.canonical_action
+    enriched["action_normalization_status"] = result.status
+    enriched["action_normalization_method"] = result.method
+    enriched["action_normalization_confidence"] = result.confidence
+    enriched["is_decision_action"] = result.is_decision_action
+    return enriched
 
 
 def normalize_action_result(raw_action: Any) -> ActionNormalizationResult:

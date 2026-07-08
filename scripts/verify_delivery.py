@@ -99,6 +99,7 @@ def require_files(root: Path) -> str:
         "configs/experiments/data_leakage_contract.yaml",
         "configs/experiments/normalized_action_contract.yaml",
         "configs/experiments/actions_context_quality.yaml",
+        "configs/experiments/actions_dataset_export_contract.yaml",
         "configs/experiments/stack_event_context_quality.yaml",
         "configs/experiments/scenario_sanity.yaml",
         "configs/experiments/train_routed_bundle_smoke.yaml",
@@ -226,6 +227,8 @@ def require_files(root: Path) -> str:
         "reports/normalized_action_contract.md",
         "reports/actions_context_quality.json",
         "reports/actions_context_quality.md",
+        "reports/actions_dataset_export_contract.json",
+        "reports/actions_dataset_export_contract.md",
         "reports/stack_event_context_quality.json",
         "reports/stack_event_context_quality.md",
         "reports/scenario_sanity.json",
@@ -273,6 +276,7 @@ def require_files(root: Path) -> str:
         "scripts/build_data_leakage_contract.py",
         "scripts/build_normalized_action_contract.py",
         "scripts/build_actions_context_quality.py",
+        "scripts/build_actions_dataset_export_contract.py",
         "scripts/build_stack_event_context_quality.py",
         "scripts/build_scenario_sanity.py",
         "scripts/build_raw_model_status.py",
@@ -336,6 +340,7 @@ def require_files(root: Path) -> str:
         "poker_agent/action_normalization.py",
         "poker_agent/normalized_action_contract.py",
         "poker_agent/actions_context_quality.py",
+        "poker_agent/actions_dataset_export_contract.py",
         "poker_agent/stack_event_context_quality.py",
         "poker_agent/stack_context.py",
         "poker_agent/scenario_sanity.py",
@@ -408,6 +413,7 @@ def require_files(root: Path) -> str:
         "tests/test_data_leakage_contract.py",
         "tests/test_normalized_action_contract.py",
         "tests/test_actions_context_quality.py",
+        "tests/test_actions_dataset_export_contract.py",
         "tests/test_stack_event_context_quality.py",
         "tests/test_stack_context.py",
         "tests/test_scenario_sanity.py",
@@ -417,6 +423,7 @@ def require_files(root: Path) -> str:
         "tests/test_hole_card_data_quality.py",
         "tests/test_data_leakage_contract.py",
         "tests/test_actions_context_quality.py",
+        "tests/test_actions_dataset_export_contract.py",
         "tests/test_stack_event_context_quality.py",
         "tests/test_stack_context.py",
     ]
@@ -446,6 +453,7 @@ def compile_sources(root: Path) -> str:
         "poker_agent/hole_card_data_quality.py",
         "poker_agent/data_leakage_contract.py",
         "poker_agent/actions_context_quality.py",
+        "poker_agent/actions_dataset_export_contract.py",
         "poker_agent/stack_event_context_quality.py",
         "poker_agent/raw_model_status.py",
         "poker_agent/raw_model_challenger.py",
@@ -480,6 +488,7 @@ def compile_sources(root: Path) -> str:
         "scripts/build_hole_card_data_quality.py",
         "scripts/build_data_leakage_contract.py",
         "scripts/build_actions_context_quality.py",
+        "scripts/build_actions_dataset_export_contract.py",
         "scripts/build_stack_event_context_quality.py",
         "scripts/build_raw_model_status.py",
         "scripts/train_raw_model_challenger.py",
@@ -797,6 +806,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     data_leakage_contract = _read_json(reports / "data_leakage_contract.json")
     normalized_action_contract = _read_json(reports / "normalized_action_contract.json")
     actions_context_quality = _read_json(reports / "actions_context_quality.json")
+    actions_dataset_export_contract = _read_json(reports / "actions_dataset_export_contract.json")
     stack_event_context_quality = _read_json(reports / "stack_event_context_quality.json")
     scenario_sanity = _read_json(reports / "scenario_sanity.json")
     raw_model_status = _read_json(reports / "raw_model_status.json")
@@ -1008,6 +1018,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Real human timing labels must not be claimed available without reviewed labels")
     if bet_timing_current.get("timing_human_likeness_final_proof_allowed") is not False:
         raise AssertionError("Timing human-likeness final proof must remain blocked")
+    if bet_timing_current.get("timing_evidence_status") != "HEURISTIC_TIMING_ONLY_NOT_FINAL_HUMAN_LIKENESS_PROOF":
+        raise AssertionError("Timing evidence must remain marked as heuristic, not final human-likeness proof")
     if bet_timing_boundary.get("requires_more_real_player_behavior_labels") is not True:
         raise AssertionError("Higher-realism bet/timing calibration must require more real player labels")
     if bet_timing_boundary.get("requires_bet_size_labels") is not True:
@@ -1020,12 +1032,36 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Bet/timing calibration gap must not block current delivery")
     if bet_timing_label_boundary.get("status") != "TIMING_LABEL_QUALITY_UNCERTAIN":
         raise AssertionError("Timing label-quality boundary must remain uncertain")
+    if (
+        bet_timing_label_boundary.get("boundary")
+        != "REAL_HUMAN_TIMING_LABELS_REQUIRED_FOR_FULL_HUMAN_LIKENESS_PROOF"
+    ):
+        raise AssertionError("Timing boundary must require reviewed real human timing labels for full proof")
     if bet_timing_label_boundary.get("timing_feature_available") is not True:
         raise AssertionError("Timing feature must remain available")
     if bet_timing_label_boundary.get("timing_policy_type") != "HEURISTIC_OR_TABLE_TEMPO_CALIBRATED":
         raise AssertionError("Timing boundary must remain heuristic/table-tempo calibrated")
     if bet_timing_label_boundary.get("real_human_timing_labels_available") is not False:
         raise AssertionError("Timing boundary must not claim real human labels are available")
+    if bet_timing_label_boundary.get("requires_real_human_timing_labels") is not True:
+        raise AssertionError("Timing boundary must require real human timing labels")
+    if bet_timing_label_boundary.get("uses_real_human_timing_labels") is not False:
+        raise AssertionError("Timing boundary must not claim reviewed real human timing labels are used")
+    required_timing_label_fields = {
+        "decision_start_ts",
+        "decision_end_ts",
+        "human_wait_time_ms",
+        "street",
+        "position",
+        "facing_bet",
+        "action",
+    }
+    if set(bet_timing_label_boundary.get("required_timing_label_fields") or []) != required_timing_label_fields:
+        raise AssertionError("Timing boundary must keep the complete required real-human timing label schema")
+    if bet_timing_label_boundary.get("heuristic_timing_counts_as_full_human_likeness_proof") is not False:
+        raise AssertionError("Heuristic timing must not count as full human-likeness proof")
+    if bet_timing_label_boundary.get("final_human_likeness_claim_allowed_from_timing_alone") is not False:
+        raise AssertionError("Timing alone must not allow a final human-likeness claim")
     if bet_timing_label_boundary.get("final_production_human_likeness_proof_allowed") is not False:
         raise AssertionError("Timing final production human-likeness proof must remain blocked")
     if bet_timing_label_boundary.get("current_delivery_blocker") is not False:
@@ -1039,6 +1075,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         "blocks_final_timing_human_likeness_claim",
         "blocks_unreviewed_timing_label_availability_claim",
         "blocks_heuristic_timing_relabel_as_supervised",
+        "blocks_heuristic_timing_as_full_human_likeness_proof",
+        "blocks_missing_real_timing_label_contract",
         "blocks_delivery_blocker_reclassification",
         "blocks_model_quality_risk_removal",
     ):
@@ -1334,6 +1372,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     actions_risk = actions_context_quality.get("risk_contract") or {}
     actions_mitigation = actions_context_quality.get("derived_context_mitigation") or {}
     actions_features = actions_context_quality.get("training_feature_audit") or {}
+    actions_export = actions_context_quality.get("dataset_export_contract") or {}
     missing_action_fields = set(actions_schema.get("missing_explicit_context_fields") or [])
     required_action_fields = {
         "amount",
@@ -1342,6 +1381,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         "min_raise",
         "legal_actions",
         "action_order",
+        "last_aggressor",
+        "facing_bet",
     }
     if actions_context_quality.get("overall_status") != "PASS":
         raise AssertionError(f"Actions-context quality contract did not pass: {actions_context_quality.get('overall_status')}")
@@ -1372,6 +1413,18 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("actions.csv betting-context risk must remain a model-quality risk")
     if actions_risk.get("final_strategy_quality_claim_blocker_without_richer_action_context") is not True:
         raise AssertionError("actions.csv betting-context risk must block final strategy-quality claims without richer action context")
+    if actions_export.get("status") != "EXPLICIT_BETTING_CONTEXT_REQUIRED_FOR_NEXT_DATASET_EXPORT":
+        raise AssertionError("actions.csv dataset export contract must require explicit betting context")
+    if set(actions_export.get("required_explicit_fields") or []) != required_action_fields:
+        raise AssertionError("actions.csv dataset export required fields must match the betting-context contract")
+    if actions_export.get("explicit_export_required") is not True:
+        raise AssertionError("actions.csv next dataset export must persist explicit decision-time context fields")
+    if actions_export.get("reconstructed_context_allowed_for_current_delivery") is not True:
+        raise AssertionError("actions.csv reconstructed context must remain allowed for the current delivery")
+    if actions_export.get("current_delivery_blocker") is not False:
+        raise AssertionError("actions.csv dataset export gap must not block current delivery")
+    if actions_export.get("model_quality_risk") is not True:
+        raise AssertionError("actions.csv dataset export gap must remain a model-quality risk")
     if actions_schema.get("explicit_context_status") != "INCOMPLETE_EXPLICIT_BETTING_CONTEXT":
         raise AssertionError("actions.csv explicit betting context must remain marked incomplete")
     if not required_action_fields.issubset(missing_action_fields):
@@ -1400,8 +1453,44 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Actions-context feature audit must scan examples")
     if actions_features.get("missing_required_derived_features"):
         raise AssertionError(f"Missing required derived betting-context features: {actions_features.get('missing_required_derived_features')}")
+    present_action_features = set(actions_features.get("required_derived_features_present") or [])
+    for required_feature in ("facing_bet_derived", "last_aggressor_known", "last_aggressor_derived"):
+        if required_feature not in present_action_features:
+            raise AssertionError(f"Missing required derived betting-context feature: {required_feature}")
     if (actions_context_quality.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError(f"Actions-context invariants failed: {actions_context_quality.get('invariants')}")
+    actions_dataset_current = actions_dataset_export_contract.get("current_delivery_boundary") or {}
+    actions_dataset_future = actions_dataset_export_contract.get("future_export_boundary") or {}
+    if actions_dataset_export_contract.get("overall_status") != "PASS":
+        raise AssertionError(
+            f"Actions dataset export contract did not pass: {actions_dataset_export_contract.get('overall_status')}"
+        )
+    if actions_dataset_export_contract.get("status") != "EXPLICIT_BETTING_CONTEXT_REQUIRED_FOR_NEXT_DATASET_EXPORT":
+        raise AssertionError("Standalone actions.csv export contract must require explicit betting context")
+    if actions_dataset_export_contract.get("source_table") != "actions.csv":
+        raise AssertionError("Standalone actions.csv export contract must be tied to actions.csv")
+    if set(actions_dataset_export_contract.get("required_explicit_fields") or []) != required_action_fields:
+        raise AssertionError("Standalone actions.csv export required fields must match the betting-context contract")
+    if set(actions_dataset_export_contract.get("field_contract") or {}) != required_action_fields:
+        raise AssertionError("Standalone actions.csv export field contract must cover every required field")
+    if actions_dataset_current.get("current_delivery_blocker") is not False:
+        raise AssertionError("Standalone actions.csv export gap must not block current delivery")
+    if actions_dataset_current.get("reconstructed_context_allowed") is not True:
+        raise AssertionError("Standalone actions.csv export contract must allow current reconstructed context")
+    if actions_dataset_future.get("explicit_export_required") is not True:
+        raise AssertionError("Standalone actions.csv next dataset export must require explicit context fields")
+    if actions_dataset_future.get("model_quality_risk_until_export_is_instrumented") is not True:
+        raise AssertionError("Standalone actions.csv export gap must remain a model-quality risk")
+    if actions_dataset_future.get("must_persist_decision_time_values") is not True:
+        raise AssertionError("Standalone actions.csv export must persist decision-time values")
+    if actions_dataset_future.get("must_not_use_target_row_values") is not True:
+        raise AssertionError("Standalone actions.csv export must forbid target-row values as features")
+    if actions_dataset_future.get("must_not_use_future_outcome_fields") is not True:
+        raise AssertionError("Standalone actions.csv export must forbid future outcome fields")
+    if (actions_dataset_export_contract.get("invariants") or {}).get("status") != "PASS":
+        raise AssertionError(
+            f"Standalone actions dataset export invariants failed: {actions_dataset_export_contract.get('invariants')}"
+        )
     stack_schema = stack_event_context_quality.get("stack_events_schema_audit") or {}
     stack_risk = stack_event_context_quality.get("risk_contract") or {}
     stack_raw_boundary = stack_event_context_quality.get("raw_stack_event_boundary") or {}
@@ -1419,6 +1508,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Stack-event context risk must be tied to stack_events.csv")
     if stack_risk.get("implementation_module") != "poker_agent.stack_context.build_stack_decision_context":
         raise AssertionError("Stack-event context must reference the concrete stack decision context implementation")
+    if stack_risk.get("pre_action_event_derivation_helper") != "poker_agent.stack_context.derive_stack_decision_context_from_events":
+        raise AssertionError("Stack-event context must reference the pre-action raw event derivation helper")
     if stack_risk.get("raw_events_are_source_data_not_policy_features") is not True:
         raise AssertionError("Raw stack events must remain source data, not direct policy features")
     if stack_risk.get("target_action_stack_delta_is_label_context_not_feature") is not True:
@@ -1464,6 +1555,8 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Derived stack-event context mitigation must remain implemented")
     if stack_mitigation.get("implementation_module") != "poker_agent.stack_context.build_stack_decision_context":
         raise AssertionError("Derived stack-event context mitigation must reference the concrete implementation")
+    if stack_mitigation.get("pre_action_event_derivation_helper") != "poker_agent.stack_context.derive_stack_decision_context_from_events":
+        raise AssertionError("Derived stack-event context mitigation must reference the pre-action raw event helper")
     if stack_mitigation.get("uses_target_action_stack_delta_as_feature") is not False:
         raise AssertionError("Derived stack context must not use target action stack delta")
     if stack_mitigation.get("target_action_stack_delta_leakage_guard") is not True:
@@ -1477,6 +1570,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     if float(stack_sample_features.get("stack_event_target_bet_size_used_as_feature", 0.0) or 0.0) != 0.0:
         raise AssertionError("Target action stack delta leakage guard must remain zero")
     for required_feature in (
+        "reconstructed_pot",
         "reconstructed_effective_stack",
         "reconstructed_spr_after_call",
         "reconstructed_current_street_bet_size",
@@ -2518,9 +2612,24 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     if final_actions_context.get("explicit_context_status") != "INCOMPLETE_EXPLICIT_BETTING_CONTEXT":
         raise AssertionError("Final acceptance must keep actions.csv explicit context marked incomplete")
     final_missing_actions_context = set(final_actions_context.get("missing_explicit_context_fields") or [])
-    for required_field in ("amount", "to_call", "pot_before_action", "min_raise", "legal_actions", "action_order"):
+    for required_field in (
+        "amount",
+        "to_call",
+        "pot_before_action",
+        "min_raise",
+        "legal_actions",
+        "action_order",
+        "last_aggressor",
+        "facing_bet",
+    ):
         if required_field not in final_missing_actions_context:
             raise AssertionError(f"Final acceptance must expose missing actions.csv context field: {required_field}")
+    if final_actions_context.get("future_dataset_explicit_export_required") is not True:
+        raise AssertionError("Final acceptance must require explicit actions.csv context in the next dataset export")
+    if set(final_actions_context.get("future_dataset_required_explicit_fields") or []) != final_missing_actions_context:
+        raise AssertionError("Final acceptance future actions.csv export fields must match missing explicit context fields")
+    if final_actions_context.get("reconstructed_context_allowed_for_current_delivery") is not True:
+        raise AssertionError("Final acceptance must allow reconstructed actions.csv context for current delivery")
     if final_actions_context.get("does_not_fully_replace_explicit_context") is not True:
         raise AssertionError("Final acceptance must not claim derived context fully replaces explicit action-context labels")
     if final_actions_context.get("current_delivery_blocker") is not False:
@@ -2641,6 +2750,7 @@ def hydra_provenance_contract(root: Path) -> str:
         "configs/experiments/data_leakage_contract.yaml",
         "configs/experiments/normalized_action_contract.yaml",
         "configs/experiments/actions_context_quality.yaml",
+        "configs/experiments/actions_dataset_export_contract.yaml",
         "configs/experiments/stack_event_context_quality.yaml",
         "configs/experiments/scenario_sanity.yaml",
         "configs/experiments/production_gate.yaml",
@@ -2696,6 +2806,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "configs/experiments/data_leakage_contract.yaml",
         "configs/experiments/normalized_action_contract.yaml",
         "configs/experiments/actions_context_quality.yaml",
+        "configs/experiments/actions_dataset_export_contract.yaml",
         "configs/experiments/stack_event_context_quality.yaml",
         "evaluation/decision_context_smoke.jsonl",
         "evaluation/decision_context_human_holdout.jsonl",
@@ -2784,6 +2895,8 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "reports/normalized_action_contract.md",
         "reports/actions_context_quality.json",
         "reports/actions_context_quality.md",
+        "reports/actions_dataset_export_contract.json",
+        "reports/actions_dataset_export_contract.md",
         "reports/stack_event_context_quality.json",
         "reports/stack_event_context_quality.md",
         "reports/scenario_sanity.json",
@@ -2814,6 +2927,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "poker_agent/action_normalization.py",
         "poker_agent/normalized_action_contract.py",
         "poker_agent/actions_context_quality.py",
+        "poker_agent/actions_dataset_export_contract.py",
         "poker_agent/stack_event_context_quality.py",
         "poker_agent/stack_context.py",
         "poker_agent/scenario_sanity.py",
@@ -2854,6 +2968,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "scripts/build_data_leakage_contract.py",
         "scripts/build_normalized_action_contract.py",
         "scripts/build_actions_context_quality.py",
+        "scripts/build_actions_dataset_export_contract.py",
         "scripts/build_stack_event_context_quality.py",
         "scripts/build_scenario_sanity.py",
         "scripts/build_strategy_stack_maturity.py",
@@ -2888,6 +3003,7 @@ def zip_contract(root: Path, zip_path: Path) -> str:
         "tests/test_data_leakage_contract.py",
         "tests/test_normalized_action_contract.py",
         "tests/test_actions_context_quality.py",
+        "tests/test_actions_dataset_export_contract.py",
         "tests/test_stack_event_context_quality.py",
         "tests/test_stack_context.py",
         "tests/test_scenario_sanity.py",

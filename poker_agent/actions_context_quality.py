@@ -23,6 +23,8 @@ REQUIRED_EXPLICIT_ACTION_FIELDS = (
     "min_raise",
     "legal_actions",
     "action_order",
+    "last_aggressor",
+    "facing_bet",
 )
 
 DECISION_TIME_CONTEXT_POLICY: dict[str, dict[str, Any]] = {
@@ -62,6 +64,18 @@ DECISION_TIME_CONTEXT_POLICY: dict[str, dict[str, Any]] = {
         "target_row_value_allowed_as_feature": True,
         "reason": "Order is observable from prior event sequence and does not reveal which action is selected.",
     },
+    "last_aggressor": {
+        "required_semantics": "Most recent player who bet or raised before the target action.",
+        "reconstruction_source": "previous street-local action rows with canonical bet or raise labels",
+        "target_row_value_allowed_as_feature": False,
+        "reason": "The target row cannot define its own prior aggressor; this must be derived from events before the target action.",
+    },
+    "facing_bet": {
+        "required_semantics": "Whether the acting player is facing a live bet or raise before selecting the target action.",
+        "reconstruction_source": "street-local commitment state and pre-action to_call",
+        "target_row_value_allowed_as_feature": False,
+        "reason": "The value must be computed before the action, not inferred from whether the target action became call or fold.",
+    },
 }
 
 REQUIRED_DERIVED_CONTEXT_FEATURES = (
@@ -71,9 +85,13 @@ REQUIRED_DERIVED_CONTEXT_FEATURES = (
     "street_action_order_norm",
     "street_action_count",
     "facing_bet_or_raise",
+    "facing_bet_derived",
     "call_price_ratio",
     "raise_pressure",
     "table_commitment_pressure",
+    "last_aggressor_known",
+    "last_aggressor_is_hero",
+    "last_aggressor_derived",
     "betting_context_reconstructed",
     "action_order_derived",
     "legal_actions_derived",
@@ -108,10 +126,25 @@ def build_actions_context_quality(project_root: Path, *, max_examples: int = 500
         "client_statement": (
             "actions.csv currently contains the player action and street, but it does not provide "
             "explicit decision-time betting context fields such as amount, to_call, pot_before_action, "
-            "min_raise, legal_actions, and action_order. Without these fields, call/fold/raise learning "
+            "min_raise, legal_actions, action_order, last_aggressor, and facing_bet. Without these fields, call/fold/raise learning "
             "depends on reconstructed context and remains weaker than a fully instrumented action log."
         ),
         "required_explicit_action_fields": list(REQUIRED_EXPLICIT_ACTION_FIELDS),
+        "dataset_export_contract": {
+            "status": "EXPLICIT_BETTING_CONTEXT_REQUIRED_FOR_NEXT_DATASET_EXPORT",
+            "source_table": ACTION_CONTEXT_SOURCE_TABLE,
+            "required_explicit_fields": list(REQUIRED_EXPLICIT_ACTION_FIELDS),
+            "explicit_export_required": True,
+            "reconstructed_context_allowed_for_current_delivery": True,
+            "current_delivery_blocker": False,
+            "model_quality_risk": True,
+            "acceptance_boundary": (
+                "The current delivery may use leakage-safe reconstructed betting context, "
+                "but future dataset exports must persist explicit decision-time betting fields."
+            ),
+            "must_not_use_target_row_values": True,
+            "must_not_use_future_outcome_fields": True,
+        },
         "actions_csv_schema_audit": schema_audit,
         "derived_context_mitigation": {
             "status": DERIVED_CONTEXT_STATUS,
@@ -139,6 +172,8 @@ def build_actions_context_quality(project_root: Path, *, max_examples: int = 500
             "Add min_raise before the action.",
             "Add legal_actions available to the acting player.",
             "Add action_order within hand and street.",
+            "Add last_aggressor before the action.",
+            "Add facing_bet before the action.",
             "Preserve these fields as decision-time values, not values derived from final hand outcome.",
         ],
         "allowed_claims": [
@@ -147,7 +182,7 @@ def build_actions_context_quality(project_root: Path, *, max_examples: int = 500
         ],
         "not_allowed_claims": [
             "actions.csv is a complete decision-time betting-context dataset.",
-            "The derived context fully replaces explicit amount, to_call, pot_before_action, min_raise, legal_actions, and action_order labels.",
+            "The derived context fully replaces explicit amount, to_call, pot_before_action, min_raise, legal_actions, action_order, last_aggressor, and facing_bet labels.",
             "A standalone poker policy can be promoted without revalidating on richer action-context data.",
         ],
     }
@@ -227,6 +262,7 @@ def validate_actions_context_quality(payload: dict[str, Any]) -> dict[str, Any]:
     schema_audit = payload.get("actions_csv_schema_audit") or {}
     mitigation = payload.get("derived_context_mitigation") or {}
     feature_audit = payload.get("training_feature_audit") or {}
+    export_contract = payload.get("dataset_export_contract") or {}
 
     if risk.get("risk_id") != ACTION_CONTEXT_RISK_ID:
         violations.append("actions_context_risk_id_must_match_contract")
@@ -260,6 +296,24 @@ def validate_actions_context_quality(payload: dict[str, Any]) -> dict[str, Any]:
 
     if set(payload.get("required_explicit_action_fields") or []) != set(REQUIRED_EXPLICIT_ACTION_FIELDS):
         violations.append("required_explicit_action_fields_must_match_contract")
+    if export_contract.get("status") != "EXPLICIT_BETTING_CONTEXT_REQUIRED_FOR_NEXT_DATASET_EXPORT":
+        violations.append("dataset_export_contract_status_must_require_explicit_betting_context")
+    if export_contract.get("source_table") != ACTION_CONTEXT_SOURCE_TABLE:
+        violations.append("dataset_export_contract_source_table_must_be_actions_csv")
+    if set(export_contract.get("required_explicit_fields") or []) != set(REQUIRED_EXPLICIT_ACTION_FIELDS):
+        violations.append("dataset_export_required_fields_must_match_contract")
+    if export_contract.get("explicit_export_required") is not True:
+        violations.append("dataset_export_must_require_explicit_context")
+    if export_contract.get("reconstructed_context_allowed_for_current_delivery") is not True:
+        violations.append("current_delivery_must_allow_reconstructed_context")
+    if export_contract.get("current_delivery_blocker") is not False:
+        violations.append("dataset_export_gap_must_not_block_current_delivery")
+    if export_contract.get("model_quality_risk") is not True:
+        violations.append("dataset_export_gap_must_remain_model_quality_risk")
+    if export_contract.get("must_not_use_target_row_values") is not True:
+        violations.append("dataset_export_must_forbid_target_row_values_as_features")
+    if export_contract.get("must_not_use_future_outcome_fields") is not True:
+        violations.append("dataset_export_must_forbid_future_outcome_fields")
     if schema_audit.get("status") != "PASS":
         violations.append("actions_csv_schema_must_be_readable")
     if int(schema_audit.get("rows_scanned") or 0) <= 0:
@@ -320,6 +374,7 @@ def render_actions_context_quality_markdown(payload: dict[str, Any]) -> str:
     schema = payload["actions_csv_schema_audit"]
     mitigation = payload["derived_context_mitigation"]
     feature_audit = payload["training_feature_audit"]
+    export_contract = payload["dataset_export_contract"]
     lines = [
         "# actions.csv Betting-Context Quality Contract",
         "",
@@ -357,6 +412,23 @@ def render_actions_context_quality_markdown(payload: dict[str, Any]) -> str:
         ]
     )
     lines.extend(f"- `{field}`" for field in schema.get("missing_explicit_context_fields") or [])
+    lines.extend(
+        [
+            "",
+            "## Future Dataset Export Contract",
+            "",
+            f"- Status: `{export_contract['status']}`",
+            f"- Explicit export required: `{export_contract['explicit_export_required']}`",
+            f"- Reconstructed context allowed for current delivery: `{export_contract['reconstructed_context_allowed_for_current_delivery']}`",
+            f"- Current delivery blocker: `{export_contract['current_delivery_blocker']}`",
+            f"- Model-quality risk: `{export_contract['model_quality_risk']}`",
+            f"- Acceptance boundary: {export_contract['acceptance_boundary']}",
+            "",
+            "Fields required in the next dataset export:",
+            "",
+        ]
+    )
+    lines.extend(f"- `{field}`" for field in export_contract["required_explicit_fields"])
     lines.extend(
         [
             "",

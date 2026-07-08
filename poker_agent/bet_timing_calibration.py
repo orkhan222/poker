@@ -6,13 +6,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from poker_agent.timing_evidence_guard import (
+    REQUIRED_TIMING_LABEL_FIELDS,
+    TIMING_EVIDENCE_STATUS,
+    TIMING_LABEL_BOUNDARY,
+    TIMING_LABEL_QUALITY_UNCERTAIN,
+    TIMING_POLICY_HEURISTIC_CALIBRATED,
+    build_timing_label_quality_boundary,
+    validate_current_timing_evidence_boundary,
+)
+
 
 BET_TIMING_CALIBRATION_VERSION = "2026-06-28"
 IMPLEMENTED_AND_MEASURED = "IMPLEMENTED_AND_MEASURED"
 CALIBRATION_RECOMMENDED_FOR_HIGHER_REALISM = "CALIBRATION_RECOMMENDED_FOR_HIGHER_REALISM"
 LABELS_INSUFFICIENT_FOR_FINAL_HIGH_REALISM = "LABELS_INSUFFICIENT_FOR_FINAL_HIGH_REALISM"
-TIMING_LABEL_QUALITY_UNCERTAIN = "TIMING_LABEL_QUALITY_UNCERTAIN"
-TIMING_POLICY_HEURISTIC_CALIBRATED = "HEURISTIC_OR_TABLE_TEMPO_CALIBRATED"
 CURRENT_VALIDATION_SCOPE = "current_delivery_validation_scope"
 HIGHER_REALISM_SCOPE = "larger_real_player_behavior_labels"
 REQUIRED_RESPONSE_FIELDS = ("bet_size", "wait_time_ms", "sizing_method", "timing_method")
@@ -70,6 +78,7 @@ def build_bet_timing_calibration(project_root: Path) -> dict[str, Any]:
             "real_human_timing_label_quality": TIMING_LABEL_QUALITY_UNCERTAIN,
             "real_human_timing_labels_available": False,
             "timing_human_likeness_final_proof_allowed": False,
+            "timing_evidence_status": TIMING_EVIDENCE_STATUS,
         },
         "calibration_boundary": {
             "status": CALIBRATION_RECOMMENDED_FOR_HIGHER_REALISM,
@@ -88,20 +97,9 @@ def build_bet_timing_calibration(project_root: Path) -> dict[str, Any]:
                 "for bet-size distributions, decision timing, table tempo, stack depth, street, and opponent slices."
             ),
         },
-        "timing_label_quality_boundary": {
-            "status": TIMING_LABEL_QUALITY_UNCERTAIN,
-            "timing_feature_available": "wait_time_ms" in response_fields and "timing_method" in response_fields,
-            "timing_policy_type": TIMING_POLICY_HEURISTIC_CALIBRATED,
-            "real_human_timing_labels_available": False,
-            "final_production_human_likeness_proof_allowed": False,
-            "current_delivery_blocker": False,
-            "model_quality_risk": True,
-            "reason": (
-                "The agent returns a bounded wait_time_ms value, but without reviewed real human timing labels "
-                "the timing behavior is calibrated heuristically and cannot be used as final production "
-                "human-likeness evidence."
-            ),
-        },
+        "timing_label_quality_boundary": build_timing_label_quality_boundary(
+            timing_feature_available="wait_time_ms" in response_fields and "timing_method" in response_fields
+        ),
         "calibration_dataset_requirements": [
             "Reviewed real-player bet-size labels for call, bet, and raise decisions.",
             "Reviewed decision-time labels captured before the hero action, not after outcome leakage.",
@@ -129,6 +127,7 @@ def build_bet_timing_calibration(project_root: Path) -> dict[str, Any]:
             "Higher-realism calibration is complete without larger reviewed real-player behavior labels.",
             "Current timing and bet-size measurements are a substitute for production-scale behavioral calibration.",
             "Heuristic/table-tempo timing is final proof of human timing likeness without reviewed timing labels.",
+            "wait_time_ms proves human-like timing without reviewed human decision-time labels.",
         ],
     }
     payload["proof_cases"] = build_bet_timing_calibration_proof_cases(payload)
@@ -159,14 +158,6 @@ def validate_bet_timing_calibration(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("bet_timing_behavior_must_be_measured")
     if current.get("timing_and_bet_size_status") != "PASS":
         violations.append("current_scope_timing_and_bet_size_status_must_pass")
-    if current.get("timing_policy_type") != TIMING_POLICY_HEURISTIC_CALIBRATED:
-        violations.append("timing_policy_type_must_remain_heuristic_or_table_tempo_calibrated")
-    if current.get("real_human_timing_label_quality") != TIMING_LABEL_QUALITY_UNCERTAIN:
-        violations.append("real_human_timing_label_quality_must_remain_uncertain")
-    if current.get("real_human_timing_labels_available") is not False:
-        violations.append("real_human_timing_labels_must_not_be_claimed_available")
-    if current.get("timing_human_likeness_final_proof_allowed") is not False:
-        violations.append("timing_human_likeness_final_proof_must_be_blocked")
     if boundary.get("status") != CALIBRATION_RECOMMENDED_FOR_HIGHER_REALISM:
         violations.append("higher_realism_calibration_recommendation_must_remain_visible")
     if boundary.get("requires_more_real_player_behavior_labels") is not True:
@@ -183,20 +174,9 @@ def validate_bet_timing_calibration(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("calibration_gap_must_not_block_current_delivery")
     if boundary.get("label_gap_status") != LABELS_INSUFFICIENT_FOR_FINAL_HIGH_REALISM:
         violations.append("label_gap_status_must_remain_insufficient_for_final_high_realism")
-    if timing_boundary.get("status") != TIMING_LABEL_QUALITY_UNCERTAIN:
-        violations.append("timing_label_quality_status_must_remain_uncertain")
-    if timing_boundary.get("timing_feature_available") is not True:
-        violations.append("timing_feature_must_remain_available")
-    if timing_boundary.get("timing_policy_type") != TIMING_POLICY_HEURISTIC_CALIBRATED:
-        violations.append("timing_boundary_policy_type_must_remain_heuristic_or_table_tempo_calibrated")
-    if timing_boundary.get("real_human_timing_labels_available") is not False:
-        violations.append("timing_boundary_must_not_claim_real_human_timing_labels_available")
-    if timing_boundary.get("final_production_human_likeness_proof_allowed") is not False:
-        violations.append("timing_final_production_human_likeness_proof_must_remain_blocked")
-    if timing_boundary.get("current_delivery_blocker") is not False:
-        violations.append("timing_label_gap_must_not_block_current_delivery")
-    if timing_boundary.get("model_quality_risk") is not True:
-        violations.append("timing_label_gap_must_remain_model_quality_risk")
+    for violation in validate_current_timing_evidence_boundary(current, timing_boundary):
+        if violation not in violations:
+            violations.append(violation)
     if not any("bet-size" in metric or "bet size" in metric for metric in metrics):
         violations.append("bet_size_distribution_metric_must_be_revalidated")
     if not any("timing" in metric or "decision-time" in metric or "decision time" in metric for metric in metrics):
@@ -224,6 +204,16 @@ def build_bet_timing_calibration_proof_cases(payload: dict[str, Any]) -> list[di
     mutated["current_delivery_scope"]["timing_policy_type"] = "LEARNED_FROM_REVIEWED_HUMAN_TIMING_LABELS"
     mutated["timing_label_quality_boundary"]["timing_policy_type"] = "LEARNED_FROM_REVIEWED_HUMAN_TIMING_LABELS"
     cases.append(_bet_timing_proof_case("blocks_heuristic_timing_relabel_as_supervised", mutated, "FAIL"))
+
+    mutated = deepcopy(payload)
+    mutated["timing_label_quality_boundary"]["heuristic_timing_counts_as_full_human_likeness_proof"] = True
+    mutated["timing_label_quality_boundary"]["final_human_likeness_claim_allowed_from_timing_alone"] = True
+    cases.append(_bet_timing_proof_case("blocks_heuristic_timing_as_full_human_likeness_proof", mutated, "FAIL"))
+
+    mutated = deepcopy(payload)
+    mutated["timing_label_quality_boundary"]["requires_real_human_timing_labels"] = False
+    mutated["timing_label_quality_boundary"]["required_timing_label_fields"] = ["human_wait_time_ms"]
+    cases.append(_bet_timing_proof_case("blocks_missing_real_timing_label_contract", mutated, "FAIL"))
 
     mutated = deepcopy(payload)
     mutated["timing_label_quality_boundary"]["current_delivery_blocker"] = True
@@ -280,6 +270,7 @@ def render_bet_timing_calibration_markdown(payload: dict[str, Any]) -> str:
         f"- Timing implemented: `{current['timing_implemented']}`",
         f"- Measured: `{current['measured']}`",
         f"- Timing and bet-size status: `{current['timing_and_bet_size_status']}`",
+        f"- Timing evidence status: `{current['timing_evidence_status']}`",
         "",
         "## Calibration Boundary",
         "",
@@ -292,13 +283,19 @@ def render_bet_timing_calibration_markdown(payload: dict[str, Any]) -> str:
         "",
         "## Timing Label Quality Boundary",
         "",
+        f"- Boundary: `{timing_boundary['boundary']}`",
         f"- Status: `{timing_boundary['status']}`",
         f"- Timing feature available: `{timing_boundary['timing_feature_available']}`",
         f"- Timing policy type: `{timing_boundary['timing_policy_type']}`",
         f"- Real human timing labels available: `{timing_boundary['real_human_timing_labels_available']}`",
+        f"- Requires real human timing labels: `{timing_boundary['requires_real_human_timing_labels']}`",
+        f"- Uses real human timing labels: `{timing_boundary['uses_real_human_timing_labels']}`",
+        f"- Heuristic timing counts as full proof: `{timing_boundary['heuristic_timing_counts_as_full_human_likeness_proof']}`",
+        f"- Timing alone allows final human-likeness claim: `{timing_boundary['final_human_likeness_claim_allowed_from_timing_alone']}`",
         f"- Final production human-likeness proof allowed: `{timing_boundary['final_production_human_likeness_proof_allowed']}`",
         f"- Current delivery blocker: `{timing_boundary['current_delivery_blocker']}`",
         f"- Model quality risk: `{timing_boundary['model_quality_risk']}`",
+        f"- Required timing label fields: `{', '.join(timing_boundary['required_timing_label_fields'])}`",
         "",
         "## Calibration Dataset Requirements",
         "",

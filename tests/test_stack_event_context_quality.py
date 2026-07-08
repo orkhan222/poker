@@ -7,6 +7,7 @@ from poker_agent.api_contract import api_contract
 from poker_agent.features import load_training_examples
 from poker_agent.stack_event_context_quality import (
     STACK_CONTEXT_IMPLEMENTATION_MODULE,
+    STACK_CONTEXT_PRE_ACTION_HELPER,
     STACK_CONTEXT_DERIVATION_POLICY,
     STACK_EVENT_RISK_ID,
     STACK_EVENT_ROOT_CAUSE,
@@ -43,8 +44,10 @@ def test_stack_event_context_quality_passes_on_current_project() -> None:
     assert payload["raw_stack_event_boundary"]["decision_time_derivation_required"] is True
     assert payload["derived_context_mitigation"]["status"] == "IMPLEMENTED_FROM_PRE_ACTION_STACK_DELTAS"
     assert payload["derived_context_mitigation"]["implementation_module"] == STACK_CONTEXT_IMPLEMENTATION_MODULE
+    assert payload["derived_context_mitigation"]["pre_action_event_derivation_helper"] == STACK_CONTEXT_PRE_ACTION_HELPER
     assert payload["derived_context_mitigation"]["uses_target_action_stack_delta_as_feature"] is False
     assert payload["training_feature_audit"]["status"] == "PASS"
+    assert "reconstructed_pot" in payload["training_feature_audit"]["required_stack_context_features_present"]
     assert "reconstructed_effective_stack" in payload["training_feature_audit"]["required_stack_context_features_present"]
     assert "reconstructed_spr_after_call" in payload["training_feature_audit"]["required_stack_context_features_present"]
     assert (
@@ -69,6 +72,8 @@ def test_stack_event_context_quality_is_exposed_through_api_contract() -> None:
 
     assert contract["endpoint"] == "/stack-event-context-quality.json"
     assert contract["implementation_module"] == STACK_CONTEXT_IMPLEMENTATION_MODULE
+    assert contract["pre_action_event_derivation_helper"] == STACK_CONTEXT_PRE_ACTION_HELPER
+    assert "reconstructed_pot" in contract["required_derived_features"]
     assert "reconstructed_effective_stack" in contract["required_derived_features"]
     assert payload["overall_status"] == "PASS"
     assert payload["raw_stack_event_boundary"]["target_action_stack_delta_allowed_as_feature"] is False
@@ -113,6 +118,7 @@ def test_stack_event_context_quality_blocks_raw_event_overclaim() -> None:
             "status": "IMPLEMENTED_FROM_PRE_ACTION_STACK_DELTAS",
             "implemented": True,
             "implementation_module": "wrong",
+            "pre_action_event_derivation_helper": "wrong",
             "uses_target_action_stack_delta_as_feature": True,
             "target_action_stack_delta_leakage_guard": False,
             "uses_post_hand_outcome_fields": True,
@@ -144,6 +150,7 @@ def test_stack_event_context_quality_blocks_raw_event_overclaim() -> None:
     assert "target_action_stack_delta_must_not_be_feature" in invariants["violations"]
     assert "derived_stack_context_must_not_use_target_action_delta" in invariants["violations"]
     assert "derived_stack_context_must_reference_stack_context_module" in invariants["violations"]
+    assert "derived_stack_context_must_reference_pre_action_event_helper" in invariants["violations"]
     assert "target_action_stack_delta_leakage_guard_must_be_enabled" in invariants["violations"]
     assert "stack_event_context_gap_must_remain_model_quality_risk" in invariants["violations"]
     assert "target_stack_delta_leakage_guard_must_be_zero" in invariants["violations"]
@@ -183,6 +190,7 @@ def test_training_examples_include_stack_event_derived_pressure(tmp_path: Path) 
     assert second_label == "call"
     assert second_features["stack_event_context_reconstructed"] == 1.0
     assert second_features["stack_event_target_bet_size_used_as_feature"] == 0.0
+    assert second_features["reconstructed_pot"] == 4.0
     assert second_features["reconstructed_effective_stack"] == 100.0
     assert second_features["reconstructed_current_street_bet_size"] == 4.0
     assert second_features["reconstructed_call_pressure"] > 0.0

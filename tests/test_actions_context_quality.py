@@ -23,6 +23,7 @@ def test_actions_context_quality_passes_with_open_dataset_limitation() -> None:
     schema = payload["actions_csv_schema_audit"]
     risk = payload["risk_contract"]
     mitigation = payload["derived_context_mitigation"]
+    export_contract = payload["dataset_export_contract"]
     feature_audit = payload["training_feature_audit"]
 
     assert payload["overall_status"] == "PASS"
@@ -32,7 +33,7 @@ def test_actions_context_quality_passes_with_open_dataset_limitation() -> None:
     assert set(risk["missing_or_reconstructed_decision_fields"]) == set(REQUIRED_EXPLICIT_ACTION_FIELDS)
     assert set(risk["decision_time_context_policy"]) == set(REQUIRED_EXPLICIT_ACTION_FIELDS)
     assert risk["target_row_values_are_labels_not_features"] is True
-    for field in ["amount", "to_call", "pot_before_action", "min_raise", "legal_actions"]:
+    for field in ["amount", "to_call", "pot_before_action", "min_raise", "legal_actions", "last_aggressor", "facing_bet"]:
         assert risk["decision_time_context_policy"][field]["target_row_value_allowed_as_feature"] is False
         assert risk["decision_time_context_policy"][field]["reconstruction_source"]
     assert risk["current_delivery_blocker"] is False
@@ -40,6 +41,11 @@ def test_actions_context_quality_passes_with_open_dataset_limitation() -> None:
     assert risk["final_strategy_quality_claim_blocker_without_richer_action_context"] is True
     assert schema["explicit_context_status"] == EXPLICIT_BETTING_CONTEXT_STATUS
     assert set(REQUIRED_EXPLICIT_ACTION_FIELDS).issubset(set(schema["missing_explicit_context_fields"]))
+    assert export_contract["explicit_export_required"] is True
+    assert export_contract["reconstructed_context_allowed_for_current_delivery"] is True
+    assert export_contract["current_delivery_blocker"] is False
+    assert export_contract["model_quality_risk"] is True
+    assert set(export_contract["required_explicit_fields"]) == set(REQUIRED_EXPLICIT_ACTION_FIELDS)
     assert mitigation["does_not_fully_replace_explicit_context"] is True
     assert mitigation["target_action_context_leakage_guard"] is True
     assert mitigation["final_strategy_quality_claim_blocker_without_richer_action_context"] is True
@@ -48,6 +54,9 @@ def test_actions_context_quality_passes_with_open_dataset_limitation() -> None:
     assert feature_audit["status"] == "PASS"
     assert "hand_action_order" in feature_audit["required_derived_features_present"]
     assert "call_price_ratio" in feature_audit["required_derived_features_present"]
+    assert "facing_bet_derived" in feature_audit["required_derived_features_present"]
+    assert "last_aggressor_known" in feature_audit["required_derived_features_present"]
+    assert "last_aggressor_derived" in feature_audit["required_derived_features_present"]
 
 
 def test_actions_context_quality_is_exposed_through_api_contract() -> None:
@@ -58,6 +67,11 @@ def test_actions_context_quality_is_exposed_through_api_contract() -> None:
 
     assert contract["endpoint"] == "/actions-context-quality.json"
     assert "to_call" in contract["missing_or_required_explicit_fields"]
+    assert "last_aggressor" in contract["missing_or_required_explicit_fields"]
+    assert "facing_bet" in contract["missing_or_required_explicit_fields"]
+    assert contract["future_dataset_export"]["explicit_export_required"] is True
+    assert contract["future_dataset_export"]["current_delivery_blocker"] is False
+    assert set(contract["future_dataset_export"]["required_explicit_fields"]) == set(REQUIRED_EXPLICIT_ACTION_FIELDS)
     assert payload["overall_status"] == "PASS"
     assert payload["actions_csv_schema_audit"]["explicit_context_status"] == EXPLICIT_BETTING_CONTEXT_STATUS
 
@@ -83,6 +97,17 @@ def test_actions_context_quality_blocks_false_completion_claim() -> None:
             "final_strategy_quality_claim_blocker_without_richer_action_context": False,
         },
         "required_explicit_action_fields": list(REQUIRED_EXPLICIT_ACTION_FIELDS),
+        "dataset_export_contract": {
+            "status": "COMPLETE",
+            "source_table": "actions.csv",
+            "required_explicit_fields": ["to_call"],
+            "explicit_export_required": False,
+            "reconstructed_context_allowed_for_current_delivery": False,
+            "current_delivery_blocker": True,
+            "model_quality_risk": False,
+            "must_not_use_target_row_values": False,
+            "must_not_use_future_outcome_fields": False,
+        },
         "actions_csv_schema_audit": {
             "status": "PASS",
             "explicit_context_status": "COMPLETE",
@@ -116,6 +141,12 @@ def test_actions_context_quality_blocks_false_completion_claim() -> None:
     assert "actions_context_target_row_values_must_be_labels_not_features" in invariants["violations"]
     assert "actions_context_mitigation_status_must_require_reconstruction" in invariants["violations"]
     assert "actions_context_must_block_final_strategy_claim_without_richer_data" in invariants["violations"]
+    assert "dataset_export_contract_status_must_require_explicit_betting_context" in invariants["violations"]
+    assert "dataset_export_required_fields_must_match_contract" in invariants["violations"]
+    assert "dataset_export_must_require_explicit_context" in invariants["violations"]
+    assert "current_delivery_must_allow_reconstructed_context" in invariants["violations"]
+    assert "dataset_export_gap_must_not_block_current_delivery" in invariants["violations"]
+    assert "dataset_export_gap_must_remain_model_quality_risk" in invariants["violations"]
     assert "missing_explicit_fields_must_remain_marked_incomplete" in invariants["violations"]
     assert "target_action_amount_must_not_be_used_as_feature" in invariants["violations"]
     assert "target_action_context_leakage_guard_must_be_enabled" in invariants["violations"]
@@ -167,7 +198,10 @@ def test_training_examples_include_pre_action_order_context(tmp_path: Path) -> N
     assert second_features["hand_action_order"] == 1.0
     assert second_features["street_action_order"] == 1.0
     assert second_features["facing_bet_or_raise"] == 1.0
+    assert second_features["facing_bet_derived"] == 1.0
     assert second_features["call_price_ratio"] > 0.0
+    assert second_features["last_aggressor_known"] == 1.0
+    assert second_features["last_aggressor_derived"] == 1.0
     assert second_features["explicit_to_call_available"] == 0.0
 
 

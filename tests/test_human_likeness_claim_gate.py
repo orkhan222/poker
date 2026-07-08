@@ -87,6 +87,7 @@ def test_human_likeness_claim_gate_blocks_distribution_only_full_claim(tmp_path:
     proof_cases = {case["name"]: case for case in payload["proof_cases"]}
     assert proof_cases["blocks_unreviewed_position_based_sufficiency"]["observed_status"] == "FAIL"
     assert proof_cases["blocks_unreviewed_street_level_sufficiency"]["observed_status"] == "FAIL"
+    assert proof_cases["blocks_unreviewed_timing_sufficiency"]["observed_status"] == "FAIL"
 
 
 def test_human_likeness_claim_gate_rejects_false_approval(tmp_path: Path) -> None:

@@ -169,6 +169,7 @@ def _write_reports(reports: Path) -> None:
                     "real_human_timing_label_quality": "TIMING_LABEL_QUALITY_UNCERTAIN",
                     "real_human_timing_labels_available": False,
                     "timing_human_likeness_final_proof_allowed": False,
+                    "timing_evidence_status": "HEURISTIC_TIMING_ONLY_NOT_FINAL_HUMAN_LIKENESS_PROOF",
                 },
                 "calibration_boundary": {
                     "requires_more_real_player_behavior_labels": True,
@@ -176,7 +177,25 @@ def _write_reports(reports: Path) -> None:
                     "production_blocker_for_current_delivery": False,
                 },
                 "timing_label_quality_boundary": {
+                    "boundary": "REAL_HUMAN_TIMING_LABELS_REQUIRED_FOR_FULL_HUMAN_LIKENESS_PROOF",
                     "status": "TIMING_LABEL_QUALITY_UNCERTAIN",
+                    "timing_feature_available": True,
+                    "timing_policy_type": "HEURISTIC_OR_TABLE_TEMPO_CALIBRATED",
+                    "real_human_timing_labels_available": False,
+                    "requires_real_human_timing_labels": True,
+                    "uses_real_human_timing_labels": False,
+                    "required_timing_label_fields": [
+                        "decision_start_ts",
+                        "decision_end_ts",
+                        "human_wait_time_ms",
+                        "street",
+                        "position",
+                        "facing_bet",
+                        "action",
+                    ],
+                    "heuristic_timing_counts_as_full_human_likeness_proof": False,
+                    "final_human_likeness_claim_allowed_from_timing_alone": False,
+                    "final_production_human_likeness_proof_allowed": False,
                     "current_delivery_blocker": False,
                     "model_quality_risk": True,
                 },
@@ -235,8 +254,30 @@ def _write_reports(reports: Path) -> None:
                         "min_raise",
                         "legal_actions",
                         "action_order",
+                        "last_aggressor",
+                        "facing_bet",
                     ],
                     "limitation_status": "OPEN_DATASET_LIMITATION",
+                },
+                "dataset_export_contract": {
+                    "status": "EXPLICIT_BETTING_CONTEXT_REQUIRED_FOR_NEXT_DATASET_EXPORT",
+                    "source_table": "actions.csv",
+                    "required_explicit_fields": [
+                        "amount",
+                        "to_call",
+                        "pot_before_action",
+                        "min_raise",
+                        "legal_actions",
+                        "action_order",
+                        "last_aggressor",
+                        "facing_bet",
+                    ],
+                    "explicit_export_required": True,
+                    "reconstructed_context_allowed_for_current_delivery": True,
+                    "current_delivery_blocker": False,
+                    "model_quality_risk": True,
+                    "must_not_use_target_row_values": True,
+                    "must_not_use_future_outcome_fields": True,
                 },
                 "derived_context_mitigation": {
                     "status": "IMPLEMENTED_FROM_PRE_ACTION_EVENT_STREAM",
@@ -608,6 +649,19 @@ def test_final_delivery_acceptance_passes_with_tracked_risks(tmp_path: Path) -> 
         payload["tracked_component_risks"]["actions_context_quality"]["explicit_context_status"]
         == "INCOMPLETE_EXPLICIT_BETTING_CONTEXT"
     )
+    actions_context = payload["tracked_component_risks"]["actions_context_quality"]
+    assert actions_context["future_dataset_explicit_export_required"] is True
+    assert actions_context["reconstructed_context_allowed_for_current_delivery"] is True
+    assert set(actions_context["future_dataset_required_explicit_fields"]) == {
+        "amount",
+        "to_call",
+        "pot_before_action",
+        "min_raise",
+        "legal_actions",
+        "action_order",
+        "last_aggressor",
+        "facing_bet",
+    }
     assert payload["tracked_component_risks"]["actions_context_quality"]["current_delivery_blocker"] is False
     assert payload["tracked_component_risks"]["actions_context_quality"]["model_quality_risk"] is True
     assert (
@@ -712,6 +766,9 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     payload["tracked_component_risks"]["normalized_action_contract"]["noisy_action_examples"][0]["passed"] = False
     payload["tracked_component_risks"]["actions_context_quality"]["explicit_context_status"] = "COMPLETE"
     payload["tracked_component_risks"]["actions_context_quality"]["does_not_fully_replace_explicit_context"] = False
+    payload["tracked_component_risks"]["actions_context_quality"]["future_dataset_explicit_export_required"] = False
+    payload["tracked_component_risks"]["actions_context_quality"]["reconstructed_context_allowed_for_current_delivery"] = False
+    payload["tracked_component_risks"]["actions_context_quality"]["future_dataset_required_explicit_fields"] = ["to_call"]
     payload["tracked_component_risks"]["actions_context_quality"]["model_quality_risk"] = False
     payload["tracked_component_risks"]["stack_event_context_quality"]["raw_stack_events_are_direct_policy_features"] = True
     payload["tracked_component_risks"]["stack_event_context_quality"]["decision_time_derivation_required"] = False
@@ -773,6 +830,9 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     assert "prediction_distribution_tracking_must_be_required_for_real_traffic" in invariants["violations"]
     assert "actions_context_must_remain_marked_incomplete" in invariants["violations"]
     assert "actions_context_must_not_claim_full_replacement" in invariants["violations"]
+    assert "future_actions_dataset_explicit_export_required_must_be_true" in invariants["violations"]
+    assert "future_actions_dataset_required_fields_must_match_contract" in invariants["violations"]
+    assert "reconstructed_actions_context_must_remain_allowed_for_current_delivery" in invariants["violations"]
     assert "actions_context_gap_must_remain_model_quality_risk" in invariants["violations"]
     assert "raw_stack_events_must_not_be_marked_direct_policy_features" in invariants["violations"]
     assert "stack_events_must_require_decision_time_derivation" in invariants["violations"]

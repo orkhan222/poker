@@ -16,6 +16,7 @@ FORBIDDEN_STACK_EVENT_FEATURE_NAMES = (
 REQUIRED_STACK_CONTEXT_FEATURE_NAMES = (
     "stack_event_context_reconstructed",
     "stack_event_target_bet_size_used_as_feature",
+    "reconstructed_pot",
     "reconstructed_effective_stack",
     "reconstructed_effective_stack_to_pot",
     "reconstructed_spr_after_call",
@@ -84,6 +85,7 @@ class StackDecisionContext:
         return {
             "stack_event_context_reconstructed": 1.0,
             "stack_event_target_bet_size_used_as_feature": 0.0,
+            "reconstructed_pot": self.pot_base,
             "reconstructed_effective_stack": self.effective_stack,
             "reconstructed_effective_stack_to_pot": self.stack_to_pot,
             "reconstructed_spr_after_call": self.spr_after_call,
@@ -131,3 +133,73 @@ def build_stack_decision_context(
         hero_commitment_ratio=min(max(float(hero_commit or 0.0), 0.0) / hero_stack_base, 1.0),
         table_commitment_pressure=min(street_bet / pot_base, 1.0),
     )
+
+
+def derive_stack_decision_context_from_events(
+    stack_events: Iterable[Mapping[str, Any]],
+    *,
+    target_frame_id: Any,
+    hero_position: str,
+    starting_stack: float,
+    to_call: float,
+    min_raise: float,
+    street_start_frame_id: Any | None = None,
+) -> StackDecisionContext:
+    """Derive policy-safe stack context from raw stack events before the target action.
+
+    Only events with frame_id strictly below target_frame_id are used. This keeps the
+    target action's own stack delta, and all future stack changes, out of the feature
+    vector used to predict that target action.
+    """
+    target_frame = _coerce_float(target_frame_id, default=float("inf"))
+    street_start = (
+        None
+        if street_start_frame_id is None
+        else _coerce_float(street_start_frame_id, default=float("-inf"))
+    )
+    hero_key = _normalize_position(hero_position)
+    commits_by_position: dict[str, float] = {}
+    running_pot = 0.0
+
+    for event in stack_events:
+        frame_id = _coerce_float(event.get("frame_id"), default=float("inf"))
+        if frame_id >= target_frame:
+            continue
+        if street_start is not None and frame_id < street_start:
+            continue
+
+        diff = _coerce_float(event.get("diff"), default=0.0)
+        if diff >= 0.0:
+            continue
+
+        contribution = abs(diff)
+        running_pot += contribution
+        position = _normalize_position(event.get("player_position"))
+        if position:
+            commits_by_position[position] = commits_by_position.get(position, 0.0) + contribution
+
+    hero_commit = commits_by_position.get(hero_key, 0.0)
+    highest_commit = max(commits_by_position.values(), default=0.0)
+    decision_stack = max(float(starting_stack or 0.0) - hero_commit, 0.0)
+
+    return build_stack_decision_context(
+        running_pot=running_pot,
+        highest_commit=highest_commit,
+        hero_commit=hero_commit,
+        decision_stack=decision_stack,
+        to_call=to_call,
+        min_raise=min_raise,
+    )
+
+
+def _coerce_float(raw: Any, *, default: float = 0.0) -> float:
+    if raw is None or raw == "":
+        return default
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_position(raw: Any) -> str:
+    return str(raw or "").strip().upper()
