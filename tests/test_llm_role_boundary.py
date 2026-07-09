@@ -7,6 +7,7 @@ from poker_agent.llm_role_boundary import (
     build_role_permissions_matrix,
     build_llm_role_boundary,
     validate_llm_agent_claim,
+    validate_llm_production_scope_claim,
     validate_llm_role_boundary,
 )
 
@@ -148,6 +149,13 @@ def test_llm_role_boundary_keeps_llm_as_controlled_layer(tmp_path: Path) -> None
     assert claim_cases["allows_decision_context_research_claim"]["observed_status"] == "PASS"
     assert claim_cases["blocks_candidate_ranker_as_deployed_policy"]["observed_status"] == "FAIL"
     assert claim_cases["blocks_real_policy_agent_current_delivery_claim"]["observed_status"] == "FAIL"
+    production_scope_cases = {case["name"]: case for case in payload["production_scope_claim_examples"]}
+    assert (
+        production_scope_cases["allows_controlled_event_context_layer_production_claim"]["observed_status"]
+        == "PASS"
+    )
+    assert production_scope_cases["blocks_autonomous_llm_policy_production_claim"]["observed_status"] == "FAIL"
+    assert production_scope_cases["blocks_unqualified_llm_policy_claim_text"]["observed_status"] == "FAIL"
 
 
 def test_llm_agent_claim_validator_requires_explicit_scope(tmp_path: Path) -> None:
@@ -223,6 +231,67 @@ def test_llm_agent_claim_validator_requires_explicit_scope(tmp_path: Path) -> No
     assert decision_context["status"] == "PASS"
 
 
+def test_llm_production_scope_claim_guard_blocks_autonomous_policy_wording(tmp_path: Path) -> None:
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    (reports / "llm_decision_context.json").write_text(
+        json.dumps(
+            {
+                "default_context_mode": "full_in_context",
+                "supported_context_modes": {"full_in_context": "rules and strategy context"},
+                "required_controls": ["legal action filtering", "strict JSON-only output"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (reports / "llm_event_gold_eval.json").write_text(
+        json.dumps(
+            {
+                "systems": {
+                    "strict_schema_rules": {
+                        "event_type": {"accuracy": 1.0, "macro_f1": 1.0},
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    boundary = build_llm_role_boundary(tmp_path)
+
+    controlled_claim = validate_llm_production_scope_claim(
+        {
+            "role": "controlled_event_context_layer",
+            "production_claim": True,
+            "controlled_event_context_layer_claim": True,
+            "autonomous_poker_policy_claim": False,
+            "policy_agent_claim": False,
+            "final_action_policy_claim": False,
+            "claim_text": "The LLM is production-approved as a controlled event/context layer.",
+        },
+        boundary,
+    )
+    autonomous_claim = validate_llm_production_scope_claim(
+        {
+            "role": "real_policy_agent",
+            "production_claim": True,
+            "controlled_event_context_layer_claim": False,
+            "autonomous_poker_policy_claim": True,
+            "policy_agent_claim": True,
+            "final_action_policy_claim": True,
+            "claim_text": "The LLM is a production autonomous poker policy agent.",
+        },
+        boundary,
+    )
+
+    assert controlled_claim["status"] == "PASS"
+    assert controlled_claim["approved_production_scope"] == "controlled_event_context_layer"
+    assert controlled_claim["autonomous_policy_claim_allowed"] is False
+    assert autonomous_claim["status"] == "FAIL"
+    assert "autonomous_poker_playing_llm_policy_claim_must_be_blocked" in autonomous_claim["violations"]
+    assert "llm_policy_agent_claim_must_be_blocked_for_current_delivery" in autonomous_claim["violations"]
+    assert "llm_final_action_policy_claim_must_be_blocked_for_current_delivery" in autonomous_claim["violations"]
+
+
 def test_llm_role_boundary_blocks_false_autonomous_llm_claim() -> None:
     payload = {
         "current_llm_role": {
@@ -260,11 +329,13 @@ def test_llm_role_boundary_blocks_false_autonomous_llm_claim() -> None:
 
 
 def test_llm_role_boundary_endpoint_returns_contract() -> None:
-    from poker_agent.service import llm_role_boundary_json
     from poker_agent.api_contract import api_contract
+    from poker_agent.service import llm_production_scope_claim_json, llm_role_boundary_json
 
     contract = api_contract()["llm_role_boundary"]
+    production_scope_contract = api_contract()["llm_production_scope_claim"]
     payload = llm_role_boundary_json()
+    production_scope_payload = llm_production_scope_claim_json()
 
     assert contract["endpoint"] == "/llm-role-boundary.json"
     assert contract["term_status"] == "LLM_BASED_AGENT_IS_UMBRELLA_TERM"
@@ -285,6 +356,10 @@ def test_llm_role_boundary_endpoint_returns_contract() -> None:
     assert contract["ambiguous_llm_agent_term_allowed"] is False
     assert contract["unqualified_production_claim_allowed"] is False
     assert contract["claim_validator"] == "poker_agent.llm_role_boundary.validate_llm_agent_claim"
+    assert (
+        contract["production_scope_claim_validator"]
+        == "poker_agent.llm_role_boundary.validate_llm_production_scope_claim"
+    )
     assert contract["role_taxonomy"] == [
         "event_normalization",
         "decision_context",
@@ -301,6 +376,15 @@ def test_llm_role_boundary_endpoint_returns_contract() -> None:
     assert contract["role_permissions_matrix"]["candidate_ranking"]["production_policy_approved"] is False
     assert contract["role_permissions_matrix"]["real_policy_agent"]["may_select_final_poker_action"] is True
     assert contract["role_permissions_matrix"]["real_policy_agent"]["production_policy_approved"] is False
+    assert production_scope_contract["endpoint"] == "/llm-production-scope-claim.json"
+    assert production_scope_contract["approved_production_scope"] == "controlled_event_context_layer"
+    assert production_scope_contract["autonomous_policy_claim_allowed"] is False
+    assert production_scope_contract["policy_agent_claim_allowed"] is False
+    assert production_scope_contract["final_action_policy_claim_allowed"] is False
+    assert (
+        production_scope_contract["validator"]
+        == "poker_agent.llm_role_boundary.validate_llm_production_scope_claim"
+    )
     assert payload["overall_status"] == "PASS"
     assert payload["controlled_layer_acceptance"]["status"] == "CONTROLLED_EVENT_CONTEXT_LAYER_APPROVED"
     assert payload["recommended_production_architecture"]["status"] == "SCHEMA_ROUTED_HYBRID_CONTROLLED_LAYER"
@@ -308,3 +392,10 @@ def test_llm_role_boundary_endpoint_returns_contract() -> None:
     assert payload["current_llm_role"]["status"] == "CONTROLLED_DECISION_CONTEXT_AND_EVENT_NORMALIZATION_LAYER"
     assert payload["role_taxonomy"]["real_policy_agent"]["production_policy_approved"] is False
     assert payload["autonomous_llm_agent_boundary"]["fully_autonomous_llm_agent_claim_allowed"] is False
+    assert production_scope_payload["status"] == "PASS"
+    assert production_scope_payload["approved_production_scope"] == "controlled_event_context_layer"
+    assert production_scope_payload["autonomous_policy_claim_allowed"] is False
+    assert (
+        production_scope_payload["validator"]
+        == "poker_agent.llm_role_boundary.validate_llm_production_scope_claim"
+    )

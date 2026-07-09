@@ -1,0 +1,34 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: routed_bundle_smoke
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: phase3_open_spiel_claim
+description: Run the real Phase 3 OpenSpiel/RL acceptance profile required before self-play win-rate and production strategy-quality claims.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_phase3_open_spiel_arena.py
+  args:
+    project_root: .
+    out: ${logging.reports_dir}/phase3_open_spiel_arena.json
+    markdown_out: ${logging.reports_dir}/phase3_open_spiel_arena.md
+    game_name: kuhn_poker
+    episodes: 5000
+    seed: 42
+    independent_seed_count: 5
+    max_steps_per_episode: 256
+    agent_a_name: phase1_llm_agent_a
+    agent_b_name: phase1_llm_agent_b
+    agent_a_source: phase1_trained_llm_policy_a
+    agent_b_source: phase1_trained_llm_policy_b
+    agent_a_model_path: models/phase1_llm_policy_a.joblib
+    agent_b_model_path: models/phase1_llm_policy_b.joblib
+    phase1_adapters_ready: true
+    run_if_available: true
+    policy_update_training_completed: true
+    policy_update_algorithm: PPO
+    claim_mode: true

@@ -1,0 +1,24 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: routed_bundle_smoke
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: open_spiel_claim_readiness
+description: Build the OpenSpiel/RL preflight gate required before self-play win-rate and production strategy-quality claims.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_open_spiel_claim_readiness.py
+  args:
+    project_root: .
+    out: ${logging.reports_dir}/open_spiel_claim_readiness.json
+    markdown_out: ${logging.reports_dir}/open_spiel_claim_readiness.md
+    agent_a_model_path: models/phase1_llm_policy_a.joblib
+    agent_b_model_path: models/phase1_llm_policy_b.joblib
+    episodes: 5000
+    independent_seed_count: 5
+    policy_update_training_completed: false
+    policy_update_algorithm: PPO

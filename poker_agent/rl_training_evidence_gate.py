@@ -8,6 +8,15 @@ RL_TRAINING_PROOF_PENDING_STATUS = "TRAINING_PROOF_NOT_COMPLETED"
 RL_TRAINING_PROOF_COMPLETED_STATUS = "TRAINING_PROOF_COMPLETED"
 MINIMUM_RL_STABILITY_SEEDS = 5
 MINIMUM_RL_LONG_RUN_EPISODES = 5_000
+REQUIRED_PHASE1_POLICY_ARTIFACTS = 2
+DEFAULT_POLICY_UPDATE_ALGORITHM = "PPO_OR_EQUIVALENT"
+SUPPORTED_POLICY_UPDATE_ALGORITHMS = frozenset(
+    {
+        "PPO",
+        "PPO_OR_EQUIVALENT",
+        "PPO_OR_EQUIVALENT_POLICY_UPDATE",
+    }
+)
 
 REQUIRED_RL_EVIDENCE = (
     "real_open_spiel_runtime",
@@ -27,26 +36,42 @@ def build_rl_training_evidence_gate(
     episodes: int,
     independent_seed_count: int,
     policy_update_training_completed: bool,
+    phase1_trained_policy_artifact_count: int | None = None,
+    policy_update_algorithm: str | None = None,
 ) -> dict[str, Any]:
+    artifact_count = (
+        REQUIRED_PHASE1_POLICY_ARTIFACTS
+        if phase1_trained_policy_artifact_count is None and phase1_trained_policy_artifacts_attached
+        else int(phase1_trained_policy_artifact_count or 0)
+    )
+    two_phase1_artifacts_attached = (
+        bool(phase1_trained_policy_artifacts_attached)
+        and artifact_count == REQUIRED_PHASE1_POLICY_ARTIFACTS
+    )
+    update_algorithm = _canonical_policy_update_algorithm(policy_update_algorithm)
+    policy_update_algorithm_supported = update_algorithm in SUPPORTED_POLICY_UPDATE_ALGORITHMS
+    ppo_or_equivalent_update_completed = (
+        bool(policy_update_training_completed) and policy_update_algorithm_supported
+    )
     seed_stability_evaluated = int(independent_seed_count) >= MINIMUM_RL_STABILITY_SEEDS
     long_run_completed = int(episodes) >= MINIMUM_RL_LONG_RUN_EPISODES
     measured_win_rate_claim_allowed = all(
         (
             real_open_spiel_runtime_available,
-            phase1_trained_policy_artifacts_attached,
+            two_phase1_artifacts_attached,
             agent_only_table_verified,
             seed_stability_evaluated,
             long_run_completed,
-            policy_update_training_completed,
+            ppo_or_equivalent_update_completed,
         )
     )
     missing_requirements = _missing_requirements(
         real_open_spiel_runtime_available=real_open_spiel_runtime_available,
-        phase1_trained_policy_artifacts_attached=phase1_trained_policy_artifacts_attached,
+        two_phase1_artifacts_attached=two_phase1_artifacts_attached,
         agent_only_table_verified=agent_only_table_verified,
         seed_stability_evaluated=seed_stability_evaluated,
         long_run_completed=long_run_completed,
-        policy_update_training_completed=policy_update_training_completed,
+        ppo_or_equivalent_update_completed=ppo_or_equivalent_update_completed,
     )
     return {
         "version": RL_TRAINING_EVIDENCE_GATE_VERSION,
@@ -60,7 +85,9 @@ def build_rl_training_evidence_gate(
         "real_open_spiel_runtime_required": True,
         "real_open_spiel_runtime_available": bool(real_open_spiel_runtime_available),
         "phase1_trained_policy_artifacts_required": True,
-        "phase1_trained_policy_artifacts_attached": bool(phase1_trained_policy_artifacts_attached),
+        "required_phase1_trained_policy_artifact_count": REQUIRED_PHASE1_POLICY_ARTIFACTS,
+        "phase1_trained_policy_artifact_count": artifact_count,
+        "phase1_trained_policy_artifacts_attached": two_phase1_artifacts_attached,
         "agent_only_table_required": True,
         "agent_only_table_verified": bool(agent_only_table_verified),
         "seed_stability_required": True,
@@ -72,19 +99,25 @@ def build_rl_training_evidence_gate(
         "episodes": int(episodes),
         "long_run_completed": long_run_completed,
         "policy_update_training_required": True,
-        "policy_update_training_completed": bool(policy_update_training_completed),
+        "policy_update_algorithm_required": DEFAULT_POLICY_UPDATE_ALGORITHM,
+        "policy_update_algorithm": update_algorithm,
+        "policy_update_algorithm_supported": policy_update_algorithm_supported,
+        "policy_update_training_completed": ppo_or_equivalent_update_completed,
+        "ppo_policy_update_required": True,
+        "ppo_or_equivalent_policy_update_completed": ppo_or_equivalent_update_completed,
         "measured_win_rate_claim_allowed": measured_win_rate_claim_allowed,
         "current_delivery_blocker": False,
         "model_quality_risk": not measured_win_rate_claim_allowed,
         "missing_requirements": missing_requirements,
         "allowed_current_claim": (
             "The Phase 3 agent-only OpenSpiel arena code is ready for a measured run when the "
-            "runtime, Phase 1 adapters, seed-stability run, and long-run training profile are available."
+            "runtime, two trained Phase 1 adapters, seed-stability run, long-run training profile, "
+            "and PPO/equivalent policy-update training are available."
         ),
         "blocked_claim": (
             "Do not claim RL win-rate or production strategy quality from Phase 3 until real OpenSpiel "
-            "runtime execution, two trained Phase 1 policy artifacts, seed stability, long-run volume, "
-            "and policy-update training are all complete."
+            "runtime execution, exactly two trained Phase 1 policy artifacts, seed stability, long-run "
+            "volume, and PPO/equivalent policy-update training are all complete."
         ),
     }
 
@@ -98,6 +131,8 @@ def validate_rl_training_evidence_gate(gate: dict[str, Any]) -> dict[str, Any]:
         episodes=int(gate.get("episodes") or 0),
         independent_seed_count=int(gate.get("independent_seed_count") or 0),
         policy_update_training_completed=gate.get("policy_update_training_completed") is True,
+        phase1_trained_policy_artifact_count=int(gate.get("phase1_trained_policy_artifact_count") or 0),
+        policy_update_algorithm=str(gate.get("policy_update_algorithm") or DEFAULT_POLICY_UPDATE_ALGORITHM),
     )
 
     if gate.get("gate_name") != "phase3_open_spiel_rl_training_evidence_gate":
@@ -108,6 +143,16 @@ def validate_rl_training_evidence_gate(gate: dict[str, Any]) -> dict[str, Any]:
         violations.append("rl_training_proof_must_require_real_open_spiel_runtime")
     if gate.get("phase1_trained_policy_artifacts_required") is not True:
         violations.append("rl_training_proof_must_require_two_phase1_adapters")
+    if int(gate.get("required_phase1_trained_policy_artifact_count") or 0) != REQUIRED_PHASE1_POLICY_ARTIFACTS:
+        violations.append("rl_training_proof_must_require_exactly_two_phase1_artifacts")
+    if int(gate.get("phase1_trained_policy_artifact_count") or 0) != expected[
+        "phase1_trained_policy_artifact_count"
+    ]:
+        violations.append("rl_training_phase1_artifact_count_must_match_gate_input")
+    if gate.get("phase1_trained_policy_artifacts_attached") is not expected[
+        "phase1_trained_policy_artifacts_attached"
+    ]:
+        violations.append("rl_training_phase1_artifacts_attached_must_require_exactly_two_artifacts")
     if gate.get("agent_only_table_required") is not True:
         violations.append("rl_training_proof_must_require_agent_only_table")
     if gate.get("seed_stability_required") is not True:
@@ -120,6 +165,16 @@ def validate_rl_training_evidence_gate(gate: dict[str, Any]) -> dict[str, Any]:
         violations.append("rl_training_proof_long_run_threshold_too_low")
     if gate.get("policy_update_training_required") is not True:
         violations.append("rl_training_proof_must_require_policy_update_training")
+    if gate.get("ppo_policy_update_required") is not True:
+        violations.append("rl_training_proof_must_require_ppo_or_equivalent_policy_update")
+    if gate.get("policy_update_algorithm_required") != DEFAULT_POLICY_UPDATE_ALGORITHM:
+        violations.append("rl_training_policy_update_algorithm_requirement_must_be_explicit")
+    if gate.get("policy_update_algorithm_supported") is not expected["policy_update_algorithm_supported"]:
+        violations.append("rl_training_policy_update_algorithm_support_must_match_gate")
+    if gate.get("ppo_or_equivalent_policy_update_completed") is not expected[
+        "ppo_or_equivalent_policy_update_completed"
+    ]:
+        violations.append("rl_training_ppo_policy_update_completion_must_match_gate")
     if gate.get("current_delivery_blocker") is not False:
         violations.append("rl_training_proof_gap_must_not_block_current_delivery")
     if gate.get("seed_stability_evaluated") is not expected["seed_stability_evaluated"]:
@@ -143,16 +198,16 @@ def validate_rl_training_evidence_gate(gate: dict[str, Any]) -> dict[str, Any]:
 def _missing_requirements(
     *,
     real_open_spiel_runtime_available: bool,
-    phase1_trained_policy_artifacts_attached: bool,
+    two_phase1_artifacts_attached: bool,
     agent_only_table_verified: bool,
     seed_stability_evaluated: bool,
     long_run_completed: bool,
-    policy_update_training_completed: bool,
+    ppo_or_equivalent_update_completed: bool,
 ) -> list[str]:
     missing_requirements = []
     if not real_open_spiel_runtime_available:
         missing_requirements.append("real_open_spiel_runtime")
-    if not phase1_trained_policy_artifacts_attached:
+    if not two_phase1_artifacts_attached:
         missing_requirements.append("two_phase1_trained_policy_artifacts")
     if not agent_only_table_verified:
         missing_requirements.append("agent_only_table")
@@ -160,6 +215,12 @@ def _missing_requirements(
         missing_requirements.append("seed_stability")
     if not long_run_completed:
         missing_requirements.append("long_run_training_volume")
-    if not policy_update_training_completed:
+    if not ppo_or_equivalent_update_completed:
         missing_requirements.append("policy_update_training")
     return missing_requirements
+
+
+def _canonical_policy_update_algorithm(value: str | None) -> str:
+    if value is None or not str(value).strip():
+        return DEFAULT_POLICY_UPDATE_ALGORITHM
+    return str(value).strip().upper().replace("-", "_").replace(" ", "_")

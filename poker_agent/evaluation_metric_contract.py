@@ -14,8 +14,10 @@ from poker_agent.strategy_metric_gate import (
 
 EVALUATION_METRIC_CONTRACT_VERSION = "2026-07-07"
 METRIC_CONTRACT_STATUS = "METRIC_BUNDLE_REQUIRED"
+METRIC_CONTRACT_PASSED_STATUS = "METRIC_BUNDLE_PASSED"
 METRIC_CONTRACT_BOUNDARY = "ACCURACY_AND_CROSS_ENTROPY_NOT_SUFFICIENT"
 FINAL_CLAIM_BLOCKED_STATUS = "BLOCKED_UNTIL_FULL_METRIC_BUNDLE_PASSES"
+FINAL_CLAIM_ALLOWED_STATUS = "ALLOWED"
 
 REQUIRED_METRIC_FAMILIES = (
     "action_classification",
@@ -58,10 +60,12 @@ def build_evaluation_metric_contract(project_root: Path) -> dict[str, Any]:
                 valid_metrics.get("balanced_accuracy"),
                 challenger_result.get("balanced_accuracy"),
             ),
+            "confusion_matrix": valid_metrics.get("confusion_matrix"),
             "human_action_alignment_accuracy": acceptance_alignment.get("accuracy"),
             "human_action_alignment_macro_f1": acceptance_alignment.get("macro_f1"),
         },
         "accuracy_only_approval_allowed": False,
+        "confusion_matrix_required_for_final_claim": True,
         "source_reports": [
             "reports/today_acceptance_production_gate.json",
             "reports/challenger_strategy_quality.json",
@@ -169,7 +173,7 @@ def build_evaluation_metric_contract(project_root: Path) -> dict[str, Any]:
         "version": EVALUATION_METRIC_CONTRACT_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "subject": "Production evaluation metric coverage boundary",
-        "status": METRIC_CONTRACT_STATUS,
+        "status": METRIC_CONTRACT_PASSED_STATUS if final_metric_bundle_passed else METRIC_CONTRACT_STATUS,
         "boundary": METRIC_CONTRACT_BOUNDARY,
         "accuracy_alone_sufficient": False,
         "accuracy_and_cross_entropy_sufficient": False,
@@ -181,7 +185,7 @@ def build_evaluation_metric_contract(project_root: Path) -> dict[str, Any]:
         "final_metric_bundle_passed": final_metric_bundle_passed,
         "final_strategy_quality_claim_allowed": final_metric_bundle_passed,
         "final_strategy_quality_claim_status": (
-            "ALLOWED" if final_metric_bundle_passed else FINAL_CLAIM_BLOCKED_STATUS
+            FINAL_CLAIM_ALLOWED_STATUS if final_metric_bundle_passed else FINAL_CLAIM_BLOCKED_STATUS
         ),
         "current_delivery_blocker": False,
         "model_quality_risk": not final_metric_bundle_passed,
@@ -250,6 +254,14 @@ def build_evaluation_metric_proof_cases(payload: dict[str, Any]) -> list[dict[st
     record("blocks_final_claim_without_calibration_requirement", candidate, "FAIL")
 
     candidate = cloned()
+    candidate["metric_families"]["action_classification"]["confusion_matrix_required_for_final_claim"] = False
+    record("blocks_final_claim_without_confusion_matrix_requirement", candidate, "FAIL")
+
+    candidate = cloned()
+    candidate["metric_families"]["action_classification"]["metrics"]["confusion_matrix"] = None
+    record("blocks_final_claim_without_confusion_matrix_measurement", candidate, "FAIL")
+
+    candidate = cloned()
     candidate["metric_families"]["bet_sizing"]["bet_size_mae_required_for_final_high_realism"] = False
     record("blocks_final_claim_without_bet_size_mae_requirement", candidate, "FAIL")
 
@@ -266,8 +278,10 @@ def validate_evaluation_metric_contract(payload: dict[str, Any]) -> dict[str, An
 
     if payload.get("overall_status") == "PASS":
         violations.append("overall_status_must_be_assigned_after_invariant_validation")
-    if payload.get("status") != METRIC_CONTRACT_STATUS:
-        violations.append("metric_contract_status_must_require_metric_bundle")
+    final_passed = _final_metric_bundle_passed(families)
+    expected_status = METRIC_CONTRACT_PASSED_STATUS if final_passed else METRIC_CONTRACT_STATUS
+    if payload.get("status") != expected_status:
+        violations.append("metric_contract_status_must_match_metric_bundle_state")
     if payload.get("boundary") != METRIC_CONTRACT_BOUNDARY:
         violations.append("metric_contract_boundary_must_block_accuracy_and_cross_entropy_approval")
     if payload.get("accuracy_alone_sufficient") is not False:
@@ -297,6 +311,10 @@ def validate_evaluation_metric_contract(payload: dict[str, Any]) -> dict[str, An
     for metric_name in ("accuracy", "macro_f1", "balanced_accuracy"):
         if _as_float(action_metrics.get(metric_name)) is None:
             violations.append(f"action_classification_metric_missing:{metric_name}")
+    if action.get("confusion_matrix_required_for_final_claim") is not True:
+        violations.append("confusion_matrix_must_be_required_for_final_claim")
+    if not _has_confusion_matrix(action_metrics.get("confusion_matrix")):
+        violations.append("action_classification_confusion_matrix_missing_or_invalid")
 
     calibration = families.get("calibration") or {}
     calibration_metrics = calibration.get("metrics") or {}
@@ -315,18 +333,33 @@ def validate_evaluation_metric_contract(payload: dict[str, Any]) -> dict[str, An
     distribution_metrics = distribution.get("metrics") or {}
     if _as_float(distribution_metrics.get("js_divergence")) is None:
         violations.append("action_distribution_js_divergence_must_be_present")
-    if distribution.get("larger_clean_real_gameplay_revalidation_required") is not True:
-        violations.append("action_distribution_must_require_larger_clean_revalidation")
-    if distribution.get("generalized_action_distribution_claim_allowed") is not False:
-        violations.append("generalized_action_distribution_claim_must_be_blocked")
+    if final_passed:
+        if distribution.get("larger_clean_real_gameplay_revalidation_required") is not False:
+            violations.append("passed_metric_bundle_requires_larger_clean_revalidation_closed")
+        if distribution.get("generalized_action_distribution_claim_allowed") is not True:
+            violations.append("passed_metric_bundle_requires_generalized_distribution_claim")
+    else:
+        if distribution.get("larger_clean_real_gameplay_revalidation_required") is not True:
+            violations.append("action_distribution_must_require_larger_clean_revalidation")
+        if distribution.get("generalized_action_distribution_claim_allowed") is not False:
+            violations.append("generalized_action_distribution_claim_must_be_blocked")
 
     bet_sizing = families.get("bet_sizing") or {}
     if bet_sizing.get("bet_size_mae_required_for_final_high_realism") is not True:
         violations.append("bet_size_mae_must_be_required_for_final_high_realism")
-    if bet_sizing.get("requires_more_real_player_behavior_labels") is not True:
-        violations.append("bet_sizing_must_require_more_real_player_labels")
-    if bet_sizing.get("final_high_realism_claim_allowed") is not False:
-        violations.append("bet_sizing_final_high_realism_claim_must_be_blocked")
+    bet_sizing_metrics = bet_sizing.get("metrics") or {}
+    if final_passed:
+        if _as_float(bet_sizing_metrics.get("bet_size_mae")) is None:
+            violations.append("bet_size_mae_must_be_measured_for_strategy_claim")
+        if bet_sizing.get("requires_more_real_player_behavior_labels") is not False:
+            violations.append("passed_metric_bundle_requires_bet_sizing_labels_closed")
+        if bet_sizing.get("final_high_realism_claim_allowed") is not True:
+            violations.append("passed_metric_bundle_requires_bet_sizing_high_realism_claim")
+    else:
+        if bet_sizing.get("requires_more_real_player_behavior_labels") is not True:
+            violations.append("bet_sizing_must_require_more_real_player_labels")
+        if bet_sizing.get("final_high_realism_claim_allowed") is not False:
+            violations.append("bet_sizing_final_high_realism_claim_must_be_blocked")
 
     simulation = families.get("simulation_return") or {}
     simulation_metrics = simulation.get("metrics") or {}
@@ -340,12 +373,13 @@ def validate_evaluation_metric_contract(payload: dict[str, Any]) -> dict[str, An
         violations.append("full_training_seed_stability_must_be_required")
     if seed_metrics.get("phase3_seed_stability_required") is not True:
         violations.append("phase3_seed_stability_must_be_required")
-    if seed.get("full_production_scale_training_status") != "NOT_COMPLETED":
-        violations.append("full_production_scale_training_must_not_be_marked_completed")
-    if seed.get("phase3_training_proof_status") != "TRAINING_PROOF_NOT_COMPLETED":
-        violations.append("phase3_training_proof_must_not_be_marked_completed")
+    expected_training_status = "COMPLETED" if final_passed else "NOT_COMPLETED"
+    expected_phase3_status = "TRAINING_PROOF_COMPLETED" if final_passed else "TRAINING_PROOF_NOT_COMPLETED"
+    if seed.get("full_production_scale_training_status") != expected_training_status:
+        violations.append("full_production_scale_training_status_must_match_metric_bundle_state")
+    if seed.get("phase3_training_proof_status") != expected_phase3_status:
+        violations.append("phase3_training_proof_status_must_match_metric_bundle_state")
 
-    final_passed = _final_metric_bundle_passed(families)
     strategy_gate = payload.get("strategy_metric_gate") or {}
     if strategy_gate.get("final_metric_bundle_passed") is not final_passed:
         violations.append("strategy_metric_gate_status_must_match_metric_families")
@@ -360,6 +394,13 @@ def validate_evaluation_metric_contract(payload: dict[str, Any]) -> dict[str, An
             violations.append("incomplete_metric_bundle_must_remain_model_quality_risk")
         if payload.get("final_strategy_quality_claim_status") != FINAL_CLAIM_BLOCKED_STATUS:
             violations.append("final_strategy_quality_claim_status_must_be_blocked")
+    else:
+        if payload.get("final_strategy_quality_claim_allowed") is not True:
+            violations.append("final_strategy_quality_claim_must_open_when_full_metric_bundle_passes")
+        if payload.get("model_quality_risk") is not False:
+            violations.append("complete_metric_bundle_must_clear_model_quality_risk")
+        if payload.get("final_strategy_quality_claim_status") != FINAL_CLAIM_ALLOWED_STATUS:
+            violations.append("final_strategy_quality_claim_status_must_be_allowed")
 
     blocked = set(payload.get("blocked_claims") or [])
     if "Accuracy alone is sufficient for production strategy approval." not in blocked:
@@ -444,6 +485,24 @@ def _as_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _has_confusion_matrix(value: Any) -> bool:
+    if not isinstance(value, dict):
+        return False
+    labels = value.get("labels")
+    matrix = value.get("matrix")
+    if not isinstance(labels, list) or not labels:
+        return False
+    if not isinstance(matrix, list) or len(matrix) != len(labels):
+        return False
+    for row in matrix:
+        if not isinstance(row, list) or len(row) != len(labels):
+            return False
+        for cell in row:
+            if _as_float(cell) is None:
+                return False
+    return True
 
 
 def _read_optional_json(path: Path) -> dict[str, Any]:

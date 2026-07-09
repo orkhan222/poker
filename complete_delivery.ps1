@@ -80,7 +80,7 @@ New-Item -ItemType Directory -Force -Path $ReportsDir | Out-Null
 
 function Remove-DeliveryArtifacts {
     param([string]$Root)
-    foreach ($Relative in @(".qodo", "__pycache__", "poker_agent\__pycache__", "scripts\__pycache__")) {
+    foreach ($Relative in @(".qodo", "__pycache__", "poker_agent\__pycache__", "scripts\__pycache__", "tests\__pycache__")) {
         $Target = Join-Path $Root $Relative
         if (Test-Path -LiteralPath $Target) {
             Remove-Item -LiteralPath $Target -Recurse -Force
@@ -192,8 +192,12 @@ $MultiAgentTrainingStatusReport = Join-Path $ReportsDir "multi_agent_training_st
 $MultiAgentTrainingStatusMarkdown = Join-Path $ReportsDir "multi_agent_training_status.md"
 $Phase3OpenSpielArenaReport = Join-Path $ReportsDir "phase3_open_spiel_arena.json"
 $Phase3OpenSpielArenaMarkdown = Join-Path $ReportsDir "phase3_open_spiel_arena.md"
+$OpenSpielClaimReadinessReport = Join-Path $ReportsDir "open_spiel_claim_readiness.json"
+$OpenSpielClaimReadinessMarkdown = Join-Path $ReportsDir "open_spiel_claim_readiness.md"
 $OpenSpielClaimContractReport = Join-Path $ReportsDir "open_spiel_claim_contract.json"
 $OpenSpielClaimContractMarkdown = Join-Path $ReportsDir "open_spiel_claim_contract.md"
+$RlDeliveryBoundaryReport = Join-Path $ReportsDir "rl_delivery_boundary.json"
+$RlDeliveryBoundaryMarkdown = Join-Path $ReportsDir "rl_delivery_boundary.md"
 $TodayTrainingModelOut = Join-Path $ProjectRoot "models\poker_policy_bundle.joblib"
 
 Write-Host "1/8 Auditing dataset..." -ForegroundColor Green
@@ -521,11 +525,23 @@ Write-Host "7f-4/8 Building Phase 3 OpenSpiel agent-only arena boundary..." -For
     --out $Phase3OpenSpielArenaReport `
     --markdown-out $Phase3OpenSpielArenaMarkdown
 
+Write-Host "7f-4b/8 Building OpenSpiel/RL claim readiness preflight..." -ForegroundColor Green
+& $Python scripts\build_open_spiel_claim_readiness.py `
+    --project-root $ProjectRoot `
+    --out $OpenSpielClaimReadinessReport `
+    --markdown-out $OpenSpielClaimReadinessMarkdown
+
 Write-Host "7f-5/8 Building OpenSpiel/RL self-play claim contract..." -ForegroundColor Green
 & $Python scripts\build_open_spiel_claim_contract.py `
     --project-root $ProjectRoot `
     --out $OpenSpielClaimContractReport `
     --markdown-out $OpenSpielClaimContractMarkdown
+
+Write-Host "7f-6/8 Building RL delivery and strategy-claim boundary..." -ForegroundColor Green
+& $Python scripts\build_rl_delivery_boundary.py `
+    --project-root $ProjectRoot `
+    --out $RlDeliveryBoundaryReport `
+    --markdown-out $RlDeliveryBoundaryMarkdown
 
 Write-Host "7g/8 Building scope contract..." -ForegroundColor Green
 & $Python scripts\build_scope_contract.py `
@@ -621,6 +637,8 @@ Write-Host "Training cluster requirements: $TrainingClusterReport"
 Write-Host "Today acceptance training: $TodayTrainingReport"
 Write-Host "Multi-agent training status: $MultiAgentTrainingStatusReport"
 Write-Host "Phase 3 OpenSpiel arena: $Phase3OpenSpielArenaReport"
+Write-Host "OpenSpiel claim readiness: $OpenSpielClaimReadinessReport"
 Write-Host "OpenSpiel claim contract: $OpenSpielClaimContractReport"
+Write-Host "RL delivery boundary: $RlDeliveryBoundaryReport"
 Write-Host "ZIP: $ZipPath"
 

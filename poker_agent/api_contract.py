@@ -307,6 +307,9 @@ def api_contract() -> dict[str, Any]:
             "ambiguous_llm_agent_term_allowed": False,
             "role_disambiguation_required": True,
             "claim_validator": "poker_agent.llm_role_boundary.validate_llm_agent_claim",
+            "production_scope_claim_validator": (
+                "poker_agent.llm_role_boundary.validate_llm_production_scope_claim"
+            ),
             "unqualified_production_claim_allowed": False,
             "role_taxonomy": [
                 "event_normalization",
@@ -368,6 +371,23 @@ def api_contract() -> dict[str, Any]:
             "not_current_delivery_role": "real_policy_agent",
             "autonomous_llm_policy_claim_allowed": False,
             "boundary": "LLM-based agent must be qualified by role; the delivered LLM work is not a fully autonomous poker-playing policy agent.",
+        },
+        "llm_production_scope_claim": {
+            "endpoint": "/llm-production-scope-claim.json",
+            "description": (
+                "Executable guard for production-facing LLM claims. The only approved "
+                "production wording is controlled event/context layer."
+            ),
+            "approved_production_scope": "controlled_event_context_layer",
+            "autonomous_policy_claim_allowed": False,
+            "policy_agent_claim_allowed": False,
+            "final_action_policy_claim_allowed": False,
+            "validator": "poker_agent.llm_role_boundary.validate_llm_production_scope_claim",
+            "blocked_claims": [
+                "fully_autonomous_poker_playing_llm_policy",
+                "production_llm_policy_agent",
+                "llm_final_action_policy",
+            ],
         },
         "experimental_llm_policy": {
             "endpoint": "/llm-policy-experimental.json",

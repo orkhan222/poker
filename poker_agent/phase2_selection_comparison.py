@@ -26,6 +26,7 @@ REQUIRED_METRICS = (
     "macro_f1",
     "weighted_f1",
     "balanced_accuracy",
+    "confusion_matrix",
     "calibration_ece",
     "action_distribution_js",
     "bet_size_mae",

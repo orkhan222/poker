@@ -1,0 +1,18 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /model@_global_.model: routed_bundle_smoke
+  - override /training@_global_.training: smoke
+  - override /evaluation@_global_.evaluation: standard
+  - override /inference@_global_.inference: local_service
+  - override /logging@_global_.logging: local
+
+name: rl_delivery_boundary
+description: Build the boundary separating service delivery readiness from RL/OpenSpiel strategy-quality claims.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/build_rl_delivery_boundary.py
+  args:
+    project_root: .
+    out: ${logging.reports_dir}/rl_delivery_boundary.json
+    markdown_out: ${logging.reports_dir}/rl_delivery_boundary.md

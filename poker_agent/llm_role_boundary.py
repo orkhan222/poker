@@ -67,6 +67,56 @@ def validate_llm_agent_claim(claim: dict[str, Any], boundary: dict[str, Any]) ->
     }
 
 
+def validate_llm_production_scope_claim(claim: dict[str, Any], boundary: dict[str, Any]) -> dict[str, Any]:
+    """Validate production-facing wording for the delivered LLM component."""
+
+    violations: list[str] = []
+    acceptance = boundary.get("controlled_layer_acceptance") or {}
+    approved_scope = set(acceptance.get("approved_delivery_scope") or [])
+    role_name = claim.get("role")
+    claim_text = str(claim.get("claim_text") or "")
+    normalized_text = claim_text.lower()
+    production_claim = bool(claim.get("production_claim"))
+    controlled_event_context_claim = bool(claim.get("controlled_event_context_layer_claim"))
+    autonomous_policy_claim = bool(claim.get("autonomous_poker_policy_claim"))
+    policy_agent_claim = bool(claim.get("policy_agent_claim"))
+    final_action_policy_claim = bool(claim.get("final_action_policy_claim"))
+    approved_controlled_roles = {
+        "controlled_event_context_layer",
+        "event_normalization",
+        "decision_context",
+    }
+
+    if production_claim and role_name not in approved_controlled_roles:
+        violations.append("llm_production_claim_must_be_controlled_event_context_layer")
+    if controlled_event_context_claim and not {"event_normalization", "decision_context"}.issubset(
+        approved_scope
+    ):
+        violations.append("controlled_event_context_layer_must_be_delivery_approved")
+    if production_claim and controlled_event_context_claim is not True:
+        violations.append("llm_production_claim_must_explicitly_state_controlled_event_context_layer")
+    if production_claim and "controlled" not in normalized_text:
+        violations.append("production_claim_text_must_qualify_llm_as_controlled_layer")
+    if autonomous_policy_claim:
+        violations.append("autonomous_poker_playing_llm_policy_claim_must_be_blocked")
+    if policy_agent_claim:
+        violations.append("llm_policy_agent_claim_must_be_blocked_for_current_delivery")
+    if final_action_policy_claim:
+        violations.append("llm_final_action_policy_claim_must_be_blocked_for_current_delivery")
+    if "autonomous" in normalized_text and "llm" in normalized_text and "policy" in normalized_text:
+        violations.append("claim_text_must_not_present_llm_as_autonomous_policy")
+    if "fully autonomous" in normalized_text and "poker" in normalized_text:
+        violations.append("claim_text_must_not_present_llm_as_fully_autonomous_poker_agent")
+
+    return {
+        "status": "FAIL" if violations else "PASS",
+        "claim": claim,
+        "approved_production_scope": "controlled_event_context_layer",
+        "autonomous_policy_claim_allowed": False,
+        "violations": violations,
+    }
+
+
 def build_role_permissions_matrix() -> dict[str, dict[str, Any]]:
     return {
         "event_normalization": {
@@ -362,6 +412,7 @@ def build_llm_role_boundary(project_root: Path) -> dict[str, Any]:
         ],
     }
     payload["claim_validation_examples"] = build_llm_claim_validation_examples(payload)
+    payload["production_scope_claim_examples"] = build_llm_production_scope_claim_examples(payload)
     payload["proof_cases"] = build_llm_role_boundary_proof_cases(payload)
     payload["invariants"] = validate_llm_role_boundary(payload)
     if not all(case["passed"] for case in payload["proof_cases"]):
@@ -389,6 +440,9 @@ def validate_llm_role_boundary(payload: dict[str, Any]) -> dict[str, Any]:
     boundary = payload.get("autonomous_llm_agent_boundary") or {}
     evidence = payload.get("evidence") or {}
     claim_examples = {case.get("name"): case for case in payload.get("claim_validation_examples") or []}
+    production_scope_examples = {
+        case.get("name"): case for case in payload.get("production_scope_claim_examples") or []
+    }
 
     if role.get("status") != CONTROLLED_LAYER:
         violations.append("llm_role_must_remain_controlled_layer")
@@ -585,6 +639,21 @@ def validate_llm_role_boundary(payload: dict[str, Any]) -> dict[str, Any]:
         if claim_case.get("passed") is not True:
             violations.append(f"llm_claim_validation_case_failed:{required_claim_case}")
 
+    for required_scope_case in (
+        "allows_controlled_event_context_layer_production_claim",
+        "blocks_autonomous_llm_policy_production_claim",
+        "blocks_unqualified_llm_policy_claim_text",
+    ):
+        scope_case = production_scope_examples.get(required_scope_case) or {}
+        if not scope_case:
+            violations.append(f"llm_production_scope_claim_case_missing:{required_scope_case}")
+            continue
+        observed = validate_llm_production_scope_claim(scope_case.get("claim") or {}, payload)
+        if observed["status"] != scope_case.get("expected_status"):
+            violations.append(f"llm_production_scope_claim_case_status_mismatch:{required_scope_case}")
+        if scope_case.get("passed") is not True:
+            violations.append(f"llm_production_scope_claim_case_failed:{required_scope_case}")
+
     return {"status": "FAIL" if violations else "PASS", "violations": violations}
 
 
@@ -648,6 +717,59 @@ def build_llm_claim_validation_examples(payload: dict[str, Any]) -> list[dict[st
     ]
     for example in examples:
         observed = validate_llm_agent_claim(example["claim"], payload)
+        example["observed_status"] = observed["status"]
+        example["passed"] = observed["status"] == example["expected_status"]
+        example["violations"] = observed["violations"]
+    return examples
+
+
+def build_llm_production_scope_claim_examples(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    examples = [
+        {
+            "name": "allows_controlled_event_context_layer_production_claim",
+            "expected_status": "PASS",
+            "claim": {
+                "role": "controlled_event_context_layer",
+                "production_claim": True,
+                "controlled_event_context_layer_claim": True,
+                "autonomous_poker_policy_claim": False,
+                "policy_agent_claim": False,
+                "final_action_policy_claim": False,
+                "claim_text": (
+                    "The LLM work is production-approved as a controlled event/context layer, "
+                    "not as the final poker policy."
+                ),
+            },
+        },
+        {
+            "name": "blocks_autonomous_llm_policy_production_claim",
+            "expected_status": "FAIL",
+            "claim": {
+                "role": "real_policy_agent",
+                "production_claim": True,
+                "controlled_event_context_layer_claim": False,
+                "autonomous_poker_policy_claim": True,
+                "policy_agent_claim": True,
+                "final_action_policy_claim": True,
+                "claim_text": "The LLM is a production autonomous poker policy agent.",
+            },
+        },
+        {
+            "name": "blocks_unqualified_llm_policy_claim_text",
+            "expected_status": "FAIL",
+            "claim": {
+                "role": "decision_context",
+                "production_claim": True,
+                "controlled_event_context_layer_claim": False,
+                "autonomous_poker_policy_claim": False,
+                "policy_agent_claim": True,
+                "final_action_policy_claim": False,
+                "claim_text": "The LLM policy is approved for production.",
+            },
+        },
+    ]
+    for example in examples:
+        observed = validate_llm_production_scope_claim(example["claim"], payload)
         example["observed_status"] = observed["status"]
         example["passed"] = observed["status"] == example["expected_status"]
         example["violations"] = observed["violations"]
@@ -841,6 +963,20 @@ def render_llm_role_boundary_markdown(payload: dict[str, Any]) -> str:
         )
     lines.extend(["", "## Claim Validation Examples", ""])
     for case in payload.get("claim_validation_examples") or []:
+        lines.append(
+            f"- `{case['name']}`: expected `{case['expected_status']}`, "
+            f"observed `{case['observed_status']}`, passed `{case['passed']}`"
+        )
+    lines.extend(["", "## Production Scope Claim Guard", ""])
+    lines.extend(
+        [
+            "- Validator: `poker_agent.llm_role_boundary.validate_llm_production_scope_claim`",
+            "- Approved production wording: controlled event/context layer only.",
+            "- Blocked wording: autonomous poker-playing LLM policy or final-action policy agent.",
+            "",
+        ]
+    )
+    for case in payload.get("production_scope_claim_examples") or []:
         lines.append(
             f"- `{case['name']}`: expected `{case['expected_status']}`, "
             f"observed `{case['observed_status']}`, passed `{case['passed']}`"

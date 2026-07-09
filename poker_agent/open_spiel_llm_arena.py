@@ -12,8 +12,10 @@ from typing import Any, Protocol
 from poker_agent.action_planning import build_action_plan
 from poker_agent.agents import MLPolicyAgent
 from poker_agent.rl_training_evidence_gate import (
+    DEFAULT_POLICY_UPDATE_ALGORITHM,
     MINIMUM_RL_LONG_RUN_EPISODES,
     MINIMUM_RL_STABILITY_SEEDS,
+    REQUIRED_PHASE1_POLICY_ARTIFACTS,
     RL_TRAINING_PROOF_COMPLETED_STATUS,
     RL_TRAINING_PROOF_PENDING_STATUS,
     build_rl_training_evidence_gate,
@@ -85,6 +87,7 @@ class ArenaRunConfig:
     phase1_adapters_ready: bool = False
     independent_seed_count: int = 1
     policy_update_training_completed: bool = False
+    policy_update_algorithm: str = DEFAULT_POLICY_UPDATE_ALGORITHM
 
     def agent_specs(self) -> tuple[ArenaAgentSpec, ArenaAgentSpec]:
         return (
@@ -111,6 +114,7 @@ class ArenaRunConfig:
             "phase1_adapters_ready": self.phase1_adapters_ready,
             "independent_seed_count": self.independent_seed_count,
             "policy_update_training_completed": self.policy_update_training_completed,
+            "policy_update_algorithm": self.policy_update_algorithm,
             "agents": [spec.to_dict() for spec in self.agent_specs()],
         }
 
@@ -188,6 +192,7 @@ class OpenSpielAgentOnlyArena:
         real_open_spiel_runtime_available: bool = False,
         independent_seed_count: int = 1,
         policy_update_training_completed: bool = False,
+        policy_update_algorithm: str = DEFAULT_POLICY_UPDATE_ALGORITHM,
     ):
         self.game = game
         self.policies = policies
@@ -198,6 +203,7 @@ class OpenSpielAgentOnlyArena:
         self.real_open_spiel_runtime_available = real_open_spiel_runtime_available
         self.independent_seed_count = independent_seed_count
         self.policy_update_training_completed = policy_update_training_completed
+        self.policy_update_algorithm = policy_update_algorithm
         self.num_players = _game_num_players(game)
         if self.num_players != len(policies):
             raise OpenSpielArenaError(
@@ -299,6 +305,7 @@ class OpenSpielAgentOnlyArena:
                 "human_players_present": False,
                 "fixed_scripted_opponents_present": False,
                 "policy_update_during_arena": False,
+                "policy_update_algorithm": self.policy_update_algorithm,
                 "open_spiel_runtime_executed": True,
                 "phase1_policy_adapters_ready": self.phase1_policy_adapters_ready,
                 "metrics_claim_allowed": self.phase1_policy_adapters_ready,
@@ -311,10 +318,14 @@ class OpenSpielAgentOnlyArena:
         payload["rl_training_proof_boundary"] = _rl_training_proof_boundary(
             real_open_spiel_runtime_available=self.real_open_spiel_runtime_available,
             phase1_trained_policy_artifacts_attached=self.phase1_policy_adapters_ready,
+            phase1_trained_policy_artifact_count=(
+                len(self.policies) if self.phase1_policy_adapters_ready else 0
+            ),
             agent_only_table_verified=payload["arena_contract"]["agent_only_table"],
             episodes=episodes,
             independent_seed_count=self.independent_seed_count,
             policy_update_training_completed=self.policy_update_training_completed,
+            policy_update_algorithm=self.policy_update_algorithm,
         )
         payload["proof_cases"] = build_phase3_open_spiel_proof_cases(payload)
         payload["invariants"] = validate_phase3_open_spiel_arena_report(payload)
@@ -357,6 +368,7 @@ def build_phase3_open_spiel_arena_report(
         real_open_spiel_runtime_available=True,
         independent_seed_count=config.independent_seed_count,
         policy_update_training_completed=config.policy_update_training_completed,
+        policy_update_algorithm=config.policy_update_algorithm,
     )
     payload = arena.run(config.episodes, max_steps_per_episode=config.max_steps_per_episode)
     payload["project_root"] = str(project_root)
@@ -489,18 +501,22 @@ def _rl_training_proof_boundary(
     *,
     real_open_spiel_runtime_available: bool,
     phase1_trained_policy_artifacts_attached: bool,
+    phase1_trained_policy_artifact_count: int,
     agent_only_table_verified: bool,
     episodes: int,
     independent_seed_count: int,
     policy_update_training_completed: bool,
+    policy_update_algorithm: str = DEFAULT_POLICY_UPDATE_ALGORITHM,
 ) -> dict[str, Any]:
     return build_rl_training_evidence_gate(
         real_open_spiel_runtime_available=real_open_spiel_runtime_available,
         phase1_trained_policy_artifacts_attached=phase1_trained_policy_artifacts_attached,
+        phase1_trained_policy_artifact_count=phase1_trained_policy_artifact_count,
         agent_only_table_verified=agent_only_table_verified,
         episodes=episodes,
         independent_seed_count=independent_seed_count,
         policy_update_training_completed=policy_update_training_completed,
+        policy_update_algorithm=policy_update_algorithm,
     )
 
 
@@ -529,14 +545,16 @@ def build_phase3_open_spiel_proof_cases(payload: dict[str, Any]) -> list[dict[st
     for name, field in (
         ("blocks_win_rate_claim_without_real_open_spiel_runtime", "real_open_spiel_runtime_available"),
         ("blocks_win_rate_claim_without_two_phase1_artifacts", "phase1_trained_policy_artifacts_attached"),
+        ("blocks_win_rate_claim_without_exactly_two_artifacts", "phase1_trained_policy_artifact_count"),
         ("blocks_win_rate_claim_without_seed_stability", "seed_stability_evaluated"),
         ("blocks_win_rate_claim_without_long_run", "long_run_completed"),
         ("blocks_win_rate_claim_without_policy_update_training", "policy_update_training_completed"),
+        ("blocks_win_rate_claim_without_ppo_or_equivalent_update", "ppo_or_equivalent_policy_update_completed"),
         ("blocks_win_rate_claim_without_agent_only_table", "agent_only_table_verified"),
     ):
         candidate = cloned()
         proof = candidate["rl_training_proof_boundary"]
-        proof[field] = False
+        proof[field] = 1 if field == "phase1_trained_policy_artifact_count" else False
         proof["measured_win_rate_claim_allowed"] = True
         proof["status"] = RL_TRAINING_PROOF_COMPLETED_STATUS
         record(name, candidate, "FAIL")
@@ -579,6 +597,8 @@ def validate_phase3_open_spiel_arena_report(payload: dict[str, Any]) -> dict[str
         violations.append("rl_training_proof_must_require_real_open_spiel_runtime")
     if proof.get("phase1_trained_policy_artifacts_required") is not True:
         violations.append("rl_training_proof_must_require_two_phase1_adapters")
+    if int(proof.get("required_phase1_trained_policy_artifact_count") or 0) != REQUIRED_PHASE1_POLICY_ARTIFACTS:
+        violations.append("rl_training_proof_must_require_exactly_two_phase1_artifacts")
     if proof.get("agent_only_table_required") is not True:
         violations.append("rl_training_proof_must_require_agent_only_table")
     if proof.get("agent_only_table_verified") != contract.get("agent_only_table"):
@@ -593,6 +613,8 @@ def validate_phase3_open_spiel_arena_report(payload: dict[str, Any]) -> dict[str
         violations.append("rl_training_proof_long_run_threshold_too_low")
     if proof.get("policy_update_training_required") is not True:
         violations.append("rl_training_proof_must_require_policy_update_training")
+    if proof.get("ppo_policy_update_required") is not True:
+        violations.append("rl_training_proof_must_require_ppo_or_equivalent_policy_update")
     if proof.get("current_delivery_blocker") is not False:
         violations.append("rl_training_proof_gap_must_not_block_current_delivery")
     gate_validation = validate_rl_training_evidence_gate(proof)
@@ -601,10 +623,12 @@ def validate_phase3_open_spiel_arena_report(payload: dict[str, Any]) -> dict[str
     required_training_gates = (
         proof.get("real_open_spiel_runtime_available") is True,
         proof.get("phase1_trained_policy_artifacts_attached") is True,
+        int(proof.get("phase1_trained_policy_artifact_count") or 0) == REQUIRED_PHASE1_POLICY_ARTIFACTS,
         proof.get("agent_only_table_verified") is True,
         proof.get("seed_stability_evaluated") is True,
         proof.get("long_run_completed") is True,
         proof.get("policy_update_training_completed") is True,
+        proof.get("ppo_or_equivalent_policy_update_completed") is True,
     )
     all_training_gates_pass = all(required_training_gates)
     if proof.get("measured_win_rate_claim_allowed") is True and not all_training_gates_pass:
@@ -684,6 +708,7 @@ def _pending_runtime_report(
             "human_players_present": False,
             "fixed_scripted_opponents_present": False,
             "policy_update_during_arena": False,
+            "policy_update_algorithm": config.policy_update_algorithm,
             "metrics_claim_allowed": False,
             "metrics_blocked_until": METRICS_BLOCKED_STATUS,
         },
@@ -691,10 +716,14 @@ def _pending_runtime_report(
     payload["rl_training_proof_boundary"] = _rl_training_proof_boundary(
         real_open_spiel_runtime_available=runtime_available,
         phase1_trained_policy_artifacts_attached=config.phase1_adapters_ready,
+        phase1_trained_policy_artifact_count=(
+            REQUIRED_PHASE1_POLICY_ARTIFACTS if config.phase1_adapters_ready else 0
+        ),
         agent_only_table_verified=payload["arena_contract"]["agent_only_table"],
         episodes=config.episodes,
         independent_seed_count=config.independent_seed_count,
         policy_update_training_completed=config.policy_update_training_completed,
+        policy_update_algorithm=config.policy_update_algorithm,
     )
     payload["proof_cases"] = build_phase3_open_spiel_proof_cases(payload)
     payload["invariants"] = validate_phase3_open_spiel_arena_report(payload)

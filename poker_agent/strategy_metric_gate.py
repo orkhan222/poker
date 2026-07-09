@@ -7,6 +7,7 @@ REQUIRED_PRODUCTION_METRICS = (
     "accuracy",
     "macro_f1",
     "balanced_accuracy",
+    "confusion_matrix",
     "calibration_ece",
     "action_distribution_js_divergence",
     "bet_size_mae",
@@ -76,12 +77,16 @@ def _collect_gate_failures(metric_families: dict[str, Any]) -> list[str]:
         failures.append("macro_f1_below_threshold")
     if not _meets(action_metrics.get("balanced_accuracy"), 0.50):
         failures.append("balanced_accuracy_below_threshold")
+    if not _has_confusion_matrix(action_metrics.get("confusion_matrix")):
+        failures.append("confusion_matrix_missing_or_invalid")
     if not _meets_max(calibration_metrics.get("ece_10"), 0.10):
         failures.append("calibration_ece_above_threshold")
     if distribution.get("larger_clean_real_gameplay_revalidation_required") is not False:
         failures.append("larger_clean_real_gameplay_revalidation_required")
     if bet_sizing.get("final_high_realism_claim_allowed") is not True:
         failures.append("bet_sizing_high_realism_not_approved")
+    if _as_float((bet_sizing.get("metrics") or {}).get("bet_size_mae")) is None:
+        failures.append("bet_size_mae_missing")
     if not _meets(simulation_metrics.get("win_rate"), 0.52):
         failures.append("win_rate_below_threshold")
 
@@ -118,3 +123,21 @@ def _as_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _has_confusion_matrix(value: Any) -> bool:
+    if not isinstance(value, dict):
+        return False
+    labels = value.get("labels")
+    matrix = value.get("matrix")
+    if not isinstance(labels, list) or not labels:
+        return False
+    if not isinstance(matrix, list) or len(matrix) != len(labels):
+        return False
+    for row in matrix:
+        if not isinstance(row, list) or len(row) != len(labels):
+            return False
+        for cell in row:
+            if _as_float(cell) is None:
+                return False
+    return True

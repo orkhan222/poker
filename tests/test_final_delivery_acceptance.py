@@ -437,6 +437,7 @@ def _write_reports(reports: Path) -> None:
                     "accuracy",
                     "macro_f1",
                     "balanced_accuracy",
+                    "confusion_matrix",
                     "calibration_ece",
                     "action_distribution_js_divergence",
                     "bet_size_mae",
@@ -452,7 +453,19 @@ def _write_reports(reports: Path) -> None:
                 "metric_families": {
                     "action_classification": {
                         "required": True,
-                        "metrics": {"accuracy": 0.72, "macro_f1": 0.49, "balanced_accuracy": 0.51},
+                        "metrics": {
+                            "accuracy": 0.72,
+                            "macro_f1": 0.49,
+                            "balanced_accuracy": 0.51,
+                            "confusion_matrix": {
+                                "labels": ["fold", "call", "raise"],
+                                "matrix": [
+                                    [42, 3, 1],
+                                    [4, 21, 2],
+                                    [1, 2, 16],
+                                ],
+                            },
+                        },
                     },
                     "calibration": {"required": True, "metrics": {"ece_10": 0.18}},
                     "action_distribution": {"required": True, "metrics": {"js_divergence": 0.0026}},
@@ -708,6 +721,7 @@ def test_final_delivery_acceptance_passes_with_tracked_risks(tmp_path: Path) -> 
         "accuracy",
         "macro_f1",
         "balanced_accuracy",
+        "confusion_matrix",
         "calibration_ece",
         "action_distribution_js_divergence",
         "bet_size_mae",
@@ -718,6 +732,14 @@ def test_final_delivery_acceptance_passes_with_tracked_risks(tmp_path: Path) -> 
     assert payload["tracked_component_risks"]["evaluation_metric_coverage"]["final_metric_bundle_passed"] is False
     assert payload["tracked_component_risks"]["evaluation_metric_coverage"]["final_strategy_quality_claim_allowed"] is False
     assert payload["tracked_component_risks"]["evaluation_metric_coverage"]["model_quality_risk"] is True
+    delivery_strategy = payload["delivery_strategy_quality_boundary"]
+    assert delivery_strategy["status"] == "DELIVERY_READY_STRATEGY_QUALITY_CLAIM_BLOCKED"
+    assert delivery_strategy["software_delivery_ready"] is True
+    assert delivery_strategy["current_delivery_blocker"] is False
+    assert delivery_strategy["final_metric_bundle_passed"] is False
+    assert delivery_strategy["final_strategy_quality_claim_allowed"] is False
+    assert delivery_strategy["model_quality_risk"] is True
+    assert delivery_strategy["invariants"]["status"] == "PASS"
     assert payload["tracked_component_risks"]["test_execution_coverage"]["full_pytest_status"] == "TIMEOUT"
     assert payload["tracked_component_risks"]["test_execution_coverage"]["full_pytest_used_as_delivery_approval"] is False
     assert payload["tracked_component_risks"]["test_execution_coverage"]["critical_validation_status"] == "PASS"

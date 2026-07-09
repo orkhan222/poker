@@ -164,15 +164,91 @@ def test_final_strategy_quality_status_rejects_false_approval(tmp_path: Path) ->
 
     assert is_delivery_ready_but_competitive_claim_blocked(payload) is False
     assert invariants["status"] == "FAIL"
-    assert "final_production_strategy_quality_must_not_be_approved" in invariants["violations"]
-    assert "final_production_strategy_quality_claim_must_be_blocked" in invariants["violations"]
-    assert "final_strategy_quality_status_must_remain_not_approved" in invariants["violations"]
-    assert "competitive_poker_agent_claim_must_be_blocked" in invariants["violations"]
-    assert "competitive_poker_agent_claim_state_must_remain_blocked" in invariants["violations"]
+    assert "approved_strategy_requires_final_metric_bundle_pass" in invariants["violations"]
+    assert "approved_strategy_requires_metric_bundle_claim_allowance" in invariants["violations"]
+    assert "approved_strategy_requires_completed_work_item:hole_card_data_quality" in invariants["violations"]
+    assert "approved_strategy_requires_completed_work_item:calibration" in invariants["violations"]
+    assert "approved_strategy_requires_completed_work_item:larger_validation_data" in invariants["violations"]
+    assert "approved_strategy_requires_completed_work_item:production_scale_multi_agent_training" in invariants["violations"]
     assert "deployment_component_must_be_present:predict_endpoint" in invariants["violations"]
     assert "competitive_claim_gap_must_not_block_current_delivery" in invariants["violations"]
-    assert "blocked_claims_must_reject_competitive_agent_claim" in invariants["violations"]
-    assert "remaining_work_item_must_remain_required:stronger_challenger_model" in invariants["violations"]
+    assert "completed_challenger_item_requires_passed_gates" in invariants["violations"]
+    assert "approved_claims_must_include_final_strategy_quality_approval" in invariants["violations"]
+    assert "approved_strategy_must_not_block_final_strategy_claim" in invariants["violations"]
+
+
+def test_final_strategy_quality_status_opens_claim_when_every_gate_passes(tmp_path: Path) -> None:
+    reports = tmp_path / "reports"
+    _write_reports(reports)
+
+    challenger = json.loads((reports / "challenger_strategy_quality.json").read_text(encoding="utf-8"))
+    challenger["strategy_quality_boundary"].update(
+        {
+            "final_production_strategy_quality_claim_allowed": True,
+            "challenger_gate_status": "PASS",
+            "raw_production_gate_status": "PASS",
+        }
+    )
+    challenger["challenger_result"]["failed_gates"] = []
+    (reports / "challenger_strategy_quality.json").write_text(json.dumps(challenger), encoding="utf-8")
+
+    hole_card = json.loads((reports / "hole_card_data_quality.json").read_text(encoding="utf-8"))
+    hole_card["upstream_data_quality_boundary"].update(
+        {
+            "limitation_status": "RESOLVED",
+            "upstream_data_quality_issue_resolved": True,
+            "requires_ocr_or_parser_improvement": False,
+        }
+    )
+    hole_card["strength_signal_impact"]["status"] = "SUFFICIENT_FOR_CARD_AWARE_POLICY_GATES"
+    (reports / "hole_card_data_quality.json").write_text(json.dumps(hole_card), encoding="utf-8")
+
+    calibration = json.loads((reports / "bet_timing_calibration.json").read_text(encoding="utf-8"))
+    calibration["calibration_boundary"].update(
+        {
+            "requires_more_real_player_behavior_labels": False,
+            "final_high_realism_claim_allowed": True,
+        }
+    )
+    (reports / "bet_timing_calibration.json").write_text(json.dumps(calibration), encoding="utf-8")
+
+    behavioral = json.loads((reports / "behavioral_revalidation.json").read_text(encoding="utf-8"))
+    behavioral["revalidation_boundary"].update(
+        {
+            "larger_clean_real_gameplay_revalidation_required": False,
+            "generalized_human_likeness_claim_allowed": True,
+        }
+    )
+    (reports / "behavioral_revalidation.json").write_text(json.dumps(behavioral), encoding="utf-8")
+
+    multi_agent = json.loads((reports / "multi_agent_training_status.json").read_text(encoding="utf-8"))
+    multi_agent["training_boundary"]["full_production_scale_multi_agent_training_status"] = "COMPLETED"
+    (reports / "multi_agent_training_status.json").write_text(json.dumps(multi_agent), encoding="utf-8")
+
+    (reports / "evaluation_metric_contract.json").write_text(
+        json.dumps(
+            {
+                "final_metric_bundle_passed": True,
+                "final_strategy_quality_claim_allowed": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    payload = build_final_strategy_quality_status(tmp_path)
+
+    assert payload["overall_status"] == "PASS"
+    assert payload["final_strategy_quality_boundary"]["status"] == "APPROVED"
+    assert payload["final_strategy_quality_boundary"]["final_production_strategy_quality_approved"] is True
+    assert payload["final_strategy_quality_boundary"]["final_production_strategy_quality_claim_allowed"] is True
+    assert payload["final_strategy_quality_boundary"]["final_metric_bundle_passed"] is True
+    assert payload["final_strategy_quality_boundary"]["metric_bundle_claim_allowed"] is True
+    assert payload["deployment_vs_competitive_claim_boundary"]["competitive_poker_agent_claim_allowed"] is True
+    assert payload["deployment_vs_competitive_claim_boundary"]["competitive_poker_agent_claim_state"] == "APPROVED"
+    assert all(item["status"] == "COMPLETE" for item in payload["remaining_work"].values())
+    assert "Final production-level poker strategy quality is approved." in payload["allowed_claims"]
+    assert "Final production-level poker strategy quality is approved." not in payload["blocked_claims"]
+    assert is_delivery_ready_but_competitive_claim_blocked(payload) is False
 
 
 def test_final_strategy_quality_status_endpoint_returns_contract() -> None:

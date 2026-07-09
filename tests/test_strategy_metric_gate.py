@@ -14,6 +14,14 @@ def _passing_metric_families() -> dict:
                 "accuracy": 0.72,
                 "macro_f1": 0.56,
                 "balanced_accuracy": 0.55,
+                "confusion_matrix": {
+                    "labels": ["fold", "call", "raise"],
+                    "matrix": [
+                        [42, 3, 1],
+                        [4, 21, 2],
+                        [1, 2, 16],
+                    ],
+                },
             },
         },
         "calibration": {
@@ -76,3 +84,14 @@ def test_strategy_metric_gate_blocks_accuracy_and_cross_entropy_shortcut() -> No
     assert "cross_entropy_only_not_allowed" in gate["missing_or_failed_requirements"]
     assert "diagnostic_loss_only_not_allowed" in gate["missing_or_failed_requirements"]
     assert gate["blocked_approval_shortcuts"]["accuracy_plus_cross_entropy"] is True
+
+
+def test_strategy_metric_gate_requires_measured_bet_size_mae() -> None:
+    families = deepcopy(_passing_metric_families())
+    families["bet_sizing"]["metrics"]["bet_size_mae"] = None
+
+    gate = evaluate_strategy_metric_gate(families)
+
+    assert gate["gate_status"] == "BLOCKED"
+    assert gate["final_strategy_quality_claim_allowed"] is False
+    assert "bet_size_mae_missing" in gate["missing_or_failed_requirements"]

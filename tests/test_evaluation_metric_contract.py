@@ -21,6 +21,16 @@ def _write_reports(reports: Path) -> None:
                     "ece_10": 0.18,
                     "brier_loss": 0.45,
                     "cross_entropy": 0.84,
+                    "confusion_matrix": {
+                        "labels": ["bet", "call", "check", "fold", "raise"],
+                        "matrix": [
+                            [6, 1, 0, 0, 0],
+                            [0, 8, 1, 1, 0],
+                            [1, 0, 7, 0, 0],
+                            [0, 1, 0, 12, 1],
+                            [1, 1, 0, 2, 5],
+                        ],
+                    },
                 }
             }
         ),
@@ -135,6 +145,7 @@ def test_evaluation_metric_contract_requires_full_metric_bundle(tmp_path: Path) 
         "accuracy",
         "macro_f1",
         "balanced_accuracy",
+        "confusion_matrix",
         "calibration_ece",
         "action_distribution_js_divergence",
         "bet_size_mae",
@@ -148,6 +159,14 @@ def test_evaluation_metric_contract_requires_full_metric_bundle(tmp_path: Path) 
     }
     assert payload["metric_families"]["action_classification"]["metrics"]["accuracy"] == 0.72
     assert payload["metric_families"]["action_classification"]["metrics"]["macro_f1"] == 0.49
+    assert payload["metric_families"]["action_classification"]["confusion_matrix_required_for_final_claim"] is True
+    assert payload["metric_families"]["action_classification"]["metrics"]["confusion_matrix"]["labels"] == [
+        "bet",
+        "call",
+        "check",
+        "fold",
+        "raise",
+    ]
     assert payload["metric_families"]["calibration"]["metrics"]["ece_10"] == 0.18
     assert payload["metric_families"]["calibration"]["metrics"]["cross_entropy"] == 0.84
     assert payload["metric_families"]["calibration"]["cross_entropy_only_approval_allowed"] is False
@@ -208,3 +227,56 @@ def test_evaluation_metric_contract_endpoint_returns_contract() -> None:
     assert payload["accuracy_alone_sufficient"] is False
     assert payload["accuracy_and_cross_entropy_sufficient"] is False
     assert payload["final_strategy_quality_claim_allowed"] is False
+
+
+def test_evaluation_metric_contract_opens_claim_for_complete_metric_bundle(tmp_path: Path) -> None:
+    reports = tmp_path / "reports"
+    _write_reports(reports)
+
+    production_gate = json.loads((reports / "today_acceptance_production_gate.json").read_text(encoding="utf-8"))
+    production_gate["valid_metrics"].update(
+        {
+            "macro_f1": 0.56,
+            "balanced_accuracy": 0.55,
+            "ece_10": 0.06,
+        }
+    )
+    (reports / "today_acceptance_production_gate.json").write_text(
+        json.dumps(production_gate),
+        encoding="utf-8",
+    )
+
+    behavioral = json.loads((reports / "behavioral_revalidation.json").read_text(encoding="utf-8"))
+    behavioral["revalidation_boundary"] = {
+        "larger_clean_real_gameplay_revalidation_required": False,
+        "generalized_action_distribution_claim_allowed": True,
+    }
+    (reports / "behavioral_revalidation.json").write_text(json.dumps(behavioral), encoding="utf-8")
+
+    bet_timing = json.loads((reports / "bet_timing_calibration.json").read_text(encoding="utf-8"))
+    bet_timing["current_delivery_scope"]["bet_size_mae"] = 0.18
+    bet_timing["calibration_boundary"] = {
+        "requires_more_real_player_behavior_labels": False,
+        "final_high_realism_claim_allowed": True,
+    }
+    (reports / "bet_timing_calibration.json").write_text(json.dumps(bet_timing), encoding="utf-8")
+
+    multi_agent = json.loads((reports / "multi_agent_training_status.json").read_text(encoding="utf-8"))
+    multi_agent["training_boundary"]["full_production_scale_multi_agent_training_status"] = "COMPLETED"
+    (reports / "multi_agent_training_status.json").write_text(json.dumps(multi_agent), encoding="utf-8")
+
+    phase3 = json.loads((reports / "phase3_open_spiel_arena.json").read_text(encoding="utf-8"))
+    phase3["rl_training_proof_boundary"]["status"] = "TRAINING_PROOF_COMPLETED"
+    phase3["rl_training_proof_boundary"]["seed_stability_evaluated"] = True
+    (reports / "phase3_open_spiel_arena.json").write_text(json.dumps(phase3), encoding="utf-8")
+
+    payload = build_evaluation_metric_contract(tmp_path)
+
+    assert payload["overall_status"] == "PASS"
+    assert payload["status"] == "METRIC_BUNDLE_PASSED"
+    assert payload["strategy_metric_gate"]["gate_status"] == "PASS"
+    assert payload["strategy_metric_gate"]["missing_or_failed_requirements"] == []
+    assert payload["final_metric_bundle_passed"] is True
+    assert payload["final_strategy_quality_claim_allowed"] is True
+    assert payload["final_strategy_quality_claim_status"] == "ALLOWED"
+    assert payload["model_quality_risk"] is False

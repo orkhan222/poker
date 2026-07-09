@@ -5,6 +5,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from poker_agent.delivery_strategy_boundary import (
+    BOUNDARY_NAME as DELIVERY_STRATEGY_BOUNDARY_NAME,
+    CLAIM_BLOCKED_STATUS as DELIVERY_STRATEGY_CLAIM_BLOCKED_STATUS,
+    build_delivery_strategy_boundary,
+)
+
 
 FINAL_DELIVERY_ACCEPTANCE_VERSION = "2026-06-28"
 FINAL_STATUS = "READY_WITH_TRACKED_COMPONENT_RISKS"
@@ -546,6 +552,10 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "Only promote an autonomous LLM policy if stakeholders approve a separate LLM-agent milestone and it passes independent simulation and safety gates.",
         ],
     }
+    payload["delivery_strategy_quality_boundary"] = build_delivery_strategy_boundary(
+        acceptance_summary=payload["acceptance_summary"],
+        evaluation_metric_coverage=payload["tracked_component_risks"]["evaluation_metric_coverage"],
+    )
     payload["invariants"] = validate_final_delivery_acceptance(payload)
     payload["overall_status"] = "PASS" if payload["invariants"]["status"] == "PASS" else "FAIL"
     return payload
@@ -574,6 +584,7 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
     human_likeness = risks.get("human_likeness_evidence") or {}
     human_likeness_claim_gate = risks.get("human_likeness_claim_gate") or {}
     phase2_selection = risks.get("phase2_selection_comparison") or {}
+    delivery_strategy_boundary = payload.get("delivery_strategy_quality_boundary") or {}
 
     if payload.get("final_status") != FINAL_STATUS:
         violations.append("final_status_must_be_ready_with_tracked_component_risks")
@@ -669,6 +680,7 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
         "accuracy",
         "macro_f1",
         "balanced_accuracy",
+        "confusion_matrix",
         "calibration_ece",
         "action_distribution_js_divergence",
         "bet_size_mae",
@@ -693,6 +705,27 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
         violations.append("evaluation_metric_gap_must_not_block_current_delivery")
     if evaluation_metrics.get("model_quality_risk") is not True:
         violations.append("evaluation_metric_gap_must_remain_model_quality_risk")
+    if delivery_strategy_boundary.get("boundary") != DELIVERY_STRATEGY_BOUNDARY_NAME:
+        violations.append("delivery_strategy_boundary_must_be_present")
+    if (delivery_strategy_boundary.get("invariants") or {}).get("status") != "PASS":
+        violations.append("delivery_strategy_boundary_invariants_must_pass")
+    if delivery_strategy_boundary.get("software_delivery_ready") is not True:
+        violations.append("delivery_strategy_boundary_must_keep_software_delivery_ready")
+    if delivery_strategy_boundary.get("current_delivery_blocker") is not False:
+        violations.append("delivery_strategy_boundary_must_not_block_delivery_when_service_is_ready")
+    if delivery_strategy_boundary.get("final_metric_bundle_passed") != evaluation_metrics.get(
+        "final_metric_bundle_passed"
+    ):
+        violations.append("delivery_strategy_boundary_must_match_metric_bundle_status")
+    if delivery_strategy_boundary.get("final_strategy_quality_claim_allowed") != evaluation_metrics.get(
+        "final_strategy_quality_claim_allowed"
+    ):
+        violations.append("delivery_strategy_boundary_must_match_strategy_claim_status")
+    if evaluation_metrics.get("final_metric_bundle_passed") is not True:
+        if delivery_strategy_boundary.get("status") != DELIVERY_STRATEGY_CLAIM_BLOCKED_STATUS:
+            violations.append("delivery_strategy_boundary_must_block_claim_until_metric_bundle_passes")
+        if delivery_strategy_boundary.get("model_quality_risk") is not True:
+            violations.append("delivery_strategy_boundary_must_track_model_quality_risk")
     if test_execution.get("boundary") != TEST_EXECUTION_BOUNDARY:
         violations.append("test_execution_boundary_must_be_present")
     if test_execution.get("full_pytest_status") == "TIMEOUT" and (
@@ -1039,6 +1072,7 @@ def write_final_delivery_acceptance(
 def render_final_delivery_acceptance_markdown(payload: dict[str, Any]) -> str:
     summary = payload["acceptance_summary"]
     risks = payload["tracked_component_risks"]
+    delivery_strategy = payload["delivery_strategy_quality_boundary"]
     lines = [
         "# Final Delivery Acceptance Contract",
         "",
@@ -1051,6 +1085,10 @@ def render_final_delivery_acceptance_markdown(payload: dict[str, Any]) -> str:
         f"- Deployed strategy stack: `{summary['deployed_strategy_stack']}`",
         f"- Production approval: `{summary['production_approval_status']}`",
         f"- Delivery verification: `{summary['delivery_verification_status']}`",
+        f"- Delivery/strategy boundary: `{delivery_strategy['status']}`",
+        f"- Software delivery ready: `{delivery_strategy['software_delivery_ready']}`",
+        f"- Final metric bundle passed: `{delivery_strategy['final_metric_bundle_passed']}`",
+        f"- Final strategy-quality claim allowed: `{delivery_strategy['final_strategy_quality_claim_allowed']}`",
         "",
         "## Tracked Boundaries",
         "",

@@ -26,6 +26,7 @@ from poker_agent.client_gpu_training_response import build_client_gpu_training_r
 from poker_agent.challenger_strategy_quality import build_challenger_strategy_quality
 from poker_agent.data_leakage_contract import build_data_leakage_contract
 from poker_agent.delivery_readiness import summarize_delivery_readiness
+from poker_agent.delivery_strategy_boundary import build_delivery_strategy_boundary
 from poker_agent.evaluation_metric_contract import build_evaluation_metric_contract
 from poker_agent.final_delivery_acceptance import build_final_delivery_acceptance
 from poker_agent.final_strategy_quality_status import build_final_strategy_quality_status
@@ -37,6 +38,7 @@ from poker_agent.llm_role_boundary import build_llm_role_boundary
 from poker_agent.model_risk_register import build_model_risk_register
 from poker_agent.multi_agent_training_status import build_multi_agent_training_status
 from poker_agent.normalized_action_contract import build_normalized_action_contract
+from poker_agent.open_spiel_claim_readiness import build_open_spiel_claim_readiness
 from poker_agent.open_spiel_claim_contract import build_open_spiel_claim_contract
 from poker_agent.open_spiel_llm_arena import build_phase3_open_spiel_arena_report
 from poker_agent.phase2_selection_comparison import build_phase2_selection_comparison
@@ -45,6 +47,7 @@ from poker_agent.project_completion import build_project_completion
 from poker_agent.production_runtime_monitoring import build_production_runtime_monitoring, runtime_monitoring_state
 from poker_agent.qlora_next_stage import build_qlora_next_stage
 from poker_agent.raw_model_status import build_raw_model_status
+from poker_agent.rl_delivery_boundary import build_rl_delivery_boundary
 from poker_agent.scenario_sanity import build_scenario_sanity
 from poker_agent.schemas import PredictionRequest
 from poker_agent.scope_contract import build_scope_contract
@@ -213,7 +216,9 @@ TODAY_ACCEPTANCE_TRAINING_REPORT_PATH = PROJECT_ROOT / "reports" / "today_accept
 CLIENT_GPU_TRAINING_RESPONSE_PATH = PROJECT_ROOT / "reports" / "client_gpu_training_response.json"
 MULTI_AGENT_TRAINING_STATUS_PATH = PROJECT_ROOT / "reports" / "multi_agent_training_status.json"
 PHASE3_OPEN_SPIEL_ARENA_PATH = PROJECT_ROOT / "reports" / "phase3_open_spiel_arena.json"
+OPEN_SPIEL_CLAIM_READINESS_PATH = PROJECT_ROOT / "reports" / "open_spiel_claim_readiness.json"
 OPEN_SPIEL_CLAIM_CONTRACT_PATH = PROJECT_ROOT / "reports" / "open_spiel_claim_contract.json"
+RL_DELIVERY_BOUNDARY_PATH = PROJECT_ROOT / "reports" / "rl_delivery_boundary.json"
 RAW_MODEL_STATUS_PATH = PROJECT_ROOT / "reports" / "raw_model_status.json"
 RAW_MODEL_CHALLENGER_PATH = PROJECT_ROOT / "reports" / "raw_model_challenger.json"
 CHALLENGER_STRATEGY_QUALITY_PATH = PROJECT_ROOT / "reports" / "challenger_strategy_quality.json"
@@ -1095,6 +1100,27 @@ def final_delivery_acceptance_json() -> dict[str, Any]:
 
 
 @app.get(
+    "/delivery-strategy-boundary.json",
+    tags=["System"],
+    summary="Delivery-ready and final strategy-quality claim boundary",
+)
+def delivery_strategy_boundary_json() -> dict[str, Any]:
+    if FINAL_DELIVERY_ACCEPTANCE_PATH.exists():
+        final_acceptance = json.loads(FINAL_DELIVERY_ACCEPTANCE_PATH.read_text(encoding="utf-8"))
+    else:
+        final_acceptance = build_final_delivery_acceptance(PROJECT_ROOT)
+    boundary = final_acceptance.get("delivery_strategy_quality_boundary")
+    if boundary:
+        return boundary
+    return build_delivery_strategy_boundary(
+        acceptance_summary=final_acceptance.get("acceptance_summary") or {},
+        evaluation_metric_coverage=(
+            (final_acceptance.get("tracked_component_risks") or {}).get("evaluation_metric_coverage") or {}
+        ),
+    )
+
+
+@app.get(
     "/final-strategy-quality-status.json",
     tags=["System"],
     summary="Final production-level strategy quality boundary",
@@ -1251,6 +1277,17 @@ def phase3_open_spiel_arena_json() -> dict[str, Any]:
 
 
 @app.get(
+    "/open-spiel-claim-readiness.json",
+    tags=["System"],
+    summary="OpenSpiel/RL claim readiness preflight",
+)
+def open_spiel_claim_readiness_json() -> dict[str, Any]:
+    if OPEN_SPIEL_CLAIM_READINESS_PATH.exists():
+        return json.loads(OPEN_SPIEL_CLAIM_READINESS_PATH.read_text(encoding="utf-8"))
+    return build_open_spiel_claim_readiness(PROJECT_ROOT)
+
+
+@app.get(
     "/open-spiel-claim-contract.json",
     tags=["System"],
     summary="OpenSpiel/RL self-play claim boundary",
@@ -1259,6 +1296,17 @@ def open_spiel_claim_contract_json() -> dict[str, Any]:
     if OPEN_SPIEL_CLAIM_CONTRACT_PATH.exists():
         return json.loads(OPEN_SPIEL_CLAIM_CONTRACT_PATH.read_text(encoding="utf-8"))
     return build_open_spiel_claim_contract(PROJECT_ROOT)
+
+
+@app.get(
+    "/rl-delivery-boundary.json",
+    tags=["System"],
+    summary="RL delivery and strategy-claim boundary",
+)
+def rl_delivery_boundary_json() -> dict[str, Any]:
+    if RL_DELIVERY_BOUNDARY_PATH.exists():
+        return json.loads(RL_DELIVERY_BOUNDARY_PATH.read_text(encoding="utf-8"))
+    return build_rl_delivery_boundary(PROJECT_ROOT)
 
 
 @app.get(
@@ -1359,6 +1407,26 @@ def llm_role_boundary_json() -> dict[str, Any]:
     if LLM_ROLE_BOUNDARY_PATH.exists():
         return json.loads(LLM_ROLE_BOUNDARY_PATH.read_text(encoding="utf-8"))
     return build_llm_role_boundary(PROJECT_ROOT)
+
+
+@app.get(
+    "/llm-production-scope-claim.json",
+    tags=["System"],
+    summary="LLM production-scope claim guard",
+    include_in_schema=False,
+)
+def llm_production_scope_claim_json() -> dict[str, Any]:
+    payload = build_llm_role_boundary(PROJECT_ROOT)
+    examples = payload.get("production_scope_claim_examples") or []
+    return {
+        "status": "PASS"
+        if payload.get("overall_status") == "PASS" and all(case.get("passed") for case in examples)
+        else "FAIL",
+        "approved_production_scope": "controlled_event_context_layer",
+        "autonomous_policy_claim_allowed": False,
+        "validator": "poker_agent.llm_role_boundary.validate_llm_production_scope_claim",
+        "examples": examples,
+    }
 
 
 @app.get(

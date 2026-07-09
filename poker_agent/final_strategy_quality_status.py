@@ -12,6 +12,7 @@ DEPLOYED_STACK_APPROVED = "APPROVED"
 FINAL_STRATEGY_NOT_APPROVED = "NOT_APPROVED_PENDING_HARDENING_GATES"
 FINAL_STRATEGY_APPROVED = "APPROVED"
 REQUIRED = "REQUIRED"
+COMPLETE = "COMPLETE"
 COMPETITIVE_AGENT_CLAIM_BLOCKED = "BLOCKED_PENDING_MODEL_DATA_AND_TRAINING_HARDENING"
 
 REQUIRED_WORK_ITEMS = (
@@ -32,6 +33,7 @@ def build_final_strategy_quality_status(project_root: Path) -> dict[str, Any]:
     behavioral = _read_optional_json(reports / "behavioral_revalidation.json")
     multi_agent = _read_optional_json(reports / "multi_agent_training_status.json")
     runtime_monitoring = _read_optional_json(reports / "production_runtime_monitoring.json")
+    evaluation_metric = _read_optional_json(reports / "evaluation_metric_contract.json")
 
     acceptance_summary = final_acceptance.get("acceptance_summary") or {}
     challenger_boundary = challenger.get("strategy_quality_boundary") or {}
@@ -42,6 +44,20 @@ def build_final_strategy_quality_status(project_root: Path) -> dict[str, Any]:
     behavioral_boundary = behavioral.get("revalidation_boundary") or {}
     multi_boundary = multi_agent.get("training_boundary") or {}
     runtime_boundary = runtime_monitoring.get("runtime_observability_boundary") or {}
+    metric_bundle_passed = evaluation_metric.get("final_metric_bundle_passed") is True
+    metric_bundle_claim_allowed = evaluation_metric.get("final_strategy_quality_claim_allowed") is True
+
+    challenger_complete = challenger_boundary.get("final_production_strategy_quality_claim_allowed") is True
+    hole_complete = hole_boundary.get("upstream_data_quality_issue_resolved") is True
+    calibration_complete = (
+        calibration_boundary.get("final_high_realism_claim_allowed") is True
+        and calibration_boundary.get("requires_more_real_player_behavior_labels") is False
+    )
+    larger_validation_complete = (
+        behavioral_boundary.get("larger_clean_real_gameplay_revalidation_required") is False
+        and behavioral_boundary.get("generalized_human_likeness_claim_allowed") is True
+    )
+    multi_agent_complete = multi_boundary.get("full_production_scale_multi_agent_training_status") == "COMPLETED"
 
     delivery_ready = (
         final_acceptance.get("overall_status") == "PASS"
@@ -54,7 +70,9 @@ def build_final_strategy_quality_status(project_root: Path) -> dict[str, Any]:
         calibration_boundary=calibration_boundary,
         behavioral_boundary=behavioral_boundary,
         multi_boundary=multi_boundary,
+        evaluation_metric=evaluation_metric,
     )
+    competitive_claim_state = "APPROVED" if final_strategy_approved else COMPETITIVE_AGENT_CLAIM_BLOCKED
 
     payload: dict[str, Any] = {
         "version": FINAL_STRATEGY_QUALITY_STATUS_VERSION,
@@ -90,13 +108,13 @@ def build_final_strategy_quality_status(project_root: Path) -> dict[str, Any]:
                 "and verifier are sufficient for software delivery review."
             ),
             "competitive_poker_agent_claim_allowed": final_strategy_approved,
-            "competitive_poker_agent_claim_state": (
-                "APPROVED" if final_strategy_approved else COMPETITIVE_AGENT_CLAIM_BLOCKED
-            ),
+            "competitive_poker_agent_claim_state": competitive_claim_state,
             "competitive_claim_blocker_reason": (
-                "A competitive poker agent claim requires a stronger model, cleaner and more complete "
-                "card/action data, calibrated behavior, larger real-game validation, and full production-scale "
-                "multi-agent training."
+                "All final strategy-quality hardening gates have passed."
+                if final_strategy_approved
+                else "A competitive poker agent claim requires a stronger model, cleaner and more complete "
+                "card/action data, calibrated behavior, larger real-game validation, full metric-bundle "
+                "coverage, and full production-scale multi-agent training."
             ),
             "required_before_competitive_claim": [
                 "stronger_challenger_model",
@@ -112,17 +130,21 @@ def build_final_strategy_quality_status(project_root: Path) -> dict[str, Any]:
             "status": FINAL_STRATEGY_APPROVED if final_strategy_approved else FINAL_STRATEGY_NOT_APPROVED,
             "final_production_strategy_quality_approved": final_strategy_approved,
             "final_production_strategy_quality_claim_allowed": final_strategy_approved,
+            "final_metric_bundle_passed": metric_bundle_passed,
+            "metric_bundle_claim_allowed": metric_bundle_claim_allowed,
             "delivery_blocker": False,
             "deployed_strategy_stack_affected": False,
             "reason": (
-                "The deployed strategy stack is deliverable, but final strategy-quality approval requires a "
+                "The full final strategy-quality evidence bundle passed and the production strategy claim is allowed."
+                if final_strategy_approved
+                else "The deployed strategy stack is deliverable, but final strategy-quality approval requires a "
                 "passing challenger, improved hole-card data, calibrated behavior, larger real validation, "
-                "and completed production-scale multi-agent training."
+                "full metric-bundle coverage, and completed production-scale multi-agent training."
             ),
         },
         "remaining_work": {
             "stronger_challenger_model": {
-                "status": REQUIRED,
+                "status": COMPLETE if challenger_complete else REQUIRED,
                 "source_report": "reports/challenger_strategy_quality.json",
                 "current_gate": challenger_boundary.get("challenger_gate_status"),
                 "raw_gate": challenger_boundary.get("raw_production_gate_status"),
@@ -132,7 +154,7 @@ def build_final_strategy_quality_status(project_root: Path) -> dict[str, Any]:
                 "required_outcome": "A stronger challenger passes every challenger and raw production gate.",
             },
             "hole_card_data_quality": {
-                "status": REQUIRED,
+                "status": COMPLETE if hole_complete else REQUIRED,
                 "source_report": "reports/hole_card_data_quality.json",
                 "limitation_status": hole_boundary.get("limitation_status"),
                 "upstream_resolved": hole_boundary.get("upstream_data_quality_issue_resolved"),
@@ -141,7 +163,7 @@ def build_final_strategy_quality_status(project_root: Path) -> dict[str, Any]:
                 "required_outcome": "Hole-card extraction and reviewed labels are strong enough for reliable card-aware policy gates.",
             },
             "calibration": {
-                "status": REQUIRED,
+                "status": COMPLETE if calibration_complete else REQUIRED,
                 "source_report": "reports/bet_timing_calibration.json",
                 "calibration_status": calibration_boundary.get("status"),
                 "requires_more_real_player_behavior_labels": calibration_boundary.get(
@@ -151,7 +173,7 @@ def build_final_strategy_quality_status(project_root: Path) -> dict[str, Any]:
                 "required_outcome": "Action probabilities, bet sizing, and timing are calibrated on reviewed real-player labels.",
             },
             "larger_validation_data": {
-                "status": REQUIRED,
+                "status": COMPLETE if larger_validation_complete else REQUIRED,
                 "source_report": "reports/behavioral_revalidation.json",
                 "larger_clean_real_gameplay_revalidation_required": behavioral_boundary.get(
                     "larger_clean_real_gameplay_revalidation_required"
@@ -162,7 +184,7 @@ def build_final_strategy_quality_status(project_root: Path) -> dict[str, Any]:
                 "required_outcome": "Larger clean real-gameplay validation confirms action alignment and human-likeness slices.",
             },
             "production_scale_multi_agent_training": {
-                "status": REQUIRED,
+                "status": COMPLETE if multi_agent_complete else REQUIRED,
                 "source_report": "reports/multi_agent_training_status.json",
                 "full_training_status": multi_boundary.get("full_production_scale_multi_agent_training_status"),
                 "acceptance_training_status": multi_boundary.get("acceptance_training_status"),
@@ -208,8 +230,21 @@ def build_final_strategy_quality_status(project_root: Path) -> dict[str, Any]:
             "behavioral_revalidation": "reports/behavioral_revalidation.json",
             "multi_agent_training_status": "reports/multi_agent_training_status.json",
             "production_runtime_monitoring": "reports/production_runtime_monitoring.json",
+            "evaluation_metric_contract": "reports/evaluation_metric_contract.json",
         },
     }
+    if final_strategy_approved:
+        payload["allowed_claims"].append("Final production-level poker strategy quality is approved.")
+        payload["allowed_claims"].append("The current delivery can be described as the approved competitive poker strategy stack.")
+        payload["blocked_claims"] = [
+            claim
+            for claim in payload["blocked_claims"]
+            if claim
+            not in {
+                "The current delivery is a final competitive poker agent.",
+                "Final production-level poker strategy quality is approved.",
+            }
+        ]
     payload["invariants"] = validate_final_strategy_quality_status(payload)
     payload["overall_status"] = "PASS" if payload["invariants"]["status"] == "PASS" else "FAIL"
     return payload
@@ -222,6 +257,7 @@ def validate_final_strategy_quality_status(payload: dict[str, Any]) -> dict[str,
     final_quality = payload.get("final_strategy_quality_boundary") or {}
     remaining = payload.get("remaining_work") or {}
     real_traffic = payload.get("real_traffic_boundary") or {}
+    final_approved = final_quality.get("final_production_strategy_quality_approved") is True
 
     if payload.get("overall_status") == "PASS":
         violations.append("overall_status_must_be_assigned_after_invariant_validation")
@@ -241,10 +277,11 @@ def validate_final_strategy_quality_status(payload: dict[str, Any]) -> dict[str,
         violations.append("deployment_boundary_must_keep_software_delivery_ready")
     if deployment_vs_competitive.get("deployment_claim_allowed") is not True:
         violations.append("deployment_claim_must_be_allowed_for_software_delivery")
-    if deployment_vs_competitive.get("competitive_poker_agent_claim_allowed") is not False:
-        violations.append("competitive_poker_agent_claim_must_be_blocked")
-    if deployment_vs_competitive.get("competitive_poker_agent_claim_state") != COMPETITIVE_AGENT_CLAIM_BLOCKED:
-        violations.append("competitive_poker_agent_claim_state_must_remain_blocked")
+    if deployment_vs_competitive.get("competitive_poker_agent_claim_allowed") is not final_approved:
+        violations.append("competitive_poker_agent_claim_must_match_final_strategy_approval")
+    expected_competitive_state = "APPROVED" if final_approved else COMPETITIVE_AGENT_CLAIM_BLOCKED
+    if deployment_vs_competitive.get("competitive_poker_agent_claim_state") != expected_competitive_state:
+        violations.append("competitive_poker_agent_claim_state_must_match_final_strategy_approval")
     if set(deployment_vs_competitive.get("required_before_competitive_claim") or []) != set(REQUIRED_WORK_ITEMS):
         violations.append("competitive_claim_required_work_items_must_match_hardening_gates")
     if deployment_vs_competitive.get("current_delivery_blocker") is not False:
@@ -256,47 +293,76 @@ def validate_final_strategy_quality_status(payload: dict[str, Any]) -> dict[str,
     if missing_items:
         violations.append(f"missing_remaining_work_items:{','.join(missing_items)}")
     for item in REQUIRED_WORK_ITEMS:
-        if (remaining.get(item) or {}).get("status") != REQUIRED:
-            violations.append(f"remaining_work_item_must_remain_required:{item}")
+        status = (remaining.get(item) or {}).get("status")
+        if status not in {REQUIRED, COMPLETE}:
+            violations.append(f"remaining_work_item_status_must_be_known:{item}")
+        if final_approved and status != COMPLETE:
+            violations.append(f"approved_strategy_requires_completed_work_item:{item}")
+    if not final_approved and not any((remaining.get(item) or {}).get("status") == REQUIRED for item in REQUIRED_WORK_ITEMS):
+        violations.append("blocked_strategy_requires_at_least_one_remaining_work_item")
 
     if final_quality.get("delivery_blocker") is not False:
         violations.append("final_strategy_quality_gap_must_not_be_delivery_blocker")
     if final_quality.get("deployed_strategy_stack_affected") is not False:
         violations.append("final_strategy_quality_gap_must_not_affect_deployed_stack")
-    if final_quality.get("final_production_strategy_quality_approved") is not False:
-        violations.append("final_production_strategy_quality_must_not_be_approved")
-    if final_quality.get("final_production_strategy_quality_claim_allowed") is not False:
-        violations.append("final_production_strategy_quality_claim_must_be_blocked")
-    if final_quality.get("status") != FINAL_STRATEGY_NOT_APPROVED:
-        violations.append("final_strategy_quality_status_must_remain_not_approved")
-
+    if final_quality.get("final_production_strategy_quality_claim_allowed") is not final_approved:
+        violations.append("final_strategy_quality_claim_must_match_approval")
+    expected_final_status = FINAL_STRATEGY_APPROVED if final_approved else FINAL_STRATEGY_NOT_APPROVED
+    if final_quality.get("status") != expected_final_status:
+        violations.append("final_strategy_quality_status_must_match_approval")
+    if final_approved:
+        if final_quality.get("final_metric_bundle_passed") is not True:
+            violations.append("approved_strategy_requires_final_metric_bundle_pass")
+        if final_quality.get("metric_bundle_claim_allowed") is not True:
+            violations.append("approved_strategy_requires_metric_bundle_claim_allowance")
     challenger = remaining.get("stronger_challenger_model") or {}
-    if challenger.get("current_gate") == "PASS" and challenger.get("raw_gate") == "PASS":
+    if challenger.get("status") == REQUIRED and challenger.get("current_gate") == "PASS" and challenger.get("raw_gate") == "PASS":
         violations.append("remaining_challenger_item_cannot_be_required_if_all_gates_pass")
-    if not challenger.get("failed_gates"):
+    if challenger.get("status") == REQUIRED and not challenger.get("failed_gates"):
         violations.append("challenger_remaining_work_must_show_failed_gates")
+    if challenger.get("status") == COMPLETE and (
+        challenger.get("current_gate") != "PASS" or challenger.get("raw_gate") != "PASS"
+    ):
+        violations.append("completed_challenger_item_requires_passed_gates")
 
     hole = remaining.get("hole_card_data_quality") or {}
-    if hole.get("upstream_resolved") is not False:
-        violations.append("hole_card_remaining_work_requires_unresolved_upstream_status")
-    if hole.get("requires_ocr_or_parser_improvement") is not True:
-        violations.append("hole_card_remaining_work_requires_ocr_or_parser_improvement")
+    if hole.get("status") == REQUIRED:
+        if hole.get("upstream_resolved") is not False:
+            violations.append("hole_card_remaining_work_requires_unresolved_upstream_status")
+        if hole.get("requires_ocr_or_parser_improvement") is not True:
+            violations.append("hole_card_remaining_work_requires_ocr_or_parser_improvement")
+    if hole.get("status") == COMPLETE and hole.get("upstream_resolved") is not True:
+        violations.append("completed_hole_card_item_requires_resolved_upstream_status")
 
     calibration = remaining.get("calibration") or {}
-    if calibration.get("requires_more_real_player_behavior_labels") is not True:
-        violations.append("calibration_remaining_work_requires_more_real_player_labels")
-    if calibration.get("final_high_realism_claim_allowed") is not False:
-        violations.append("calibration_remaining_work_must_block_final_high_realism_claim")
+    if calibration.get("status") == REQUIRED:
+        if calibration.get("requires_more_real_player_behavior_labels") is not True:
+            violations.append("calibration_remaining_work_requires_more_real_player_labels")
+        if calibration.get("final_high_realism_claim_allowed") is not False:
+            violations.append("calibration_remaining_work_must_block_final_high_realism_claim")
+    if calibration.get("status") == COMPLETE:
+        if calibration.get("requires_more_real_player_behavior_labels") is not False:
+            violations.append("completed_calibration_item_requires_closed_label_gap")
+        if calibration.get("final_high_realism_claim_allowed") is not True:
+            violations.append("completed_calibration_item_requires_high_realism_claim")
 
     larger_validation = remaining.get("larger_validation_data") or {}
-    if larger_validation.get("larger_clean_real_gameplay_revalidation_required") is not True:
-        violations.append("larger_validation_remaining_work_must_require_clean_real_gameplay")
-    if larger_validation.get("generalized_human_likeness_claim_allowed") is not False:
-        violations.append("larger_validation_remaining_work_must_block_generalized_claims")
+    if larger_validation.get("status") == REQUIRED:
+        if larger_validation.get("larger_clean_real_gameplay_revalidation_required") is not True:
+            violations.append("larger_validation_remaining_work_must_require_clean_real_gameplay")
+        if larger_validation.get("generalized_human_likeness_claim_allowed") is not False:
+            violations.append("larger_validation_remaining_work_must_block_generalized_claims")
+    if larger_validation.get("status") == COMPLETE:
+        if larger_validation.get("larger_clean_real_gameplay_revalidation_required") is not False:
+            violations.append("completed_larger_validation_item_requires_closed_revalidation")
+        if larger_validation.get("generalized_human_likeness_claim_allowed") is not True:
+            violations.append("completed_larger_validation_item_requires_generalized_claim")
 
     multi = remaining.get("production_scale_multi_agent_training") or {}
-    if multi.get("full_training_status") != "NOT_COMPLETED":
+    if multi.get("status") == REQUIRED and multi.get("full_training_status") != "NOT_COMPLETED":
         violations.append("production_scale_multi_agent_training_must_remain_not_completed")
+    if multi.get("status") == COMPLETE and multi.get("full_training_status") != "COMPLETED":
+        violations.append("completed_multi_agent_item_requires_completed_training")
     if multi.get("production_blocker_for_current_delivery") is not False:
         violations.append("multi_agent_training_gap_must_not_block_current_delivery")
 
@@ -313,10 +379,17 @@ def validate_final_strategy_quality_status(payload: dict[str, Any]) -> dict[str,
             violations.append(f"real_traffic_boundary_requires:{key}")
 
     blocked = set(payload.get("blocked_claims") or [])
-    if "Final production-level poker strategy quality is approved." not in blocked:
-        violations.append("blocked_claims_must_reject_final_strategy_quality_approval")
-    if "The current delivery is a final competitive poker agent." not in blocked:
-        violations.append("blocked_claims_must_reject_competitive_agent_claim")
+    if final_approved:
+        allowed = set(payload.get("allowed_claims") or [])
+        if "Final production-level poker strategy quality is approved." not in allowed:
+            violations.append("approved_claims_must_include_final_strategy_quality_approval")
+        if "Final production-level poker strategy quality is approved." in blocked:
+            violations.append("approved_strategy_must_not_block_final_strategy_claim")
+    else:
+        if "Final production-level poker strategy quality is approved." not in blocked:
+            violations.append("blocked_claims_must_reject_final_strategy_quality_approval")
+        if "The current delivery is a final competitive poker agent." not in blocked:
+            violations.append("blocked_claims_must_reject_competitive_agent_claim")
 
     return {"status": "FAIL" if violations else "PASS", "violations": violations}
 
@@ -449,14 +522,19 @@ def _final_strategy_quality_conditions_met(
     calibration_boundary: dict[str, Any],
     behavioral_boundary: dict[str, Any],
     multi_boundary: dict[str, Any],
+    evaluation_metric: dict[str, Any],
 ) -> bool:
     return all(
         [
             challenger_boundary.get("final_production_strategy_quality_claim_allowed") is True,
             hole_boundary.get("upstream_data_quality_issue_resolved") is True,
             calibration_boundary.get("final_high_realism_claim_allowed") is True,
+            calibration_boundary.get("requires_more_real_player_behavior_labels") is False,
             behavioral_boundary.get("larger_clean_real_gameplay_revalidation_required") is False,
+            behavioral_boundary.get("generalized_human_likeness_claim_allowed") is True,
             multi_boundary.get("full_production_scale_multi_agent_training_status") == "COMPLETED",
+            evaluation_metric.get("final_metric_bundle_passed") is True,
+            evaluation_metric.get("final_strategy_quality_claim_allowed") is True,
         ]
     )
 

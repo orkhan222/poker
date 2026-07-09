@@ -39,6 +39,11 @@ def test_open_spiel_claim_contract_blocks_win_rate_claim_until_training_proof_ex
     assert contract["self_play_win_rate_claim_allowed"] is False
     assert contract["current_delivery_blocker"] is False
     assert contract["model_quality_risk"] is True
+    assert contract["required_phase1_trained_policy_artifact_count"] == 2
+    assert contract["phase1_trained_policy_artifact_count"] == 0
+    assert contract["policy_update_algorithm_required"] == "PPO_OR_EQUIVALENT"
+    assert contract["ppo_policy_update_required"] is True
+    assert contract["ppo_or_equivalent_policy_update_completed"] is False
     assert set(contract["required_evidence_before_self_play_claim"]) == set(REQUIRED_RL_EVIDENCE)
     assert contract["missing_requirements"] == [
         "real_open_spiel_runtime",
@@ -62,6 +67,36 @@ def test_open_spiel_claim_contract_rejects_false_completed_claim(tmp_path: Path)
     assert "self_play_win_rate_claim_requires_complete_training_proof" in validation["violations"]
     assert "training_proof_completed_requires_all_evidence" in validation["violations"]
     assert "incomplete_open_spiel_training_proof_must_remain_model_quality_risk" in validation["violations"]
+
+
+def test_open_spiel_claim_contract_rejects_single_artifact_claim(tmp_path: Path) -> None:
+    _write_pending_phase3_report(tmp_path)
+    contract = build_open_spiel_claim_contract(tmp_path)
+    contract["phase1_trained_policy_artifacts_attached"] = True
+    contract["phase1_trained_policy_artifact_count"] = 1
+    contract["self_play_win_rate_claim_allowed"] = True
+    contract["training_proof_completed"] = True
+    contract["model_quality_risk"] = False
+
+    validation = validate_open_spiel_claim_contract(contract)
+
+    assert validation["status"] == "FAIL"
+    assert "self_play_win_rate_claim_requires_complete_training_proof" in validation["violations"]
+
+
+def test_open_spiel_claim_contract_rejects_non_ppo_policy_update_claim(tmp_path: Path) -> None:
+    _write_pending_phase3_report(tmp_path)
+    contract = build_open_spiel_claim_contract(tmp_path)
+    contract["policy_update_training_completed"] = True
+    contract["ppo_or_equivalent_policy_update_completed"] = False
+    contract["self_play_win_rate_claim_allowed"] = True
+    contract["training_proof_completed"] = True
+    contract["model_quality_risk"] = False
+
+    validation = validate_open_spiel_claim_contract(contract)
+
+    assert validation["status"] == "FAIL"
+    assert "policy_update_training_must_be_ppo_or_equivalent_for_claim" in validation["violations"]
 
 
 def test_open_spiel_claim_contract_writes_json_and_markdown(tmp_path: Path) -> None:

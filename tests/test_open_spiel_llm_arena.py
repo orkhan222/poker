@@ -109,6 +109,11 @@ def test_open_spiel_arena_runs_agent_only_table() -> None:
         "policy_update_training",
     }
     assert payload["rl_training_proof_boundary"]["policy_update_training_completed"] is False
+    assert payload["rl_training_proof_boundary"]["required_phase1_trained_policy_artifact_count"] == 2
+    assert payload["rl_training_proof_boundary"]["phase1_trained_policy_artifact_count"] == 2
+    assert payload["rl_training_proof_boundary"]["policy_update_algorithm_required"] == "PPO_OR_EQUIVALENT"
+    assert payload["rl_training_proof_boundary"]["ppo_policy_update_required"] is True
+    assert payload["rl_training_proof_boundary"]["ppo_or_equivalent_policy_update_completed"] is False
     assert payload["rl_training_proof_boundary"]["seed_stability_evaluated"] is False
     assert payload["rl_training_proof_boundary"]["long_run_completed"] is False
     assert payload["rl_training_proof_boundary"]["model_quality_risk"] is True
@@ -148,6 +153,9 @@ def test_pending_report_does_not_claim_measured_metrics() -> None:
     assert payload["rl_training_proof_boundary"]["gate_name"] == "phase3_open_spiel_rl_training_evidence_gate"
     assert payload["rl_training_proof_boundary"]["real_open_spiel_runtime_available"] in {True, False}
     assert payload["rl_training_proof_boundary"]["phase1_trained_policy_artifacts_attached"] is False
+    assert payload["rl_training_proof_boundary"]["phase1_trained_policy_artifact_count"] == 0
+    assert payload["rl_training_proof_boundary"]["required_phase1_trained_policy_artifact_count"] == 2
+    assert payload["rl_training_proof_boundary"]["ppo_or_equivalent_policy_update_completed"] is False
     assert payload["rl_training_proof_boundary"]["current_delivery_blocker"] is False
     assert payload["rl_training_proof_boundary"]["model_quality_risk"] is True
     assert all(case["result"] == "PASS" for case in payload["proof_cases"])

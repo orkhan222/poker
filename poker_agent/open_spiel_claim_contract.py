@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Any
 
 from poker_agent.rl_training_evidence_gate import (
+    DEFAULT_POLICY_UPDATE_ALGORITHM,
     REQUIRED_RL_EVIDENCE,
+    REQUIRED_PHASE1_POLICY_ARTIFACTS,
     RL_TRAINING_PROOF_COMPLETED_STATUS,
 )
 
@@ -47,9 +49,20 @@ def build_open_spiel_claim_contract(project_root: Path) -> dict[str, Any]:
         "phase1_trained_policy_artifacts_attached": (
             proof.get("phase1_trained_policy_artifacts_attached") is True
         ),
+        "required_phase1_trained_policy_artifact_count": proof.get(
+            "required_phase1_trained_policy_artifact_count"
+        ),
+        "phase1_trained_policy_artifact_count": proof.get("phase1_trained_policy_artifact_count"),
         "seed_stability_evaluated": proof.get("seed_stability_evaluated") is True,
         "long_run_completed": proof.get("long_run_completed") is True,
         "policy_update_training_completed": proof.get("policy_update_training_completed") is True,
+        "policy_update_algorithm_required": proof.get("policy_update_algorithm_required"),
+        "policy_update_algorithm": proof.get("policy_update_algorithm"),
+        "policy_update_algorithm_supported": proof.get("policy_update_algorithm_supported") is True,
+        "ppo_policy_update_required": proof.get("ppo_policy_update_required") is True,
+        "ppo_or_equivalent_policy_update_completed": (
+            proof.get("ppo_or_equivalent_policy_update_completed") is True
+        ),
         "required_evidence_before_self_play_claim": list(REQUIRED_RL_EVIDENCE),
         "minimum_independent_seeds": proof.get("minimum_independent_seeds"),
         "minimum_long_run_episodes": proof.get("minimum_long_run_episodes"),
@@ -65,8 +78,8 @@ def build_open_spiel_claim_contract(project_root: Path) -> dict[str, Any]:
         ),
         "blocked_claim": (
             "Do not claim Phase 3 self-play win-rate, RL training success, or production strategy "
-            "quality until a real OpenSpiel runtime run uses two trained Phase 1 policy artifacts, "
-            "long-run volume, seed stability, and policy-update training."
+            "quality until a real OpenSpiel runtime run uses exactly two trained Phase 1 policy "
+            "artifacts, long-run volume, seed stability, and PPO/equivalent policy-update training."
         ),
         "invariants": {},
     }
@@ -98,10 +111,12 @@ def validate_open_spiel_claim_contract(payload: dict[str, Any]) -> dict[str, Any
     required_training_flags = (
         payload.get("real_open_spiel_runtime_available") is True,
         payload.get("phase1_trained_policy_artifacts_attached") is True,
+        int(payload.get("phase1_trained_policy_artifact_count") or 0) == REQUIRED_PHASE1_POLICY_ARTIFACTS,
         payload.get("agent_only_table") is True,
         payload.get("seed_stability_evaluated") is True,
         payload.get("long_run_completed") is True,
         payload.get("policy_update_training_completed") is True,
+        payload.get("ppo_or_equivalent_policy_update_completed") is True,
     )
     complete_training_proof = all(required_training_flags)
 
@@ -127,12 +142,22 @@ def validate_open_spiel_claim_contract(payload: dict[str, Any]) -> dict[str, Any
         violations.append("fixed_scripted_opponents_must_not_be_present_in_arena_claim")
     if required_evidence != set(REQUIRED_RL_EVIDENCE):
         violations.append("open_spiel_claim_contract_must_require_complete_rl_evidence_set")
+    if int(payload.get("required_phase1_trained_policy_artifact_count") or 0) != REQUIRED_PHASE1_POLICY_ARTIFACTS:
+        violations.append("open_spiel_claim_contract_must_require_exactly_two_phase1_artifacts")
     if payload.get("current_delivery_blocker") is not False:
         violations.append("missing_rl_training_proof_must_not_block_current_delivery")
     if int(payload.get("minimum_independent_seeds") or 0) < 5:
         violations.append("open_spiel_claim_contract_seed_threshold_too_low")
     if int(payload.get("minimum_long_run_episodes") or 0) < 5000:
         violations.append("open_spiel_claim_contract_episode_threshold_too_low")
+    if payload.get("ppo_policy_update_required") is not True:
+        violations.append("open_spiel_claim_contract_must_require_ppo_or_equivalent_update")
+    if payload.get("policy_update_algorithm_required") != DEFAULT_POLICY_UPDATE_ALGORITHM:
+        violations.append("open_spiel_claim_contract_policy_update_requirement_must_be_explicit")
+    if payload.get("policy_update_training_completed") is True and payload.get(
+        "ppo_or_equivalent_policy_update_completed"
+    ) is not True:
+        violations.append("policy_update_training_must_be_ppo_or_equivalent_for_claim")
     if payload.get("self_play_win_rate_claim_allowed") is True and not complete_training_proof:
         violations.append("self_play_win_rate_claim_requires_complete_training_proof")
     if payload.get("training_proof_completed") is True and not complete_training_proof:
@@ -175,13 +200,15 @@ def build_open_spiel_claim_proof_cases(payload: dict[str, Any]) -> list[dict[str
     for name, field in (
         ("blocks_claim_without_real_open_spiel_runtime", "real_open_spiel_runtime_available"),
         ("blocks_claim_without_two_phase1_policy_artifacts", "phase1_trained_policy_artifacts_attached"),
+        ("blocks_claim_without_exactly_two_phase1_policy_artifacts", "phase1_trained_policy_artifact_count"),
         ("blocks_claim_without_agent_only_table", "agent_only_table"),
         ("blocks_claim_without_seed_stability", "seed_stability_evaluated"),
         ("blocks_claim_without_long_run", "long_run_completed"),
         ("blocks_claim_without_policy_update_training", "policy_update_training_completed"),
+        ("blocks_claim_without_ppo_or_equivalent_update", "ppo_or_equivalent_policy_update_completed"),
     ):
         candidate = cloned()
-        candidate[field] = False
+        candidate[field] = 1 if field == "phase1_trained_policy_artifact_count" else False
         candidate["self_play_win_rate_claim_allowed"] = True
         candidate["training_proof_completed"] = True
         candidate["model_quality_risk"] = False
