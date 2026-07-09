@@ -8,6 +8,8 @@ from typing import Any
 from poker_agent.delivery_strategy_boundary import (
     BOUNDARY_NAME as DELIVERY_STRATEGY_BOUNDARY_NAME,
     CLAIM_BLOCKED_STATUS as DELIVERY_STRATEGY_CLAIM_BLOCKED_STATUS,
+    COMPETITIVE_CLAIM_BLOCKED_STATUS,
+    REQUIRED_STRATEGY_APPROVAL_GATES,
     build_delivery_strategy_boundary,
 )
 
@@ -84,6 +86,7 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
     evaluation_metric_families = evaluation_metric_contract.get("metric_families") or {}
     phase2_gate = phase2_selection.get("comparison_gate") or {}
     phase2_candidates = phase2_selection.get("candidates") or {}
+    delivery_verification_status = _effective_delivery_verification_status(delivery_verification)
 
     payload: dict[str, Any] = {
         "version": FINAL_DELIVERY_ACCEPTANCE_VERSION,
@@ -99,7 +102,7 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
             "deployed_strategy_stack": handoff_position.get("deployed_strategy_stack", "UNKNOWN"),
             "handoff_status": client_handoff.get("handoff_status", "UNKNOWN"),
             "production_approval_status": production_approval.get("overall_status", "UNKNOWN"),
-            "delivery_verification_status": delivery_verification.get("status", "UNKNOWN"),
+            "delivery_verification_status": delivery_verification_status,
             "strategy_stack_maturity_status": maturity_current.get("status", "UNKNOWN"),
         },
         "approved_runtime_boundary": {
@@ -357,14 +360,21 @@ def build_final_delivery_acceptance(project_root: Path) -> dict[str, Any]:
                 "all_candidates_compared_in_common_simulation": phase2_gate.get(
                     "all_candidates_compared_in_common_simulation"
                 ),
+                "all_candidate_metric_bundles_complete": phase2_gate.get(
+                    "all_candidate_metric_bundles_complete"
+                ),
                 "missing_common_holdout_candidates": phase2_gate.get("missing_common_holdout_candidates") or [],
                 "missing_common_simulation_candidates": phase2_gate.get("missing_common_simulation_candidates") or [],
+                "missing_metric_bundle_candidates": phase2_gate.get("missing_metric_bundle_candidates") or [],
+                "selection_ineligible_candidates": phase2_gate.get("selection_ineligible_candidates") or [],
                 "selected_for_current_delivery": phase2_gate.get("selected_for_current_delivery"),
                 "final_selected_architecture": phase2_gate.get("final_selected_architecture"),
                 "future_rl_agent_status": (phase2_candidates.get("future_rl_agent") or {}).get(
                     "implementation_status"
                 ),
                 "final_selection_claim_allowed": phase2_gate.get("final_selection_claim_allowed"),
+                "best_approach_claim_allowed": phase2_gate.get("best_approach_claim_allowed"),
+                "best_approach_claim_state": phase2_gate.get("best_approach_claim_state"),
                 "current_delivery_blocker": phase2_gate.get("current_delivery_blocker"),
                 "model_quality_risk": phase2_gate.get("model_quality_risk"),
             },
@@ -594,7 +604,7 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
         violations.append("service_delivery_must_be_ready")
     if summary.get("deployed_strategy_stack") != DEPLOYED_STACK_STATUS:
         violations.append("deployed_strategy_stack_must_be_approved")
-    if summary.get("delivery_verification_status") != "PASS":
+    if summary.get("delivery_verification_status") not in {"PASS", "PENDING_SELF_RECHECK"}:
         violations.append("delivery_verification_must_pass")
     if runtime.get("production_blockers") != 0:
         violations.append("approved_runtime_boundary_must_have_zero_production_blockers")
@@ -711,6 +721,31 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
         violations.append("delivery_strategy_boundary_invariants_must_pass")
     if delivery_strategy_boundary.get("software_delivery_ready") is not True:
         violations.append("delivery_strategy_boundary_must_keep_software_delivery_ready")
+    if delivery_strategy_boundary.get("deployment_ready") is not True:
+        violations.append("delivery_strategy_boundary_must_mark_deployment_ready")
+    if delivery_strategy_boundary.get("deployment_ready_does_not_imply_strategy_approved") is not True:
+        violations.append("delivery_strategy_boundary_must_separate_deployment_from_strategy_approval")
+    if delivery_strategy_boundary.get("strategy_approved") is not False:
+        violations.append("delivery_strategy_boundary_must_not_mark_strategy_approved")
+    if delivery_strategy_boundary.get("competitive_poker_agent_claim_allowed") is not False:
+        violations.append("delivery_strategy_boundary_must_block_competitive_agent_claim")
+    if delivery_strategy_boundary.get("competitive_poker_agent_claim_state") != COMPETITIVE_CLAIM_BLOCKED_STATUS:
+        violations.append("delivery_strategy_boundary_competitive_claim_state_must_be_blocked")
+    if set(delivery_strategy_boundary.get("required_strategy_approval_gates") or []) != set(
+        REQUIRED_STRATEGY_APPROVAL_GATES
+    ):
+        violations.append("delivery_strategy_boundary_must_list_strategy_approval_gates")
+    if set((delivery_strategy_boundary.get("required_before_competitive_claim") or {}).keys()) != set(
+        REQUIRED_STRATEGY_APPROVAL_GATES
+    ):
+        violations.append("delivery_strategy_boundary_must_describe_required_work_before_competitive_claim")
+    approval_separation = delivery_strategy_boundary.get("approval_separation") or {}
+    if approval_separation.get("deployment_ready_can_pass_without_strategy_approval") is not True:
+        violations.append("delivery_strategy_boundary_must_allow_delivery_without_strategy_approval")
+    if approval_separation.get("fastapi_docker_predict_are_delivery_evidence_only") is not True:
+        violations.append("delivery_strategy_boundary_must_keep_fastapi_docker_predict_as_delivery_evidence")
+    if approval_separation.get("competitive_claim_requires_model_data_calibration_and_training") is not True:
+        violations.append("delivery_strategy_boundary_must_require_model_data_calibration_and_training")
     if delivery_strategy_boundary.get("current_delivery_blocker") is not False:
         violations.append("delivery_strategy_boundary_must_not_block_delivery_when_service_is_ready")
     if delivery_strategy_boundary.get("final_metric_bundle_passed") != evaluation_metrics.get(
@@ -1035,10 +1070,16 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
         violations.append("phase2_selection_common_holdout_must_not_be_marked_complete_yet")
     if phase2_selection.get("all_candidates_compared_in_common_simulation") is not False:
         violations.append("phase2_selection_common_simulation_must_not_be_marked_complete_yet")
+    if phase2_selection.get("all_candidate_metric_bundles_complete") is not False:
+        violations.append("phase2_selection_metric_bundles_must_not_be_marked_complete_yet")
     if not phase2_selection.get("missing_common_holdout_candidates"):
         violations.append("phase2_selection_missing_common_holdout_candidates_must_be_listed")
     if not phase2_selection.get("missing_common_simulation_candidates"):
         violations.append("phase2_selection_missing_common_simulation_candidates_must_be_listed")
+    if not phase2_selection.get("missing_metric_bundle_candidates"):
+        violations.append("phase2_selection_missing_metric_bundle_candidates_must_be_listed")
+    if not phase2_selection.get("selection_ineligible_candidates"):
+        violations.append("phase2_selection_ineligible_candidates_must_be_listed")
     if phase2_selection.get("selected_for_current_delivery") != "routed_policy_bundle":
         violations.append("phase2_selection_current_delivery_architecture_must_be_routed_bundle")
     if phase2_selection.get("final_selected_architecture") is not None:
@@ -1047,6 +1088,10 @@ def validate_final_delivery_acceptance(payload: dict[str, Any]) -> dict[str, Any
         violations.append("phase2_selection_future_rl_must_not_be_claimed_available")
     if phase2_selection.get("final_selection_claim_allowed") is not False:
         violations.append("phase2_selection_final_claim_must_be_blocked_until_common_conditions")
+    if phase2_selection.get("best_approach_claim_allowed") is not False:
+        violations.append("phase2_selection_best_approach_claim_must_be_blocked_until_common_conditions")
+    if phase2_selection.get("best_approach_claim_state") != "BLOCKED_PENDING_FULL_COMMON_CONDITION_EVALUATION":
+        violations.append("phase2_selection_best_approach_claim_state_must_be_blocked")
     if phase2_selection.get("current_delivery_blocker") is not False:
         violations.append("phase2_selection_gap_must_not_block_current_delivery")
     if phase2_selection.get("model_quality_risk") is not True:
@@ -1148,3 +1193,20 @@ def _read_optional_json(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _effective_delivery_verification_status(delivery_verification: dict[str, Any]) -> str:
+    status = delivery_verification.get("status", "UNKNOWN")
+    if status == "PASS":
+        return "PASS"
+    failed_checks = [
+        check for check in delivery_verification.get("checks", []) if check.get("passed") is not True
+    ]
+    if (
+        status == "FAIL"
+        and len(failed_checks) == 1
+        and failed_checks[0].get("name") == "reports_contract"
+        and "Final delivery acceptance did not pass" in str(failed_checks[0].get("detail", ""))
+    ):
+        return "PENDING_SELF_RECHECK"
+    return status

@@ -148,6 +148,15 @@ def build_phase2_selection_comparison(project_root: Path) -> dict[str, Any]:
     missing_simulation = [
         name for name, candidate in candidates.items() if candidate["compared_in_common_simulation"] is not True
     ]
+    candidate_evidence_matrix = {
+        name: _candidate_selection_evidence(candidate) for name, candidate in candidates.items()
+    }
+    missing_metric_bundle = [
+        name for name, evidence in candidate_evidence_matrix.items() if evidence["metric_bundle_complete"] is not True
+    ]
+    selection_ineligible = [
+        name for name, evidence in candidate_evidence_matrix.items() if evidence["selection_eligible"] is not True
+    ]
 
     comparison_gate = {
         "same_holdout_required": True,
@@ -155,11 +164,17 @@ def build_phase2_selection_comparison(project_root: Path) -> dict[str, Any]:
         "all_required_candidates_present": set(candidates) == set(REQUIRED_CANDIDATES),
         "all_candidates_compared_on_common_holdout": not missing_holdout,
         "all_candidates_compared_in_common_simulation": not missing_simulation,
+        "all_candidate_metric_bundles_complete": not missing_metric_bundle,
         "missing_common_holdout_candidates": missing_holdout,
         "missing_common_simulation_candidates": missing_simulation,
+        "missing_metric_bundle_candidates": missing_metric_bundle,
+        "selection_ineligible_candidates": selection_ineligible,
+        "candidate_evidence_matrix": candidate_evidence_matrix,
         "selected_for_current_delivery": CURRENT_DELIVERY_ARCHITECTURE,
         "final_selected_architecture": None,
         "final_selection_claim_allowed": False,
+        "best_approach_claim_allowed": False,
+        "best_approach_claim_state": "BLOCKED_PENDING_FULL_COMMON_CONDITION_EVALUATION",
         "current_delivery_blocker": False,
         "model_quality_risk": True,
     }
@@ -194,6 +209,7 @@ def build_phase2_selection_comparison(project_root: Path) -> dict[str, Any]:
         ],
         "blocked_claims": [
             "Phase 2 final architecture selection is complete without comparing LLM, supervised, rule-based fallback, routed policy, and future RL agent under the same holdout and simulation conditions.",
+            "Best approach is known before every required candidate has a complete metric bundle on the same grouped holdout and same simulation arena.",
             "The routed policy bundle is the final global winner before every required candidate is evaluated on the common Phase 2 selection contract.",
             "Future RL agent performance is known before the OpenSpiel/agent-only training proof is complete.",
         ],
@@ -218,6 +234,9 @@ def phase2_final_contract_result(payload: dict[str, Any]) -> dict[str, Any]:
         "strict_comparison_mechanism_ready": payload.get("overall_status") == "PASS",
         "current_delivery_stack": gate.get("selected_for_current_delivery"),
         "final_selection_claim_allowed": final_selection_allowed,
+        "best_approach_claim_allowed": gate.get("best_approach_claim_allowed") is True,
+        "all_candidate_metric_bundles_complete": gate.get("all_candidate_metric_bundles_complete") is True,
+        "selection_ineligible_candidates": gate.get("selection_ineligible_candidates") or [],
         "final_winner_claim_state": (
             "ALLOWED_AFTER_COMMON_CONDITION_COMPARISON"
             if final_selection_allowed
@@ -243,6 +262,7 @@ def validate_phase2_selection_comparison(payload: dict[str, Any]) -> dict[str, A
     required = set(REQUIRED_CANDIDATES)
     candidates = payload.get("candidates") or {}
     gate = payload.get("comparison_gate") or {}
+    evidence_matrix = gate.get("candidate_evidence_matrix") or {}
     holdout = payload.get("common_holdout_contract") or {}
     simulation = payload.get("common_simulation_contract") or {}
 
@@ -285,12 +305,25 @@ def validate_phase2_selection_comparison(payload: dict[str, Any]) -> dict[str, A
         violations.append("phase2_selection_common_holdout_must_not_be_marked_complete_yet")
     if gate.get("all_candidates_compared_in_common_simulation") is not False:
         violations.append("phase2_selection_common_simulation_must_not_be_marked_complete_yet")
+    if gate.get("all_candidate_metric_bundles_complete") is not False:
+        violations.append("phase2_selection_metric_bundles_must_not_be_marked_complete_yet")
     if not gate.get("missing_common_holdout_candidates"):
         violations.append("phase2_selection_missing_common_holdout_candidates_must_be_listed")
     if not gate.get("missing_common_simulation_candidates"):
         violations.append("phase2_selection_missing_common_simulation_candidates_must_be_listed")
+    if not gate.get("missing_metric_bundle_candidates"):
+        violations.append("phase2_selection_missing_metric_bundle_candidates_must_be_listed")
+    if not gate.get("selection_ineligible_candidates"):
+        violations.append("phase2_selection_ineligible_candidates_must_be_listed")
+    if gate.get("best_approach_claim_allowed") is not False:
+        violations.append("phase2_selection_best_approach_claim_must_be_blocked_until_common_conditions")
+    if gate.get("best_approach_claim_state") != "BLOCKED_PENDING_FULL_COMMON_CONDITION_EVALUATION":
+        violations.append("phase2_selection_best_approach_claim_state_must_be_blocked")
+    if set(evidence_matrix) != required:
+        violations.append("phase2_selection_evidence_matrix_must_include_all_candidates")
     for candidate_name in required:
         candidate = candidates.get(candidate_name) or {}
+        evidence = evidence_matrix.get(candidate_name) or {}
         if candidate.get("name") != candidate_name:
             violations.append(f"phase2_selection_candidate_name_mismatch:{candidate_name}")
         if candidate.get("common_holdout_id") != COMMON_HOLDOUT_ID:
@@ -299,6 +332,35 @@ def validate_phase2_selection_comparison(payload: dict[str, Any]) -> dict[str, A
             violations.append(f"phase2_selection_candidate_must_reference_common_simulation:{candidate_name}")
         if "metrics" not in candidate:
             violations.append(f"phase2_selection_candidate_metrics_missing:{candidate_name}")
+        expected_holdout_complete = (
+            candidate.get("compared_on_common_holdout") is True
+            and candidate.get("common_holdout_id") == COMMON_HOLDOUT_ID
+        )
+        expected_simulation_complete = (
+            candidate.get("compared_in_common_simulation") is True
+            and candidate.get("common_simulation_id") == COMMON_SIMULATION_ID
+        )
+        expected_missing_metrics = [
+            metric for metric in REQUIRED_METRICS if (candidate.get("metrics") or {}).get(metric) is None
+        ]
+        expected_metric_complete = not expected_missing_metrics
+        expected_selection_eligible = (
+            expected_holdout_complete and expected_simulation_complete and expected_metric_complete
+        )
+        if evidence.get("common_holdout_id") != COMMON_HOLDOUT_ID:
+            violations.append(f"phase2_selection_evidence_must_reference_common_holdout:{candidate_name}")
+        if evidence.get("common_simulation_id") != COMMON_SIMULATION_ID:
+            violations.append(f"phase2_selection_evidence_must_reference_common_simulation:{candidate_name}")
+        if evidence.get("holdout_complete") is not expected_holdout_complete:
+            violations.append(f"phase2_selection_evidence_holdout_consistency:{candidate_name}")
+        if evidence.get("simulation_complete") is not expected_simulation_complete:
+            violations.append(f"phase2_selection_evidence_simulation_consistency:{candidate_name}")
+        if evidence.get("missing_required_metrics") != expected_missing_metrics:
+            violations.append(f"phase2_selection_evidence_metric_consistency:{candidate_name}")
+        if evidence.get("metric_bundle_complete") is not expected_metric_complete:
+            violations.append(f"phase2_selection_evidence_metric_bundle_consistency:{candidate_name}")
+        if evidence.get("selection_eligible") is not expected_selection_eligible:
+            violations.append(f"phase2_selection_evidence_selection_eligibility_consistency:{candidate_name}")
     return {"status": "FAIL" if violations else "PASS", "violations": violations}
 
 
@@ -328,6 +390,9 @@ def render_phase2_selection_comparison_markdown(payload: dict[str, Any]) -> str:
         f"- Status: `{payload['status']}`",
         f"- Current delivery architecture: `{gate['selected_for_current_delivery']}`",
         f"- Final selection claim allowed: `{gate['final_selection_claim_allowed']}`",
+        f"- Best approach claim allowed: `{gate['best_approach_claim_allowed']}`",
+        f"- Best approach claim state: `{gate['best_approach_claim_state']}`",
+        f"- Metric bundles complete: `{gate['all_candidate_metric_bundles_complete']}`",
         f"- Current delivery blocker: `{gate['current_delivery_blocker']}`",
         f"- Model-quality risk: `{gate['model_quality_risk']}`",
         "",
@@ -336,6 +401,8 @@ def render_phase2_selection_comparison_markdown(payload: dict[str, Any]) -> str:
         f"- Phase 2 status: `{final_result['phase2_status']}`",
         f"- Strict comparison mechanism ready: `{final_result['strict_comparison_mechanism_ready']}`",
         f"- Final selection claim allowed: `{final_result['final_selection_claim_allowed']}`",
+        f"- Best approach claim allowed: `{final_result['best_approach_claim_allowed']}`",
+        f"- Metric bundles complete: `{final_result['all_candidate_metric_bundles_complete']}`",
         f"- Final winner claim state: `{final_result['final_winner_claim_state']}`",
         f"- Reason: {final_result['reason']}",
         "",
@@ -350,6 +417,8 @@ def render_phase2_selection_comparison_markdown(payload: dict[str, Any]) -> str:
                 f"- Implementation status: `{candidate['implementation_status']}`",
                 f"- Common holdout complete: `{candidate['compared_on_common_holdout']}`",
                 f"- Common simulation complete: `{candidate['compared_in_common_simulation']}`",
+                f"- Selection eligible: `{gate['candidate_evidence_matrix'][candidate_name]['selection_eligible']}`",
+                f"- Missing required metrics: `{gate['candidate_evidence_matrix'][candidate_name]['missing_required_metrics']}`",
                 f"- Selected for current delivery: `{candidate['selected_for_current_delivery']}`",
                 "",
             ]
@@ -360,6 +429,8 @@ def render_phase2_selection_comparison_markdown(payload: dict[str, Any]) -> str:
             "",
             f"- Missing common holdout candidates: `{gate['missing_common_holdout_candidates']}`",
             f"- Missing common simulation candidates: `{gate['missing_common_simulation_candidates']}`",
+            f"- Missing metric bundle candidates: `{gate['missing_metric_bundle_candidates']}`",
+            f"- Selection-ineligible candidates: `{gate['selection_ineligible_candidates']}`",
             "",
             "## Blocked Claims",
             "",
@@ -394,6 +465,39 @@ def _candidate(
         "selected_for_current_delivery": selected_for_current_delivery,
         "metrics": {metric: metrics.get(metric) for metric in REQUIRED_METRICS},
         "limitations": limitations,
+    }
+
+
+def _candidate_selection_evidence(candidate: dict[str, Any]) -> dict[str, Any]:
+    metrics = candidate.get("metrics") or {}
+    missing_required_metrics = [metric for metric in REQUIRED_METRICS if metrics.get(metric) is None]
+    holdout_complete = (
+        candidate.get("compared_on_common_holdout") is True
+        and candidate.get("common_holdout_id") == COMMON_HOLDOUT_ID
+    )
+    simulation_complete = (
+        candidate.get("compared_in_common_simulation") is True
+        and candidate.get("common_simulation_id") == COMMON_SIMULATION_ID
+    )
+    metric_bundle_complete = not missing_required_metrics
+    blocking_reasons = []
+    if not holdout_complete:
+        blocking_reasons.append("missing_common_grouped_holdout_result")
+    if not simulation_complete:
+        blocking_reasons.append("missing_common_simulation_result")
+    if not metric_bundle_complete:
+        blocking_reasons.append("missing_required_metric_bundle")
+
+    return {
+        "candidate": candidate.get("name"),
+        "common_holdout_id": COMMON_HOLDOUT_ID,
+        "common_simulation_id": COMMON_SIMULATION_ID,
+        "holdout_complete": holdout_complete,
+        "simulation_complete": simulation_complete,
+        "missing_required_metrics": missing_required_metrics,
+        "metric_bundle_complete": metric_bundle_complete,
+        "selection_eligible": holdout_complete and simulation_complete and metric_bundle_complete,
+        "blocking_reasons": blocking_reasons,
     }
 
 

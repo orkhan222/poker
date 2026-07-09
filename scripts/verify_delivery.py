@@ -2231,6 +2231,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("LLM architecture comparison incorrectly affects deployed strategy approval")
     phase2_gate = phase2_selection_comparison.get("comparison_gate") or {}
     phase2_candidates = phase2_selection_comparison.get("candidates") or {}
+    phase2_evidence_matrix = phase2_gate.get("candidate_evidence_matrix") or {}
     expected_phase2_candidates = {
         "llm_decision_agent",
         "supervised_model",
@@ -2258,6 +2259,10 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Phase 2 current delivery architecture must remain routed_policy_bundle")
     if phase2_gate.get("final_selection_claim_allowed") is not False:
         raise AssertionError("Phase 2 final selection claim must remain blocked until common-condition comparison")
+    if phase2_gate.get("best_approach_claim_allowed") is not False:
+        raise AssertionError("Phase 2 best-approach claim must remain blocked until full common-condition evaluation")
+    if phase2_gate.get("best_approach_claim_state") != "BLOCKED_PENDING_FULL_COMMON_CONDITION_EVALUATION":
+        raise AssertionError("Phase 2 best-approach claim state must explicitly remain blocked")
     if phase2_gate.get("current_delivery_blocker") is not False:
         raise AssertionError("Phase 2 common-condition comparison gap must not block current delivery")
     if phase2_gate.get("model_quality_risk") is not True:
@@ -2266,10 +2271,27 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Phase 2 common holdout must not be marked complete yet")
     if phase2_gate.get("all_candidates_compared_in_common_simulation") is not False:
         raise AssertionError("Phase 2 common simulation must not be marked complete yet")
+    if phase2_gate.get("all_candidate_metric_bundles_complete") is not False:
+        raise AssertionError("Phase 2 metric bundle must not be marked complete until every candidate has all metrics")
     if not phase2_gate.get("missing_common_holdout_candidates"):
         raise AssertionError("Phase 2 missing common holdout candidates must be listed")
     if not phase2_gate.get("missing_common_simulation_candidates"):
         raise AssertionError("Phase 2 missing common simulation candidates must be listed")
+    if not phase2_gate.get("missing_metric_bundle_candidates"):
+        raise AssertionError("Phase 2 missing metric bundle candidates must be listed")
+    if not phase2_gate.get("selection_ineligible_candidates"):
+        raise AssertionError("Phase 2 selection-ineligible candidates must be listed")
+    if set(phase2_evidence_matrix) != expected_phase2_candidates:
+        raise AssertionError("Phase 2 evidence matrix must include every candidate")
+    for candidate_name, evidence in phase2_evidence_matrix.items():
+        if evidence.get("common_holdout_id") != "phase2_common_grouped_holdout_v1":
+            raise AssertionError(f"Phase 2 evidence matrix has wrong holdout id for {candidate_name}")
+        if evidence.get("common_simulation_id") != "phase2_common_agent_arena_v1":
+            raise AssertionError(f"Phase 2 evidence matrix has wrong simulation id for {candidate_name}")
+        if evidence.get("selection_eligible") is True:
+            raise AssertionError(f"Phase 2 candidate must not be selection-eligible yet: {candidate_name}")
+        if not evidence.get("blocking_reasons"):
+            raise AssertionError(f"Phase 2 ineligible candidate must list blocking reasons: {candidate_name}")
     if (phase2_candidates.get("future_rl_agent") or {}).get("implementation_status") != "NOT_AVAILABLE_YET":
         raise AssertionError("Future RL agent must not be claimed available before Phase 3 training proof")
 
@@ -2673,13 +2695,44 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Final acceptance must preserve deployed strategy-stack approval")
     if (
         final_delivery_strategy_boundary.get("boundary")
-        != "DELIVERY_READY_FINAL_STRATEGY_REQUIRES_FULL_METRIC_BUNDLE"
+        != "DEPLOYMENT_READY_IS_NOT_STRATEGY_APPROVED"
     ):
         raise AssertionError("Final acceptance must expose the delivery/strategy-quality boundary")
     if (final_delivery_strategy_boundary.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError("Delivery/strategy-quality boundary invariants must pass")
     if final_delivery_strategy_boundary.get("software_delivery_ready") is not True:
         raise AssertionError("Delivery/strategy boundary must keep software delivery ready")
+    if final_delivery_strategy_boundary.get("deployment_ready") is not True:
+        raise AssertionError("Delivery/strategy boundary must mark deployment ready")
+    if final_delivery_strategy_boundary.get("deployment_ready_does_not_imply_strategy_approved") is not True:
+        raise AssertionError("Deployment-ready must not imply strategy-approved")
+    if final_delivery_strategy_boundary.get("strategy_approved") is not False:
+        raise AssertionError("Deployment-ready boundary must not mark final strategy as approved")
+    if final_delivery_strategy_boundary.get("competitive_poker_agent_claim_allowed") is not False:
+        raise AssertionError("Competitive poker-agent claim must remain blocked")
+    if (
+        final_delivery_strategy_boundary.get("competitive_poker_agent_claim_state")
+        != "BLOCKED_PENDING_MODEL_DATA_CALIBRATION_AND_MULTI_AGENT_TRAINING"
+    ):
+        raise AssertionError("Competitive poker-agent claim state must remain blocked pending hardening")
+    expected_strategy_gates = {
+        "cleaner_real_gameplay_data",
+        "stronger_challenger_model",
+        "calibration_gate",
+        "full_multi_agent_training",
+        "full_metric_bundle",
+    }
+    if set(final_delivery_strategy_boundary.get("required_strategy_approval_gates") or []) != expected_strategy_gates:
+        raise AssertionError("Deployment/strategy boundary must require every strategy approval hardening gate")
+    if set((final_delivery_strategy_boundary.get("required_before_competitive_claim") or {}).keys()) != expected_strategy_gates:
+        raise AssertionError("Deployment/strategy boundary must describe all work required before competitive claims")
+    approval_separation = final_delivery_strategy_boundary.get("approval_separation") or {}
+    if approval_separation.get("deployment_ready_can_pass_without_strategy_approval") is not True:
+        raise AssertionError("Deployment-ready must be allowed to pass without final strategy approval")
+    if approval_separation.get("fastapi_docker_predict_are_delivery_evidence_only") is not True:
+        raise AssertionError("FastAPI, Docker, and /predict must remain delivery evidence only")
+    if approval_separation.get("competitive_claim_requires_model_data_calibration_and_training") is not True:
+        raise AssertionError("Competitive claims must require model, data, calibration, and training hardening")
     if final_delivery_strategy_boundary.get("current_delivery_blocker") is not False:
         raise AssertionError("Final strategy metric gap must not become a delivery blocker")
     if final_delivery_strategy_boundary.get("final_metric_bundle_passed") is not False:

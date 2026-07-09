@@ -363,6 +363,7 @@ def _write_reports(reports: Path) -> None:
                     "all_required_candidates_present": True,
                     "all_candidates_compared_on_common_holdout": False,
                     "all_candidates_compared_in_common_simulation": False,
+                    "all_candidate_metric_bundles_complete": False,
                     "missing_common_holdout_candidates": [
                         "llm_decision_agent",
                         "supervised_model",
@@ -377,9 +378,25 @@ def _write_reports(reports: Path) -> None:
                         "routed_policy_bundle",
                         "future_rl_agent",
                     ],
+                    "missing_metric_bundle_candidates": [
+                        "llm_decision_agent",
+                        "supervised_model",
+                        "rule_based_fallback",
+                        "routed_policy_bundle",
+                        "future_rl_agent",
+                    ],
+                    "selection_ineligible_candidates": [
+                        "llm_decision_agent",
+                        "supervised_model",
+                        "rule_based_fallback",
+                        "routed_policy_bundle",
+                        "future_rl_agent",
+                    ],
                     "selected_for_current_delivery": "routed_policy_bundle",
                     "final_selected_architecture": None,
                     "final_selection_claim_allowed": False,
+                    "best_approach_claim_allowed": False,
+                    "best_approach_claim_state": "BLOCKED_PENDING_FULL_COMMON_CONDITION_EVALUATION",
                     "current_delivery_blocker": False,
                     "model_quality_risk": True,
                 },
@@ -702,6 +719,17 @@ def test_final_delivery_acceptance_passes_with_tracked_risks(tmp_path: Path) -> 
         ]
         is False
     )
+    assert (
+        payload["tracked_component_risks"]["phase2_selection_comparison"]["all_candidate_metric_bundles_complete"]
+        is False
+    )
+    assert payload["tracked_component_risks"]["phase2_selection_comparison"]["best_approach_claim_allowed"] is False
+    assert (
+        payload["tracked_component_risks"]["phase2_selection_comparison"]["best_approach_claim_state"]
+        == "BLOCKED_PENDING_FULL_COMMON_CONDITION_EVALUATION"
+    )
+    assert payload["tracked_component_risks"]["phase2_selection_comparison"]["missing_metric_bundle_candidates"]
+    assert payload["tracked_component_risks"]["phase2_selection_comparison"]["selection_ineligible_candidates"]
     assert payload["tracked_component_risks"]["phase2_selection_comparison"]["current_delivery_blocker"] is False
     assert payload["tracked_component_risks"]["phase2_selection_comparison"]["model_quality_risk"] is True
     assert payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["status"] == "TRAINING_PROOF_NOT_COMPLETED"
@@ -798,12 +826,17 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     payload["tracked_component_risks"]["stack_event_context_quality"]["model_quality_risk"] = False
     payload["tracked_component_risks"]["phase2_selection_comparison"]["all_candidates_compared_on_common_holdout"] = True
     payload["tracked_component_risks"]["phase2_selection_comparison"]["all_candidates_compared_in_common_simulation"] = True
+    payload["tracked_component_risks"]["phase2_selection_comparison"]["all_candidate_metric_bundles_complete"] = True
     payload["tracked_component_risks"]["phase2_selection_comparison"]["missing_common_holdout_candidates"] = []
     payload["tracked_component_risks"]["phase2_selection_comparison"]["missing_common_simulation_candidates"] = []
+    payload["tracked_component_risks"]["phase2_selection_comparison"]["missing_metric_bundle_candidates"] = []
+    payload["tracked_component_risks"]["phase2_selection_comparison"]["selection_ineligible_candidates"] = []
     payload["tracked_component_risks"]["phase2_selection_comparison"]["selected_for_current_delivery"] = "llm_decision_agent"
     payload["tracked_component_risks"]["phase2_selection_comparison"]["final_selected_architecture"] = "llm_decision_agent"
     payload["tracked_component_risks"]["phase2_selection_comparison"]["future_rl_agent_status"] = "AVAILABLE"
     payload["tracked_component_risks"]["phase2_selection_comparison"]["final_selection_claim_allowed"] = True
+    payload["tracked_component_risks"]["phase2_selection_comparison"]["best_approach_claim_allowed"] = True
+    payload["tracked_component_risks"]["phase2_selection_comparison"]["best_approach_claim_state"] = "ALLOWED"
     payload["tracked_component_risks"]["phase2_selection_comparison"]["model_quality_risk"] = False
     payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["status"] = "TRAINING_PROOF_COMPLETED"
     payload["tracked_component_risks"]["phase3_open_spiel_rl_training"]["measured_win_rate_claim_allowed"] = True
@@ -862,12 +895,17 @@ def test_final_delivery_acceptance_blocks_false_claims(tmp_path: Path) -> None:
     assert "stack_event_context_gap_must_remain_model_quality_risk" in invariants["violations"]
     assert "phase2_selection_common_holdout_must_not_be_marked_complete_yet" in invariants["violations"]
     assert "phase2_selection_common_simulation_must_not_be_marked_complete_yet" in invariants["violations"]
+    assert "phase2_selection_metric_bundles_must_not_be_marked_complete_yet" in invariants["violations"]
     assert "phase2_selection_missing_common_holdout_candidates_must_be_listed" in invariants["violations"]
     assert "phase2_selection_missing_common_simulation_candidates_must_be_listed" in invariants["violations"]
+    assert "phase2_selection_missing_metric_bundle_candidates_must_be_listed" in invariants["violations"]
+    assert "phase2_selection_ineligible_candidates_must_be_listed" in invariants["violations"]
     assert "phase2_selection_current_delivery_architecture_must_be_routed_bundle" in invariants["violations"]
     assert "phase2_selection_final_architecture_must_not_be_selected_yet" in invariants["violations"]
     assert "phase2_selection_future_rl_must_not_be_claimed_available" in invariants["violations"]
     assert "phase2_selection_final_claim_must_be_blocked_until_common_conditions" in invariants["violations"]
+    assert "phase2_selection_best_approach_claim_must_be_blocked_until_common_conditions" in invariants["violations"]
+    assert "phase2_selection_best_approach_claim_state_must_be_blocked" in invariants["violations"]
     assert "phase2_selection_gap_must_remain_model_quality_risk" in invariants["violations"]
     assert "phase3_open_spiel_rl_training_proof_must_remain_not_completed" in invariants["violations"]
     assert "phase3_rl_win_rate_claim_must_remain_blocked_until_training_proof" in invariants["violations"]
