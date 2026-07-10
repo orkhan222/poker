@@ -8,7 +8,12 @@ from typing import Any, Iterable
 
 from poker_agent.action_normalization import assert_canonical_decision_action
 from poker_agent.action_normalization import normalize_action as normalize_action_label
-from poker_agent.leakage_guard import assert_no_outcome_feature_leakage
+from poker_agent.leakage_guard import (
+    VISIBLE_BOARD_COUNTS_BY_STREET,
+    assert_board_cards_visible_for_street,
+    assert_no_outcome_feature_leakage,
+    truncate_final_board_snapshot_for_decision,
+)
 from poker_agent.schemas import PredictionRequest
 from poker_agent.schemas import VALID_ACTIONS
 from poker_agent.stack_context import assert_stack_decision_context_feature_contract
@@ -32,7 +37,7 @@ RANK_TO_VALUE = {
 }
 
 STREET_ORDER = {"preflop": 0, "flop": 1, "turn": 2, "river": 3}
-VISIBLE_BOARD_COUNTS = {"preflop": 0, "flop": 3, "turn": 4, "river": 5}
+VISIBLE_BOARD_COUNTS = VISIBLE_BOARD_COUNTS_BY_STREET
 ACTION_NORMALIZATION = {
     "all-in": "all_in",
     "all in": "all_in",
@@ -68,8 +73,7 @@ def parse_cards(raw: Any) -> list[str]:
 
 def visible_board_cards(board_cards: Iterable[str], street: str) -> list[str]:
     """Return only cards visible at the decision street to avoid future-card leakage."""
-    visible_count = VISIBLE_BOARD_COUNTS.get(str(street or "preflop").lower(), 0)
-    return list(board_cards)[:visible_count]
+    return truncate_final_board_snapshot_for_decision(board_cards, street)
 
 
 def safe_float(raw: Any, default: float = 0.0) -> float:
@@ -415,6 +419,11 @@ def betting_context_features(
 
 
 def request_to_features(request: PredictionRequest) -> dict[str, float]:
+    assert_board_cards_visible_for_street(
+        request.board_cards,
+        request.street,
+        context="prediction request board_cards",
+    )
     pot_odds = request.to_call / (request.pot + request.to_call) if request.pot + request.to_call > 0 else 0.0
     stack_to_pot = request.stack / request.pot if request.pot > 0 else 0.0
     spr = request.stack / (request.pot + request.to_call) if request.pot + request.to_call > 0 else 0.0

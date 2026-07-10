@@ -7,14 +7,18 @@ import pytest
 
 from poker_agent.data_leakage_contract import (
     build_data_leakage_contract,
+    evaluate_data_leakage_delivery_boundary,
     validate_data_leakage_contract,
 )
-from poker_agent.features import load_training_examples
+from poker_agent.features import load_training_examples, request_to_features, visible_board_cards
 from poker_agent.api_contract import api_contract
 from poker_agent.leakage_guard import (
+    assert_board_cards_visible_for_street,
     assert_no_final_board_snapshot_leakage,
     assert_no_outcome_feature_leakage,
+    truncate_final_board_snapshot_for_decision,
 )
+from poker_agent.schemas import PredictionRequest
 
 
 def test_data_leakage_contract_passes_on_current_project() -> None:
@@ -31,6 +35,28 @@ def test_data_leakage_contract_passes_on_current_project() -> None:
     assert payload["leakage_boundary"]["dataset_schema_presence_allowed"] is True
     assert payload["leakage_boundary"]["direct_final_board_snapshot_feature_use_allowed"] is False
     assert payload["leakage_boundary"]["decision_time_visible_board_cards_allowed"] is True
+    decision = payload["delivery_leakage_claim_decision"]
+    assert decision["claim"] == "LEAKAGE_FREE_DECISION_TIME_FEATURES"
+    assert decision["boundary"] == "POST_HAND_OUTCOME_FIELDS_FORBIDDEN_FOR_DECISION_TIME_FEATURES"
+    assert decision["status"] == "PASS"
+    assert decision["decision"] == "APPROVED"
+    assert decision["claim_allowed"] is True
+    assert decision["post_hand_outcome_fields_blocked"] is True
+    assert decision["final_board_snapshot_direct_use_blocked"] is True
+    assert decision["runtime_prediction_board_visibility_guard_enabled"] is True
+    assert decision["street_truncation_function"] == "leakage_guard.truncate_final_board_snapshot_for_decision"
+    assert decision["runtime_guard_function"] == "leakage_guard.assert_board_cards_visible_for_street"
+    assert decision["detected_leakage_is_production_blocker"] is True
+    assert decision["current_delivery_blocker"] is False
+    assert set(decision["forbidden_post_hand_outcome_fields"]) == {
+        "winner_positions",
+        "stack_delta",
+        "ending_stack",
+        "dealer_winner",
+        "dealer_pot",
+        "pot_from_stacks",
+    }
+    assert decision["forbidden_final_snapshot_fields"] == ["hands.csv::board_cards"]
     risk = payload["leakage_risk_contract"]
     assert risk["risk_id"] == "post_outcome_feature_leakage"
     assert risk["root_cause"] == "post_hand_outcome_fields_available_in_raw_dataset_schema"
@@ -61,6 +87,15 @@ def test_data_leakage_contract_passes_on_current_project() -> None:
     assert final_board["feature_policy"]["prediction_request_board_cards"] == "allowed_only_as_decision_time_visible_board"
     assert final_board["feature_policy"]["detected_violation"] == "production_blocker"
     assert final_board["required_mitigation"]["truncate_final_board_by_street"] is True
+    assert final_board["required_mitigation"]["runtime_prediction_board_visibility_guard"] is True
+    assert (
+        final_board["required_mitigation"]["street_truncation_function"]
+        == "leakage_guard.truncate_final_board_snapshot_for_decision"
+    )
+    assert (
+        final_board["required_mitigation"]["runtime_guard_function"]
+        == "leakage_guard.assert_board_cards_visible_for_street"
+    )
     assert final_board["required_mitigation"]["preflop_visible_board_count"] == 0
     assert final_board["required_mitigation"]["flop_visible_board_count"] == 3
     assert final_board["required_mitigation"]["turn_visible_board_count"] == 4
@@ -92,8 +127,71 @@ def test_data_leakage_contract_is_exposed_through_api_contract() -> None:
     assert "visible at decision time" in contract["board_cards_boundary"]
     assert payload["overall_status"] == "PASS"
     assert payload["leakage_boundary"]["training_feature_use_allowed"] is False
+    assert payload["delivery_leakage_claim_decision"]["claim_allowed"] is True
     assert payload["leakage_risk_contract"]["temporal_requirement"] == "features_must_be_observable_before_target_action"
     assert payload["final_board_snapshot_contract"]["feature_policy"]["direct_training_feature_use"] == "forbidden"
+
+
+def test_delivery_leakage_claim_decision_blocks_outcome_and_final_board_features() -> None:
+    project_root = Path(__file__).resolve().parents[1]
+    payload = build_data_leakage_contract(project_root, max_examples=50)
+
+    payload["feature_name_audit"] = {
+        **payload["feature_name_audit"],
+        "status": "FAIL",
+        "forbidden_feature_names_detected": ["ending_stack"],
+    }
+    payload["prediction_request_audit"] = {
+        **payload["prediction_request_audit"],
+        "status": "FAIL",
+        "forbidden_feature_names_detected": ["dealer_pot"],
+    }
+    payload["model_artifact_audit"] = {
+        **payload["model_artifact_audit"],
+        "status": "FAIL",
+        "forbidden_model_features_detected": [{"path": "models/poker_policy.joblib", "feature": "stack_delta"}],
+    }
+    payload["source_usage_audit"] = {
+        **payload["source_usage_audit"],
+        "status": "FAIL",
+        "forbidden_source_usages": [
+            {
+                "path": "poker_agent/features.py",
+                "field": "winner_positions",
+                "line_number": 1,
+                "line": "features['winner_positions'] = row['winner_positions']",
+            }
+        ],
+    }
+    payload["leakage_boundary"] = {
+        **payload["leakage_boundary"],
+        "training_feature_use_allowed": True,
+        "prediction_request_use_allowed": True,
+        "direct_final_board_snapshot_feature_use_allowed": True,
+    }
+    payload["final_board_snapshot_contract"] = {
+        **payload["final_board_snapshot_contract"],
+        "feature_policy": {
+            **payload["final_board_snapshot_contract"]["feature_policy"],
+            "direct_training_feature_use": "allowed",
+        },
+    }
+
+    decision = evaluate_data_leakage_delivery_boundary(payload)
+
+    assert decision["status"] == "FAIL"
+    assert decision["decision"] == "BLOCKED"
+    assert decision["claim_allowed"] is False
+    assert decision["current_delivery_blocker"] is False
+    assert decision["detected_leakage_is_production_blocker"] is True
+    assert "post_hand_outcome_training_feature_use_allowed" in decision["violations"]
+    assert "post_hand_outcome_prediction_request_use_allowed" in decision["violations"]
+    assert "direct_final_board_snapshot_feature_use_allowed" in decision["violations"]
+    assert "direct_final_board_training_feature_use_not_forbidden" in decision["violations"]
+    assert "forbidden_training_feature_names_detected" in decision["violations"]
+    assert "forbidden_prediction_request_features_detected" in decision["violations"]
+    assert "forbidden_model_artifact_features_detected" in decision["violations"]
+    assert "forbidden_guarded_source_usage_detected" in decision["violations"]
 
 
 def test_data_leakage_contract_blocks_false_safe_claims() -> None:
@@ -218,6 +316,35 @@ def test_runtime_feature_guard_blocks_direct_final_board_snapshot_leakage() -> N
         assert_no_final_board_snapshot_leakage(
             ["hands.csv::board_cards"],
             context="unit-test training source fields",
+        )
+
+
+def test_final_board_snapshot_is_truncated_by_decision_street() -> None:
+    final_board = ["AS", "KD", "QC", "2H", "7S"]
+
+    assert truncate_final_board_snapshot_for_decision(final_board, "preflop") == []
+    assert truncate_final_board_snapshot_for_decision(final_board, "flop") == ["AS", "KD", "QC"]
+    assert truncate_final_board_snapshot_for_decision(final_board, "turn") == ["AS", "KD", "QC", "2H"]
+    assert truncate_final_board_snapshot_for_decision(final_board, "river") == final_board
+    assert visible_board_cards(final_board, "turn") == ["AS", "KD", "QC", "2H"]
+
+
+def test_prediction_request_rejects_future_board_cards_for_street() -> None:
+    assert_board_cards_visible_for_street(["AS", "KD", "QC"], "flop", context="unit-test board")
+
+    with pytest.raises(ValueError, match="allows at most 3 visible board cards"):
+        request_to_features(
+            PredictionRequest(
+                position="BTN",
+                street="flop",
+                hole_cards=["AH", "AD"],
+                board_cards=["AS", "KD", "QC", "2H"],
+                pot=10.0,
+                to_call=2.0,
+                stack=100.0,
+                min_raise=4.0,
+                player_count=6,
+            )
         )
 
 

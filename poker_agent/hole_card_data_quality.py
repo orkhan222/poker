@@ -25,6 +25,14 @@ HOLE_CARD_RISK_CONTRACT = {
     "risk_id": "hole_card_data_risk",
     "root_cause": "ocr_hole_card_extraction_missing_or_unreliable",
     "primary_dataset_column": "players.cards",
+    "source_table": "players.csv",
+    "source_field": "players.csv::cards",
+    "cards_storage_boundary": {
+        "players_csv_stores_hole_cards": True,
+        "storage_does_not_imply_reliability": True,
+        "card_values_are_ocr_or_recognition_derived": True,
+        "missing_or_unreliable_cards_are_expected_dataset_conditions": True,
+    },
     "weakens_primary_poker_signal": True,
     "affected_signal": "private_card_strength_and_texture",
     "affected_features": [
@@ -40,6 +48,12 @@ HOLE_CARD_RISK_CONTRACT = {
         "less reliable made-hand and draw-strength estimation",
         "lower confidence on observed-card policy promotion",
     ],
+    "hand_strength_feature_boundary": {
+        "private_cards_are_primary_strategy_signal": True,
+        "missing_or_invalid_hole_cards_limit_hand_strength_features": True,
+        "hand_strength_features_must_be_slice_aware": True,
+        "standalone_card_aware_policy_requires_reliable_two_card_coverage": True,
+    },
     "feature_policy": {
         "missing_or_invalid_cards": "flag_and_route",
         "do_not_impute_unknown_cards_as_known_private_cards": True,
@@ -48,6 +62,23 @@ HOLE_CARD_RISK_CONTRACT = {
     },
     "current_delivery_blocker": False,
     "final_strategy_quality_claim_blocker": True,
+}
+DELIVERY_STRATEGY_QUALITY_BOUNDARY = {
+    "risk_scope": "MODEL_QUALITY_RISK_NOT_SERVICE_DELIVERY_BLOCKER",
+    "current_delivery_blocker": False,
+    "service_delivery_claim_allowed": True,
+    "deployed_routed_stack_delivery_allowed": True,
+    "final_strategy_quality_claim_allowed": False,
+    "final_strategy_quality_claim_blocked_by_hole_card_data_quality": True,
+    "model_quality_risk": True,
+    "component_risk": True,
+    "requires_to_clear_final_strategy_claim": [
+        "improved_ocr_or_card_parser",
+        "larger_reviewed_hole_card_label_set",
+        "reliable_two_card_coverage_gate",
+        "observed_card_policy_slice_gate",
+        "standalone_card_aware_policy_promotion_gate",
+    ],
 }
 
 
@@ -204,6 +235,14 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
                 if direct_card_audit.get("status") == "PASS"
                 else "dataset_audit_report"
             ),
+            "players_csv_cards_contract": {
+                "source_table": "players.csv",
+                "source_field": "players.csv::cards",
+                "semantic": "player_hole_cards",
+                "quality_source": "ocr_or_card_recognition",
+                "may_be_missing_or_unreliable": True,
+                "must_not_be_treated_as_reliable_by_presence_alone": True,
+            },
             "players_rows": players.get("rows"),
             "missing_hole_card_rate": players.get("missing_hole_card_rate"),
             "partial_hole_card_rate": players.get("partial_hole_card_rate"),
@@ -220,6 +259,8 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
             "complete_hole_card_rate": players.get("complete_hole_card_rate"),
             "direct_reliable_two_card_rate": direct_card_audit.get("reliable_two_card_rate"),
             "direct_invalid_card_rate": direct_card_audit.get("invalid_card_rate"),
+            "primary_signal_weakened_by_ocr_missingness": True,
+            "hand_strength_features_limited_by_card_quality": True,
             "primary_hand_strength_signal_reliable_for_standalone_policy": False,
             "observed_hole_cards_macro_f1": production_observed_gate.get("observed"),
             "observed_hole_cards_threshold": production_observed_gate.get("threshold"),
@@ -252,6 +293,8 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
             "production_blocker_for_current_deployment": False,
             "component_risk": True,
             "raw_standalone_policy_affected": True,
+            "players_csv_cards_are_not_reliability_guarantee": True,
+            "hand_strength_signal_remains_limited_until_ocr_and_reviewed_labels_improve": True,
         },
         "promotion_boundary": {
             "standalone_policy_promotion_allowed": False,
@@ -265,6 +308,7 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
                 "blocked until players.csv has enough reliable two-card rows and low malformed-card rate."
             ),
         },
+        "delivery_strategy_quality_boundary": DELIVERY_STRATEGY_QUALITY_BOUNDARY,
         "evidence": {
             "dataset_audit": "reports/dataset_audit.json",
             "production_gate": "reports/production_gate.json",
@@ -288,6 +332,7 @@ def build_hole_card_data_quality(project_root: Path) -> dict[str, Any]:
             "The raw supervised model is standalone production-approved despite the hole-card blocker.",
         ],
     }
+    payload["delivery_strategy_claim_decision"] = evaluate_hole_card_delivery_strategy_boundary(payload)
     payload["invariants"] = validate_hole_card_data_quality(payload)
     payload["overall_status"] = "PASS" if payload["invariants"]["status"] == "PASS" else "FAIL"
     return payload
@@ -297,12 +342,16 @@ def validate_hole_card_data_quality(payload: dict[str, Any]) -> dict[str, Any]:
     violations: list[str] = []
     risk = payload.get("risk_contract") or {}
     feature_policy = risk.get("feature_policy") or {}
+    storage_boundary = risk.get("cards_storage_boundary") or {}
+    strength_boundary = risk.get("hand_strength_feature_boundary") or {}
     coverage = payload.get("coverage_snapshot") or {}
+    players_csv_contract = coverage.get("players_csv_cards_contract") or {}
     strength = payload.get("strength_signal_impact") or {}
     mitigation = payload.get("mitigation_boundary") or {}
     upstream = payload.get("upstream_data_quality_boundary") or {}
     direct_audit = coverage.get("direct_players_csv_audit") or {}
     promotion = payload.get("promotion_boundary") or {}
+    delivery_strategy = payload.get("delivery_strategy_quality_boundary") or {}
 
     missing_rate = _as_float(coverage.get("missing_hole_card_rate"))
     complete_rate = _as_float(coverage.get("complete_hole_card_rate"))
@@ -319,8 +368,28 @@ def validate_hole_card_data_quality(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("hole_card_root_cause_must_remain_ocr_extraction_quality")
     if risk.get("primary_dataset_column") != "players.cards":
         violations.append("hole_card_primary_dataset_column_must_be_players_cards")
+    if risk.get("source_table") != "players.csv":
+        violations.append("hole_card_source_table_must_be_players_csv")
+    if risk.get("source_field") != "players.csv::cards":
+        violations.append("hole_card_source_field_must_be_players_csv_cards")
+    if storage_boundary.get("players_csv_stores_hole_cards") is not True:
+        violations.append("players_csv_cards_storage_must_be_explicit")
+    if storage_boundary.get("storage_does_not_imply_reliability") is not True:
+        violations.append("players_csv_cards_storage_must_not_imply_reliability")
+    if storage_boundary.get("card_values_are_ocr_or_recognition_derived") is not True:
+        violations.append("hole_card_values_must_remain_ocr_or_recognition_derived")
+    if storage_boundary.get("missing_or_unreliable_cards_are_expected_dataset_conditions") is not True:
+        violations.append("missing_or_unreliable_hole_cards_must_be_expected_dataset_conditions")
     if risk.get("weakens_primary_poker_signal") is not True:
         violations.append("hole_card_risk_must_weaken_primary_poker_signal")
+    if strength_boundary.get("private_cards_are_primary_strategy_signal") is not True:
+        violations.append("private_cards_must_be_marked_as_primary_strategy_signal")
+    if strength_boundary.get("missing_or_invalid_hole_cards_limit_hand_strength_features") is not True:
+        violations.append("missing_or_invalid_hole_cards_must_limit_hand_strength_features")
+    if strength_boundary.get("hand_strength_features_must_be_slice_aware") is not True:
+        violations.append("hand_strength_features_must_remain_slice_aware")
+    if strength_boundary.get("standalone_card_aware_policy_requires_reliable_two_card_coverage") is not True:
+        violations.append("standalone_card_aware_policy_must_require_reliable_two_card_coverage")
     if risk.get("current_delivery_blocker") is not False:
         violations.append("hole_card_risk_must_not_be_current_delivery_blocker")
     if risk.get("final_strategy_quality_claim_blocker") is not True:
@@ -340,6 +409,18 @@ def validate_hole_card_data_quality(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("missing_hole_card_rate_is_required")
     if complete_rate is None:
         violations.append("complete_hole_card_rate_is_required")
+    if players_csv_contract.get("source_table") != "players.csv":
+        violations.append("players_csv_cards_contract_must_bind_source_table")
+    if players_csv_contract.get("source_field") != "players.csv::cards":
+        violations.append("players_csv_cards_contract_must_bind_source_field")
+    if players_csv_contract.get("semantic") != "player_hole_cards":
+        violations.append("players_csv_cards_contract_must_define_hole_card_semantic")
+    if players_csv_contract.get("quality_source") != "ocr_or_card_recognition":
+        violations.append("players_csv_cards_contract_must_mark_ocr_quality_source")
+    if players_csv_contract.get("may_be_missing_or_unreliable") is not True:
+        violations.append("players_csv_cards_contract_must_allow_missing_or_unreliable_values")
+    if players_csv_contract.get("must_not_be_treated_as_reliable_by_presence_alone") is not True:
+        violations.append("players_csv_cards_presence_must_not_imply_reliability")
     if missing_rate is not None and complete_rate is not None and missing_rate <= complete_rate:
         violations.append("current_audit_must_show_missing_hole_cards_as_the_dominant_condition")
     if not coverage.get("audit_finding"):
@@ -357,6 +438,10 @@ def validate_hole_card_data_quality(payload: dict[str, Any]) -> dict[str, Any]:
         strength.get("primary_hand_strength_signal_reliable_for_standalone_policy") is not False
     ):
         violations.append("degraded_strength_signal_cannot_be_standalone_reliable")
+    if strength.get("primary_signal_weakened_by_ocr_missingness") is not True:
+        violations.append("hole_card_ocr_missingness_must_weaken_primary_signal")
+    if strength.get("hand_strength_features_limited_by_card_quality") is not True:
+        violations.append("hole_card_quality_must_limit_hand_strength_features")
     if high_strength_zero_rate and not strength.get("strength_proxy_audit_finding"):
         violations.append("strength_proxy_audit_finding_must_remain_visible")
 
@@ -414,6 +499,10 @@ def validate_hole_card_data_quality(payload: dict[str, Any]) -> dict[str, Any]:
         violations.append("hole_card_limitation_must_not_block_current_monitored_deployment")
     if upstream.get("component_risk") is not True:
         violations.append("hole_card_limitation_must_remain_a_component_risk")
+    if upstream.get("players_csv_cards_are_not_reliability_guarantee") is not True:
+        violations.append("players_csv_cards_must_not_be_reliability_guarantee")
+    if upstream.get("hand_strength_signal_remains_limited_until_ocr_and_reviewed_labels_improve") is not True:
+        violations.append("hand_strength_signal_limit_must_remain_until_data_repair")
 
     if promotion.get("standalone_policy_promotion_allowed") is not False:
         violations.append("hole_card_risk_must_block_standalone_policy_promotion")
@@ -428,17 +517,47 @@ def validate_hole_card_data_quality(payload: dict[str, Any]) -> dict[str, Any]:
     if promotion.get("requires_reviewed_card_label_set") is not True:
         violations.append("hole_card_promotion_must_require_reviewed_card_labels")
 
+    if delivery_strategy.get("risk_scope") != "MODEL_QUALITY_RISK_NOT_SERVICE_DELIVERY_BLOCKER":
+        violations.append("hole_card_delivery_strategy_boundary_scope_must_be_explicit")
+    if delivery_strategy.get("current_delivery_blocker") is not False:
+        violations.append("hole_card_risk_must_not_be_delivery_blocker")
+    if delivery_strategy.get("service_delivery_claim_allowed") is not True:
+        violations.append("hole_card_risk_must_not_block_service_delivery_claim")
+    if delivery_strategy.get("deployed_routed_stack_delivery_allowed") is not True:
+        violations.append("hole_card_risk_must_not_block_deployed_routed_stack_delivery")
+    if delivery_strategy.get("final_strategy_quality_claim_allowed") is not False:
+        violations.append("hole_card_risk_must_block_final_strategy_quality_claim")
+    if delivery_strategy.get("final_strategy_quality_claim_blocked_by_hole_card_data_quality") is not True:
+        violations.append("hole_card_data_quality_must_block_final_strategy_quality_claim")
+    if delivery_strategy.get("model_quality_risk") is not True:
+        violations.append("hole_card_limitation_must_remain_model_quality_risk")
+    if delivery_strategy.get("component_risk") is not True:
+        violations.append("hole_card_limitation_must_remain_component_risk")
+    required_clearance_items = {
+        "improved_ocr_or_card_parser",
+        "larger_reviewed_hole_card_label_set",
+        "reliable_two_card_coverage_gate",
+        "observed_card_policy_slice_gate",
+        "standalone_card_aware_policy_promotion_gate",
+    }
+    if set(delivery_strategy.get("requires_to_clear_final_strategy_claim") or []) != required_clearance_items:
+        violations.append("hole_card_final_strategy_claim_clearance_requirements_must_be_explicit")
+
     return {"status": "FAIL" if violations else "PASS", "violations": violations}
 
 
 def is_open_hole_card_data_quality_risk(payload: dict[str, Any]) -> bool:
     risk = payload.get("risk_contract") or {}
     feature_policy = risk.get("feature_policy") or {}
+    storage_boundary = risk.get("cards_storage_boundary") or {}
+    strength_boundary = risk.get("hand_strength_feature_boundary") or {}
     coverage = payload.get("coverage_snapshot") or {}
+    players_csv_contract = coverage.get("players_csv_cards_contract") or {}
     strength = payload.get("strength_signal_impact") or {}
     mitigation = payload.get("mitigation_boundary") or {}
     upstream = payload.get("upstream_data_quality_boundary") or {}
     promotion = payload.get("promotion_boundary") or {}
+    delivery_strategy = payload.get("delivery_strategy_quality_boundary") or {}
     direct_audit = coverage.get("direct_players_csv_audit") or {}
 
     direct_reliable_two_card_rate = _as_float(direct_audit.get("reliable_two_card_rate"))
@@ -450,9 +569,25 @@ def is_open_hole_card_data_quality_risk(payload: dict[str, Any]) -> bool:
         return False
     if risk.get("primary_dataset_column") != "players.cards":
         return False
+    if risk.get("source_field") != "players.csv::cards":
+        return False
+    if storage_boundary.get("players_csv_stores_hole_cards") is not True:
+        return False
+    if storage_boundary.get("storage_does_not_imply_reliability") is not True:
+        return False
+    if storage_boundary.get("card_values_are_ocr_or_recognition_derived") is not True:
+        return False
     if risk.get("weakens_primary_poker_signal") is not True:
         return False
+    if strength_boundary.get("missing_or_invalid_hole_cards_limit_hand_strength_features") is not True:
+        return False
     if risk.get("final_strategy_quality_claim_blocker") is not True:
+        return False
+    if players_csv_contract.get("source_field") != "players.csv::cards":
+        return False
+    if players_csv_contract.get("may_be_missing_or_unreliable") is not True:
+        return False
+    if players_csv_contract.get("must_not_be_treated_as_reliable_by_presence_alone") is not True:
         return False
     if feature_policy.get("missing_or_invalid_cards") != "flag_and_route":
         return False
@@ -463,6 +598,10 @@ def is_open_hole_card_data_quality_risk(payload: dict[str, Any]) -> bool:
     if strength.get("status") != DEGRADED_STRENGTH_SIGNAL:
         return False
     if strength.get("primary_hand_strength_signal_reliable_for_standalone_policy") is not False:
+        return False
+    if strength.get("primary_signal_weakened_by_ocr_missingness") is not True:
+        return False
+    if strength.get("hand_strength_features_limited_by_card_quality") is not True:
         return False
     if mitigation.get("mitigation_status") != MITIGATED_BY_ROUTED_POLICY_BUNDLE:
         return False
@@ -478,11 +617,27 @@ def is_open_hole_card_data_quality_risk(payload: dict[str, Any]) -> bool:
         return False
     if upstream.get("component_risk") is not True:
         return False
+    if upstream.get("players_csv_cards_are_not_reliability_guarantee") is not True:
+        return False
+    if upstream.get("hand_strength_signal_remains_limited_until_ocr_and_reviewed_labels_improve") is not True:
+        return False
     if promotion.get("standalone_policy_promotion_allowed") is not False:
         return False
     if promotion.get("model_promotion_blocker") is not True:
         return False
     if promotion.get("current_deployment_blocker") is not False:
+        return False
+    if delivery_strategy.get("risk_scope") != "MODEL_QUALITY_RISK_NOT_SERVICE_DELIVERY_BLOCKER":
+        return False
+    if delivery_strategy.get("current_delivery_blocker") is not False:
+        return False
+    if delivery_strategy.get("service_delivery_claim_allowed") is not True:
+        return False
+    if delivery_strategy.get("final_strategy_quality_claim_allowed") is not False:
+        return False
+    if delivery_strategy.get("final_strategy_quality_claim_blocked_by_hole_card_data_quality") is not True:
+        return False
+    if delivery_strategy.get("model_quality_risk") is not True:
         return False
 
     observed_data_risk = any(
@@ -495,6 +650,55 @@ def is_open_hole_card_data_quality_risk(payload: dict[str, Any]) -> bool:
         ]
     )
     return observed_data_risk
+
+
+def evaluate_hole_card_delivery_strategy_boundary(payload: dict[str, Any]) -> dict[str, Any]:
+    risk = payload.get("risk_contract") or {}
+    strength = payload.get("strength_signal_impact") or {}
+    upstream = payload.get("upstream_data_quality_boundary") or {}
+    boundary = payload.get("delivery_strategy_quality_boundary") or {}
+    declared_open_hole_card_risk = (
+        risk.get("risk_id") == "hole_card_data_risk"
+        and risk.get("final_strategy_quality_claim_blocker") is True
+        and strength.get("status") == DEGRADED_STRENGTH_SIGNAL
+        and upstream.get("upstream_data_quality_issue_resolved") is False
+    )
+    open_hole_card_risk = is_open_hole_card_data_quality_risk(payload) or declared_open_hole_card_risk
+    service_delivery_allowed = boundary.get("service_delivery_claim_allowed") is True
+    routed_stack_delivery_allowed = boundary.get("deployed_routed_stack_delivery_allowed") is True
+    delivery_blocker = boundary.get("current_delivery_blocker") is True
+    final_claim_allowed = boundary.get("final_strategy_quality_claim_allowed") is True
+    final_claim_blocked_by_hole_cards = (
+        boundary.get("final_strategy_quality_claim_blocked_by_hole_card_data_quality") is True
+    )
+
+    violations: list[str] = []
+    if delivery_blocker:
+        violations.append("hole_card_risk_cannot_block_current_service_delivery")
+    if not service_delivery_allowed:
+        violations.append("service_delivery_must_remain_allowed_with_open_hole_card_risk")
+    if not routed_stack_delivery_allowed:
+        violations.append("deployed_routed_stack_delivery_must_remain_allowed")
+    if open_hole_card_risk and final_claim_allowed:
+        violations.append("open_hole_card_risk_must_block_final_strategy_quality_claim")
+    if open_hole_card_risk and not final_claim_blocked_by_hole_cards:
+        violations.append("final_strategy_quality_claim_must_name_hole_card_data_quality_blocker")
+    if boundary.get("model_quality_risk") is not True:
+        violations.append("hole_card_boundary_must_remain_model_quality_risk")
+    if boundary.get("component_risk") is not True:
+        violations.append("hole_card_boundary_must_remain_component_risk")
+
+    return {
+        "status": "PASS" if not violations else "FAIL",
+        "service_delivery_ready": service_delivery_allowed and not delivery_blocker,
+        "deployed_routed_stack_delivery_ready": routed_stack_delivery_allowed and not delivery_blocker,
+        "open_hole_card_data_quality_risk": open_hole_card_risk,
+        "final_strategy_quality_claim_allowed": final_claim_allowed and not open_hole_card_risk,
+        "final_strategy_quality_claim_blocked": open_hole_card_risk and final_claim_blocked_by_hole_cards,
+        "blocking_reason": "hole_card_data_quality_open" if open_hole_card_risk else None,
+        "boundary": "DELIVERY_READY_FINAL_STRATEGY_CLAIM_BLOCKED_BY_HOLE_CARD_DATA_QUALITY",
+        "violations": violations,
+    }
 
 
 def can_promote_standalone_policy_with_hole_cards(payload: dict[str, Any]) -> bool:
@@ -538,12 +742,16 @@ def write_hole_card_data_quality(
 
 def render_hole_card_data_quality_markdown(payload: dict[str, Any]) -> str:
     risk = payload["risk_contract"]
+    storage_boundary = risk["cards_storage_boundary"]
+    strength_boundary = risk["hand_strength_feature_boundary"]
     coverage = payload["coverage_snapshot"]
+    players_csv_contract = coverage["players_csv_cards_contract"]
     strength = payload["strength_signal_impact"]
     mitigation = payload["mitigation_boundary"]
     upstream = payload["upstream_data_quality_boundary"]
     direct_audit = coverage.get("direct_players_csv_audit") or {}
     promotion = payload["promotion_boundary"]
+    delivery_strategy = payload["delivery_strategy_quality_boundary"]
     lines = [
         "# Hole-Card Data Quality Contract",
         "",
@@ -554,8 +762,16 @@ def render_hole_card_data_quality_markdown(payload: dict[str, Any]) -> str:
         f"- Risk ID: `{risk['risk_id']}`",
         f"- Root cause: `{risk['root_cause']}`",
         f"- Primary dataset column: `{risk['primary_dataset_column']}`",
+        f"- Source field: `{risk['source_field']}`",
+        f"- players.csv stores hole cards: `{storage_boundary['players_csv_stores_hole_cards']}`",
+        f"- Storage implies reliability: `{not storage_boundary['storage_does_not_imply_reliability']}`",
+        f"- Card values are OCR/recognition derived: `{storage_boundary['card_values_are_ocr_or_recognition_derived']}`",
+        f"- Missing or unreliable cards are expected: `{storage_boundary['missing_or_unreliable_cards_are_expected_dataset_conditions']}`",
         f"- Weakens primary poker signal: `{risk['weakens_primary_poker_signal']}`",
         f"- Affected signal: `{risk['affected_signal']}`",
+        f"- Private cards are primary strategy signal: `{strength_boundary['private_cards_are_primary_strategy_signal']}`",
+        f"- Missing or invalid cards limit hand-strength features: `{strength_boundary['missing_or_invalid_hole_cards_limit_hand_strength_features']}`",
+        f"- Hand-strength features must be slice-aware: `{strength_boundary['hand_strength_features_must_be_slice_aware']}`",
         f"- Current delivery blocker: `{risk['current_delivery_blocker']}`",
         f"- Final strategy-quality claim blocker: `{risk['final_strategy_quality_claim_blocker']}`",
         f"- Feature policy: `{risk['feature_policy']['missing_or_invalid_cards']}`",
@@ -581,6 +797,10 @@ def render_hole_card_data_quality_markdown(payload: dict[str, Any]) -> str:
         f"- Partial hole-card rate: `{coverage.get('partial_hole_card_rate')}`",
         f"- Complete hole-card rate: `{coverage.get('complete_hole_card_rate')}`",
         f"- Coverage source: `{coverage.get('coverage_source')}`",
+        f"- players.csv cards source field: `{players_csv_contract['source_field']}`",
+        f"- players.csv cards quality source: `{players_csv_contract['quality_source']}`",
+        f"- players.csv cards may be missing/unreliable: `{players_csv_contract['may_be_missing_or_unreliable']}`",
+        f"- Card presence alone is reliable evidence: `{not players_csv_contract['must_not_be_treated_as_reliable_by_presence_alone']}`",
         f"- Direct players.csv audit status: `{direct_audit.get('status')}`",
         f"- Direct players.csv rows scanned: `{direct_audit.get('rows_scanned')}`",
         f"- Direct reliable two-card rate: `{direct_audit.get('reliable_two_card_rate')}`",
@@ -591,6 +811,8 @@ def render_hole_card_data_quality_markdown(payload: dict[str, Any]) -> str:
         "",
         f"- Strength signal status: `{strength['status']}`",
         f"- Strength proxy zero rate: `{strength.get('strength_proxy_zero_rate')}`",
+        f"- Primary signal weakened by OCR missingness: `{strength.get('primary_signal_weakened_by_ocr_missingness')}`",
+        f"- Hand-strength features limited by card quality: `{strength.get('hand_strength_features_limited_by_card_quality')}`",
         f"- Direct reliable two-card rate: `{strength.get('direct_reliable_two_card_rate')}`",
         f"- Direct invalid-card rate: `{strength.get('direct_invalid_card_rate')}`",
         "- Affected features: "
@@ -627,8 +849,27 @@ def render_hole_card_data_quality_markdown(payload: dict[str, Any]) -> str:
         f"- Requires reviewed card-label set: `{promotion['requires_reviewed_card_label_set']}`",
         f"- Reason: {promotion['reason']}",
         "",
-        "## Required Upstream Fixes",
+        "## Delivery vs Strategy-Quality Boundary",
         "",
+        f"- Risk scope: `{delivery_strategy['risk_scope']}`",
+        f"- Current delivery blocker: `{delivery_strategy['current_delivery_blocker']}`",
+        f"- Service delivery claim allowed: `{delivery_strategy['service_delivery_claim_allowed']}`",
+        f"- Deployed routed stack delivery allowed: `{delivery_strategy['deployed_routed_stack_delivery_allowed']}`",
+        f"- Final strategy-quality claim allowed: `{delivery_strategy['final_strategy_quality_claim_allowed']}`",
+        f"- Final strategy-quality claim blocked by hole-card data quality: `{delivery_strategy['final_strategy_quality_claim_blocked_by_hole_card_data_quality']}`",
+        f"- Model-quality risk: `{delivery_strategy['model_quality_risk']}`",
+        f"- Component risk: `{delivery_strategy['component_risk']}`",
+        "",
+        "Required to clear final strategy-quality claim:",
+        "",
+    ]
+    )
+    lines.extend(f"- `{item}`" for item in delivery_strategy["requires_to_clear_final_strategy_claim"])
+    lines.extend(
+        [
+            "",
+            "## Required Upstream Fixes",
+            "",
         ]
     )
     lines.extend(f"- {item}" for item in payload["required_upstream_fixes"])

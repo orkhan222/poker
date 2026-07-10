@@ -1124,8 +1124,13 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     hole_direct_audit = hole_cov.get("direct_players_csv_audit") or {}
     hole_promotion = hole_card_data_quality.get("promotion_boundary") or {}
     hole_risk = hole_card_data_quality.get("risk_contract") or {}
+    hole_storage_boundary = hole_risk.get("cards_storage_boundary") or {}
+    hole_strength_boundary = hole_risk.get("hand_strength_feature_boundary") or {}
+    hole_players_csv_contract = hole_cov.get("players_csv_cards_contract") or {}
     hole_feature_policy = hole_risk.get("feature_policy") or {}
     hole_strength = hole_card_data_quality.get("strength_signal_impact") or {}
+    hole_delivery_strategy = hole_card_data_quality.get("delivery_strategy_quality_boundary") or {}
+    hole_claim_decision = hole_card_data_quality.get("delivery_strategy_claim_decision") or {}
     if hole_card_data_quality.get("overall_status") != "PASS":
         raise AssertionError(f"Hole-card data-quality contract did not pass: {hole_card_data_quality.get('overall_status')}")
     if hole_risk.get("risk_id") != "hole_card_data_risk":
@@ -1134,8 +1139,28 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Hole-card root cause must remain OCR extraction quality")
     if hole_risk.get("primary_dataset_column") != "players.cards":
         raise AssertionError("Hole-card contract must bind the risk to players.cards")
+    if hole_risk.get("source_table") != "players.csv":
+        raise AssertionError("Hole-card risk must bind the source table to players.csv")
+    if hole_risk.get("source_field") != "players.csv::cards":
+        raise AssertionError("Hole-card risk must bind the source field to players.csv::cards")
+    if hole_storage_boundary.get("players_csv_stores_hole_cards") is not True:
+        raise AssertionError("Hole-card contract must state that players.csv stores hole-card values")
+    if hole_storage_boundary.get("storage_does_not_imply_reliability") is not True:
+        raise AssertionError("players.csv card storage must not be treated as a reliability guarantee")
+    if hole_storage_boundary.get("card_values_are_ocr_or_recognition_derived") is not True:
+        raise AssertionError("Hole-card values must remain marked as OCR/card-recognition derived")
+    if hole_storage_boundary.get("missing_or_unreliable_cards_are_expected_dataset_conditions") is not True:
+        raise AssertionError("Hole-card contract must explicitly allow missing or unreliable card conditions")
     if hole_risk.get("weakens_primary_poker_signal") is not True:
         raise AssertionError("Hole-card risk must be declared as weakening the primary poker strength signal")
+    if hole_strength_boundary.get("private_cards_are_primary_strategy_signal") is not True:
+        raise AssertionError("Private cards must remain marked as a primary strategy signal")
+    if hole_strength_boundary.get("missing_or_invalid_hole_cards_limit_hand_strength_features") is not True:
+        raise AssertionError("Missing or invalid hole cards must explicitly limit hand-strength features")
+    if hole_strength_boundary.get("hand_strength_features_must_be_slice_aware") is not True:
+        raise AssertionError("Hand-strength features must remain slice-aware")
+    if hole_strength_boundary.get("standalone_card_aware_policy_requires_reliable_two_card_coverage") is not True:
+        raise AssertionError("Standalone card-aware policy promotion must require reliable two-card coverage")
     if hole_risk.get("current_delivery_blocker") is not False:
         raise AssertionError("Hole-card risk must remain a component risk, not a current delivery blocker")
     if hole_risk.get("final_strategy_quality_claim_blocker") is not True:
@@ -1152,6 +1177,18 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         set(hole_strength.get("affected_features") or [])
     ):
         raise AssertionError("Hole-card contract must list the affected strength features")
+    if hole_players_csv_contract.get("source_field") != "players.csv::cards":
+        raise AssertionError("Coverage snapshot must bind hole-card storage to players.csv::cards")
+    if hole_players_csv_contract.get("quality_source") != "ocr_or_card_recognition":
+        raise AssertionError("Coverage snapshot must mark hole-card values as OCR/card-recognition sourced")
+    if hole_players_csv_contract.get("may_be_missing_or_unreliable") is not True:
+        raise AssertionError("Coverage snapshot must preserve missing/unreliable hole-card risk")
+    if hole_players_csv_contract.get("must_not_be_treated_as_reliable_by_presence_alone") is not True:
+        raise AssertionError("players.csv card presence must not imply reliable private-card evidence")
+    if hole_strength.get("primary_signal_weakened_by_ocr_missingness") is not True:
+        raise AssertionError("OCR missingness must remain declared as weakening the primary poker signal")
+    if hole_strength.get("hand_strength_features_limited_by_card_quality") is not True:
+        raise AssertionError("Hole-card data quality must remain declared as limiting hand-strength features")
     if float(hole_cov.get("missing_hole_card_rate", 0.0)) <= float(hole_cov.get("complete_hole_card_rate", 1.0)):
         raise AssertionError("Hole-card audit must preserve missing-card dominance over complete-card coverage")
     if hole_direct_audit.get("status") != "PASS":
@@ -1180,6 +1217,10 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Hole-card limitation must remain a component risk, not a current deployment blocker")
     if hole_upstream.get("component_risk") is not True:
         raise AssertionError("Hole-card limitation must remain visible as a component risk")
+    if hole_upstream.get("players_csv_cards_are_not_reliability_guarantee") is not True:
+        raise AssertionError("Final contract must not treat players.csv cards as a reliability guarantee")
+    if hole_upstream.get("hand_strength_signal_remains_limited_until_ocr_and_reviewed_labels_improve") is not True:
+        raise AssertionError("Hand-strength signal limitation must remain until OCR and reviewed labels improve")
     if hole_promotion.get("standalone_policy_promotion_allowed") is not False:
         raise AssertionError("Hole-card risk must block standalone policy promotion")
     if hole_promotion.get("model_promotion_blocker") is not True:
@@ -1188,6 +1229,50 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Hole-card risk must not block the current monitored deployment")
     if hole_promotion.get("requires_reviewed_card_label_set") is not True:
         raise AssertionError("Hole-card policy promotion must require reviewed card labels")
+    if hole_delivery_strategy.get("risk_scope") != "MODEL_QUALITY_RISK_NOT_SERVICE_DELIVERY_BLOCKER":
+        raise AssertionError("Hole-card risk scope must remain a model-quality risk, not a service delivery blocker")
+    if hole_delivery_strategy.get("current_delivery_blocker") is not False:
+        raise AssertionError("Hole-card data quality must not block the current service delivery")
+    if hole_delivery_strategy.get("service_delivery_claim_allowed") is not True:
+        raise AssertionError("Hole-card data quality must allow the service delivery claim")
+    if hole_delivery_strategy.get("deployed_routed_stack_delivery_allowed") is not True:
+        raise AssertionError("Hole-card data quality must allow the deployed routed stack delivery")
+    if hole_delivery_strategy.get("final_strategy_quality_claim_allowed") is not False:
+        raise AssertionError("Hole-card data quality must block final strategy-quality claims")
+    if hole_delivery_strategy.get("final_strategy_quality_claim_blocked_by_hole_card_data_quality") is not True:
+        raise AssertionError("Hole-card risk must explicitly block final strategy-quality claims")
+    if hole_delivery_strategy.get("model_quality_risk") is not True:
+        raise AssertionError("Hole-card data quality must remain a model-quality risk")
+    if hole_delivery_strategy.get("component_risk") is not True:
+        raise AssertionError("Hole-card data quality must remain visible as a component risk")
+    required_hole_clearance = {
+        "improved_ocr_or_card_parser",
+        "larger_reviewed_hole_card_label_set",
+        "reliable_two_card_coverage_gate",
+        "observed_card_policy_slice_gate",
+        "standalone_card_aware_policy_promotion_gate",
+    }
+    if set(hole_delivery_strategy.get("requires_to_clear_final_strategy_claim") or []) != required_hole_clearance:
+        raise AssertionError("Hole-card final strategy-quality claim clearance requirements must remain explicit")
+    if hole_claim_decision.get("status") != "PASS":
+        raise AssertionError(f"Hole-card delivery/strategy claim decision must pass: {hole_claim_decision}")
+    if hole_claim_decision.get("service_delivery_ready") is not True:
+        raise AssertionError("Hole-card decision must keep service delivery ready")
+    if hole_claim_decision.get("deployed_routed_stack_delivery_ready") is not True:
+        raise AssertionError("Hole-card decision must keep deployed routed stack delivery ready")
+    if hole_claim_decision.get("open_hole_card_data_quality_risk") is not True:
+        raise AssertionError("Hole-card decision must keep the open data-quality risk visible")
+    if hole_claim_decision.get("final_strategy_quality_claim_allowed") is not False:
+        raise AssertionError("Hole-card decision must block final strategy-quality claim")
+    if hole_claim_decision.get("final_strategy_quality_claim_blocked") is not True:
+        raise AssertionError("Hole-card decision must explicitly report the final strategy-quality claim as blocked")
+    if hole_claim_decision.get("blocking_reason") != "hole_card_data_quality_open":
+        raise AssertionError("Hole-card decision must name the open hole-card data-quality blocker")
+    if (
+        hole_claim_decision.get("boundary")
+        != "DELIVERY_READY_FINAL_STRATEGY_CLAIM_BLOCKED_BY_HOLE_CARD_DATA_QUALITY"
+    ):
+        raise AssertionError("Hole-card decision boundary must remain explicit")
     if (hole_card_data_quality.get("invariants") or {}).get("status") != "PASS":
         raise AssertionError(f"Hole-card data-quality invariants failed: {hole_card_data_quality.get('invariants')}")
     leakage_boundary = data_leakage_contract.get("leakage_boundary") or {}
@@ -1203,6 +1288,7 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
     final_board_mitigation = final_board_contract.get("required_mitigation") or {}
     final_board_definitions = final_board_contract.get("field_definitions") or {}
     leakage_raw_schema = data_leakage_contract.get("raw_dataset_schema_audit") or {}
+    leakage_claim_decision = data_leakage_contract.get("delivery_leakage_claim_decision") or {}
     if data_leakage_contract.get("overall_status") != "PASS":
         raise AssertionError(f"Data-leakage contract did not pass: {data_leakage_contract.get('overall_status')}")
     forbidden_outcome_fields = {
@@ -1269,6 +1355,15 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Detected final-board leakage must remain a production blocker")
     if final_board_mitigation.get("truncate_final_board_by_street") is not True:
         raise AssertionError("Final-board mitigation must truncate raw board cards by street")
+    if final_board_mitigation.get("runtime_prediction_board_visibility_guard") is not True:
+        raise AssertionError("Prediction board_cards must be guarded against future-card leakage at runtime")
+    if (
+        final_board_mitigation.get("street_truncation_function")
+        != "leakage_guard.truncate_final_board_snapshot_for_decision"
+    ):
+        raise AssertionError("Final-board street truncation must use the centralized leakage_guard helper")
+    if final_board_mitigation.get("runtime_guard_function") != "leakage_guard.assert_board_cards_visible_for_street":
+        raise AssertionError("Prediction board visibility must use the centralized leakage_guard helper")
     expected_visible_counts = {
         "preflop_visible_board_count": 0,
         "flop_visible_board_count": 3,
@@ -1292,6 +1387,40 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError("Outcome-only fields may remain in raw dataset schema for audit/reporting")
     if leakage_boundary.get("production_blocker_if_detected") is not True:
         raise AssertionError("Detected outcome-field leakage must remain a production blocker")
+    if leakage_claim_decision.get("claim") != "LEAKAGE_FREE_DECISION_TIME_FEATURES":
+        raise AssertionError("Data-leakage claim decision must explicitly name the leakage-free feature claim")
+    if (
+        leakage_claim_decision.get("boundary")
+        != "POST_HAND_OUTCOME_FIELDS_FORBIDDEN_FOR_DECISION_TIME_FEATURES"
+    ):
+        raise AssertionError("Data-leakage claim decision must preserve the post-hand outcome feature boundary")
+    if leakage_claim_decision.get("status") != "PASS":
+        raise AssertionError(f"Data-leakage claim decision did not pass: {leakage_claim_decision}")
+    if leakage_claim_decision.get("decision") != "APPROVED":
+        raise AssertionError("Data-leakage claim decision must approve only the audited leakage-free feature pipeline")
+    if leakage_claim_decision.get("claim_allowed") is not True:
+        raise AssertionError("Leakage-free decision-time feature claim must be allowed only after guard audits pass")
+    if set(leakage_claim_decision.get("forbidden_post_hand_outcome_fields") or []) != forbidden_outcome_fields:
+        raise AssertionError("Data-leakage claim decision must block every post-hand outcome field")
+    if leakage_claim_decision.get("forbidden_final_snapshot_fields") != ["hands.csv::board_cards"]:
+        raise AssertionError("Data-leakage claim decision must block direct final board snapshot use")
+    if leakage_claim_decision.get("post_hand_outcome_fields_blocked") is not True:
+        raise AssertionError("Post-hand outcome fields must remain blocked for decision-time feature use")
+    if leakage_claim_decision.get("final_board_snapshot_direct_use_blocked") is not True:
+        raise AssertionError("Direct final board snapshot use must remain blocked")
+    if leakage_claim_decision.get("runtime_prediction_board_visibility_guard_enabled") is not True:
+        raise AssertionError("Data-leakage claim must require the runtime prediction board visibility guard")
+    if (
+        leakage_claim_decision.get("street_truncation_function")
+        != "leakage_guard.truncate_final_board_snapshot_for_decision"
+    ):
+        raise AssertionError("Data-leakage claim must use centralized street truncation")
+    if leakage_claim_decision.get("runtime_guard_function") != "leakage_guard.assert_board_cards_visible_for_street":
+        raise AssertionError("Data-leakage claim must use centralized runtime board visibility guarding")
+    if leakage_claim_decision.get("detected_leakage_is_production_blocker") is not True:
+        raise AssertionError("Detected leakage must remain a production blocker")
+    if leakage_claim_decision.get("current_delivery_blocker") is not False:
+        raise AssertionError("Clean data-leakage guard must not block the current delivery")
     if int(leakage_features.get("examples_scanned") or 0) <= 0:
         raise AssertionError("Data-leakage feature audit must scan training examples")
     if leakage_features.get("forbidden_feature_names_detected"):

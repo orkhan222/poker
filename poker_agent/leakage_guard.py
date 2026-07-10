@@ -17,6 +17,13 @@ RAW_FINAL_BOARD_SNAPSHOT_FIELDS = (
     "hands.csv::board_cards",
 )
 
+VISIBLE_BOARD_COUNTS_BY_STREET = {
+    "preflop": 0,
+    "flop": 3,
+    "turn": 4,
+    "river": 5,
+}
+
 OUTCOME_FIELD_DEFINITIONS: dict[str, dict[str, str]] = {
     "winner_positions": {
         "source_table": "hands.csv",
@@ -103,4 +110,38 @@ def assert_no_final_board_snapshot_leakage(
         raise ValueError(
             f"Final-board data leakage detected in {context}: {joined}. "
             "Use only community cards visible before the target action; final hand snapshots are audit data."
+        )
+
+
+def visible_board_count_for_street(street: str) -> int:
+    normalized = str(street or "preflop").lower()
+    if normalized not in VISIBLE_BOARD_COUNTS_BY_STREET:
+        raise ValueError(f"Unsupported poker street for board visibility in leakage guard: {street!r}")
+    return VISIBLE_BOARD_COUNTS_BY_STREET[normalized]
+
+
+def truncate_final_board_snapshot_for_decision(
+    board_cards: Iterable[str],
+    street: str,
+) -> list[str]:
+    """Convert a final board snapshot into the board visible at the decision street."""
+    visible_count = visible_board_count_for_street(street)
+    cards = [str(card).strip() for card in board_cards if str(card).strip()]
+    return cards[:visible_count]
+
+
+def assert_board_cards_visible_for_street(
+    board_cards: Iterable[str],
+    street: str,
+    *,
+    context: str,
+) -> None:
+    """Reject request/training board cards that contain future community cards."""
+    cards = [str(card).strip() for card in board_cards if str(card).strip()]
+    max_visible = visible_board_count_for_street(street)
+    if len(cards) > max_visible:
+        raise ValueError(
+            f"Final-board data leakage detected in {context}: street={street!r} allows at most "
+            f"{max_visible} visible board cards, received {len(cards)}. "
+            "Use only community cards visible at the submitted decision street."
         )
