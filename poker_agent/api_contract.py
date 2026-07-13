@@ -4,7 +4,41 @@ from copy import deepcopy
 from typing import Any
 
 
-CONTRACT_VERSION = "2026-06-25"
+CONTRACT_VERSION = "2026-07-13"
+
+
+GAME_SCOPE_CONTRACT: dict[str, Any] = {
+    "game_variant": {
+        "default": "nl_holdem",
+        "supported_values": ["nl_holdem"],
+        "description": "No-Limit Texas Hold'em only for the delivered agent scope.",
+    },
+    "game_type": {
+        "default": "cash",
+        "supported_values": ["cash", "tournament"],
+        "description": "Cash-game or tournament context for blind/ante/rake interpretation.",
+    },
+    "table_format": {
+        "default": "6_max",
+        "supported_values": ["6_max", "9_max"],
+        "description": "Maximum table size: 6-max or 9-max.",
+    },
+    "blind_structure": {
+        "fields": ["small_blind", "big_blind", "ante"],
+        "description": "Decision-time blind and ante values in the submitted stack unit.",
+    },
+    "rake_structure": {
+        "fields": ["rake_percentage", "rake_cap"],
+        "description": "Cash-game rake percentage and cap; use zeros when not applicable.",
+    },
+    "stack_unit": {
+        "default": "chips",
+        "supported_values": ["chips", "big_blinds"],
+        "description": "Unit used for stack, pot, blind, ante, and bet-size fields.",
+    },
+    "request_location": "prediction_request.game_scope",
+    "backwards_compatibility": "If omitted, the service defaults to nl_holdem cash 6-max, 0.5/1.0 blinds, no ante, no rake, chips.",
+}
 
 
 PREDICTION_REQUEST_FIELDS: dict[str, dict[str, Any]] = {
@@ -17,6 +51,11 @@ PREDICTION_REQUEST_FIELDS: dict[str, dict[str, Any]] = {
     "stack": {"type": "float", "description": "Hero stack available at decision time."},
     "min_raise": {"type": "float", "description": "Minimum legal raise increment or amount supplied by the table state."},
     "player_count": {"type": "integer", "description": "Number of players represented in the current state."},
+    "game_scope": {
+        "type": "object",
+        "description": "Explicit game scope: NL Hold'em, cash/tournament, 6-max/9-max, blinds, ante, rake, and stack unit.",
+        "schema": deepcopy(GAME_SCOPE_CONTRACT),
+    },
     "betting_history": {
         "type": "array[object]",
         "description": "Only actions observable before the requested decision; events may include wait_time_ms and frame_delta.",
@@ -98,12 +137,17 @@ def api_contract() -> dict[str, Any]:
         },
         "scope_contract": {
             "endpoint": "/scope-contract.json",
-            "description": "Machine-readable mapping from the DOCX/PDF project scope to implemented evidence and remaining risks.",
+            "description": "Machine-readable mapping from the DOCX/PDF project scope to implemented evidence, game scope, and remaining risks.",
             "source_documents": [
                 "Poker ML Project.docx",
                 "Poker_Agent_Development_EN_detailed.pdf",
             ],
             "overall_status_values": ["PASS", "PARTIAL", "FAIL"],
+        },
+        "game_scope_contract": {
+            "endpoint": "/api-contract.json",
+            "description": "Supported poker game scope for prediction requests.",
+            "contract": deepcopy(GAME_SCOPE_CONTRACT),
         },
         "model_risk_register": {
             "endpoint": "/model-risk-register.json",

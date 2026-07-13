@@ -276,6 +276,7 @@ def _user_context(request: PredictionRequest, legal_actions: tuple[str, ...]) ->
             "hero_stack": request.stack,
             "min_raise": request.min_raise,
             "player_count": request.player_count,
+            "game_scope": request.game_scope.to_dict(),
             "betting_history": request.betting_history,
             "timing_context": {
                 "opponent_wait_before_turn_ms": request.opponent_wait_before_turn_ms,

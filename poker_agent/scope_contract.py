@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 import csv
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from poker_agent.api_contract import GAME_SCOPE_CONTRACT
 
-SCOPE_CONTRACT_VERSION = "2026-06-21"
+SCOPE_CONTRACT_VERSION = "2026-07-13"
 
 
 SOURCE_DOCUMENTS = [
@@ -89,6 +91,7 @@ SCOPE_PHASES: list[dict[str, Any]] = [
             "fastapi_service",
             "predict_endpoint",
             "structured_game_state_input",
+            "explicit_game_scope_input",
             "action_and_probabilities_output",
             "bet_size_and_timing_output",
             "stateful_autonomous_simulation_controller",
@@ -184,9 +187,11 @@ def build_scope_contract(project_root: Path) -> dict[str, Any]:
         "raw_production_gate_status": raw_gate.get("status", "MISSING"),
         "phase_statuses": {phase["id"]: phase["status"] for phase in phase_reports},
         "phases": phase_reports,
+        "game_scope_contract": deepcopy(GAME_SCOPE_CONTRACT),
         "dataset_contract": dataset_report,
         "approval_boundary": {
             "scope_delivery": "All client-visible phases have implemented evidence or an explicit risk entry.",
+            "game_scope": "Prediction requests declare NL Hold'em, cash/tournament, 6-max/9-max, blinds, ante, rake, and stack unit through game_scope.",
             "deployed_strategy_stack": "Approved by the deployed strategy gate when policy acceptance and production-scale self-play pass.",
             "standalone_raw_model": "Still independent from deployed-stack approval and currently not standalone approved unless the raw gate passes.",
         },
@@ -222,6 +227,20 @@ def render_scope_contract_markdown(payload: dict[str, Any]) -> str:
     for phase in payload["phases"]:
         missing = ", ".join(phase["missing_evidence"]) or "none"
         lines.append(f"| {phase['title']} | {phase['status']} | {missing} |")
+    scope = payload["game_scope_contract"]
+    lines.extend(
+        [
+            "",
+            "## Game Scope",
+            "",
+            f"- Variant: `{scope['game_variant']['default']}`",
+            f"- Game types: {', '.join(f'`{value}`' for value in scope['game_type']['supported_values'])}",
+            f"- Table formats: {', '.join(f'`{value}`' for value in scope['table_format']['supported_values'])}",
+            f"- Blind fields: {', '.join(f'`{value}`' for value in scope['blind_structure']['fields'])}",
+            f"- Rake fields: {', '.join(f'`{value}`' for value in scope['rake_structure']['fields'])}",
+            f"- Stack units: {', '.join(f'`{value}`' for value in scope['stack_unit']['supported_values'])}",
+        ]
+    )
     lines.extend(["", "## Remaining Risks", ""])
     if payload["remaining_risks"]:
         for risk in payload["remaining_risks"]:

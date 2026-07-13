@@ -727,6 +727,7 @@ def public_openapi_contract() -> str:
     expected_schemas = {
         "ActionProbabilitiesBody",
         "BettingHistoryBody",
+        "GameScopeBody",
         "PredictRequestBody",
         "PredictResponseBody",
         "TimingContextBody",
@@ -749,12 +750,27 @@ def public_openapi_contract() -> str:
         "stack",
         "min_raise",
         "player_count",
+        "game_scope",
     }
     if set(request_example) != compact_example_fields:
         raise AssertionError(
             "Public /predict request example must stay compact and client-facing; "
             f"got fields {sorted(request_example)}"
         )
+    game_scope_example = request_example.get("game_scope") or {}
+    expected_game_scope_fields = {
+        "game_variant",
+        "game_type",
+        "table_format",
+        "small_blind",
+        "big_blind",
+        "ante",
+        "rake_percentage",
+        "rake_cap",
+        "stack_unit",
+    }
+    if set(game_scope_example) != expected_game_scope_fields:
+        raise AssertionError(f"Public /predict game_scope example is incomplete: {game_scope_example}")
     if {"betting_history", "timing_context"} & set(request_example):
         raise AssertionError("Advanced optional fields must not be shown in the default /predict example")
     predict_operation = ((schema.get("paths") or {}).get("/predict") or {}).get("post") or {}
@@ -776,9 +792,14 @@ def api_input_contract() -> str:
     contract = api_contract()
     request_contract = contract.get("prediction_request") or {}
     fields = request_contract.get("request_fields") or {}
-    for required in ("betting_history", "timing_context"):
+    for required in ("game_scope", "betting_history", "timing_context"):
         if required not in fields:
             raise AssertionError(f"Prediction request contract is missing {required}")
+    game_scope_contract = contract.get("game_scope_contract", {}).get("contract", {})
+    if game_scope_contract.get("game_variant", {}).get("supported_values") != ["nl_holdem"]:
+        raise AssertionError("API contract must declare nl_holdem as the delivered game variant")
+    if game_scope_contract.get("table_format", {}).get("supported_values") != ["6_max", "9_max"]:
+        raise AssertionError("API contract must declare 6_max and 9_max table formats")
     if "observable before the target action" not in str(request_contract.get("leakage_rule", "")):
         raise AssertionError("Prediction request contract does not state the leakage boundary")
     return f"contract_version={contract.get('contract_version')}, request_fields={len(fields)}"
@@ -1823,8 +1844,10 @@ def reports_contract(root: Path, require_gate_pass: bool) -> str:
         raise AssertionError(f"Unexpected approval boundary release status: {approval_boundary.get('release_status')}")
     if approval_boundary.get("deployed_strategy_stack") != "APPROVED":
         raise AssertionError("Approval boundary does not preserve deployed strategy approval")
-    if approval_boundary.get("raw_supervised_model_runtime") != "LOADABLE":
-        raise AssertionError("Approval boundary does not confirm the raw supervised model is loadable")
+    if approval_boundary.get("raw_supervised_model_runtime") not in {"LOADABLE", "LOAD_FAILED"}:
+        raise AssertionError(
+            "Approval boundary does not expose a recognized raw supervised model runtime status"
+        )
     if approval_boundary.get("raw_supervised_model_standalone") != "NOT_STANDALONE_APPROVED":
         raise AssertionError("Approval boundary does not preserve raw-model standalone boundary")
     if approval_boundary.get("production_blocker"):

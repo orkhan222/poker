@@ -9,7 +9,7 @@ from typing import Any, Literal
 from fastapi import Body, FastAPI, HTTPException, Query, Request
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import HTMLResponse
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from poker_agent.agents import MLPolicyAgent, RuleBasedAgent
 from poker_agent.api_contract import api_contract
@@ -49,7 +49,7 @@ from poker_agent.qlora_next_stage import build_qlora_next_stage
 from poker_agent.raw_model_status import build_raw_model_status
 from poker_agent.rl_delivery_boundary import build_rl_delivery_boundary
 from poker_agent.scenario_sanity import build_scenario_sanity
-from poker_agent.schemas import PredictionRequest
+from poker_agent.schemas import GameScope, PredictionRequest
 from poker_agent.scope_contract import build_scope_contract
 from poker_agent.stack_event_context_quality import build_stack_event_context_quality
 from poker_agent.strategy_readiness import load_combined_strategy_readiness
@@ -60,6 +60,10 @@ from poker_agent.training_cluster import DEFAULT_RUN_PROFILE, build_training_clu
 
 ActionName = Literal["fold", "call", "check", "bet", "raise", "all_in"]
 StreetName = Literal["preflop", "flop", "turn", "river"]
+GameVariantName = Literal["nl_holdem"]
+GameTypeName = Literal["cash", "tournament"]
+TableFormatName = Literal["6_max", "9_max"]
+StackUnitName = Literal["chips", "big_blinds"]
 
 
 class BettingHistoryBody(BaseModel):
@@ -79,6 +83,64 @@ class TimingContextBody(BaseModel):
     opponent_wait_after_hero_action_ms: float = Field(default=0.0, ge=0.0)
 
 
+class GameScopeBody(BaseModel):
+    model_config = ConfigDict(
+        extra="ignore",
+        json_schema_extra={
+            "example": {
+                "game_variant": "nl_holdem",
+                "game_type": "cash",
+                "table_format": "6_max",
+                "small_blind": 0.5,
+                "big_blind": 1.0,
+                "ante": 0.0,
+                "rake_percentage": 0.0,
+                "rake_cap": 0.0,
+                "stack_unit": "chips",
+            }
+        },
+    )
+
+    game_variant: GameVariantName = Field(
+        default="nl_holdem",
+        description="Delivered scope is No-Limit Texas Hold'em.",
+    )
+    game_type: GameTypeName = Field(default="cash", description="Cash game or tournament scope.")
+    table_format: TableFormatName = Field(default="6_max", description="Supported table size: 6-max or 9-max.")
+    small_blind: float = Field(default=0.5, ge=0.0, description="Small blind in stack_unit.")
+    big_blind: float = Field(default=1.0, ge=0.0, description="Big blind in stack_unit.")
+    ante: float = Field(default=0.0, ge=0.0, description="Ante in stack_unit.")
+    rake_percentage: float = Field(default=0.0, ge=0.0, description="Rake percentage, or 0 if not applicable.")
+    rake_cap: float = Field(default=0.0, ge=0.0, description="Maximum rake in stack_unit, or 0 if not applicable.")
+    stack_unit: StackUnitName = Field(default="chips", description="Unit used for stacks, pots, blinds, and bets.")
+
+    @field_validator("game_variant", mode="before")
+    @classmethod
+    def normalize_game_variant(cls, value: Any) -> str:
+        return GameScope.from_dict({"game_scope": {"game_variant": value}}).game_variant
+
+    @field_validator("game_type", mode="before")
+    @classmethod
+    def normalize_game_type(cls, value: Any) -> str:
+        return GameScope.from_dict({"game_scope": {"game_type": value}}).game_type
+
+    @field_validator("table_format", mode="before")
+    @classmethod
+    def normalize_table_format(cls, value: Any) -> str:
+        return GameScope.from_dict({"game_scope": {"table_format": value}}).table_format
+
+    @field_validator("stack_unit", mode="before")
+    @classmethod
+    def normalize_stack_unit(cls, value: Any) -> str:
+        return GameScope.from_dict({"game_scope": {"stack_unit": value}}).stack_unit
+
+    @model_validator(mode="after")
+    def validate_blind_structure(self) -> "GameScopeBody":
+        if self.small_blind > 0 and self.big_blind > 0 and self.big_blind < self.small_blind:
+            raise ValueError("big_blind must be greater than or equal to small_blind")
+        return self
+
+
 class PredictRequestBody(BaseModel):
     model_config = ConfigDict(
         extra="ignore",
@@ -93,6 +155,17 @@ class PredictRequestBody(BaseModel):
                 "stack": 100.0,
                 "min_raise": 2.0,
                 "player_count": 6,
+                "game_scope": {
+                    "game_variant": "nl_holdem",
+                    "game_type": "cash",
+                    "table_format": "6_max",
+                    "small_blind": 0.5,
+                    "big_blind": 1.0,
+                    "ante": 0.0,
+                    "rake_percentage": 0.0,
+                    "rake_cap": 0.0,
+                    "stack_unit": "chips",
+                },
             }
         },
     )
@@ -110,6 +183,10 @@ class PredictRequestBody(BaseModel):
     stack: float = Field(default=0.0, ge=0.0, description="Hero stack before the decision.")
     min_raise: float = Field(default=0.0, ge=0.0, description="Minimum legal raise size.")
     player_count: int = Field(default=6, ge=2, le=10, description="Number of players dealt into the hand.")
+    game_scope: GameScopeBody = Field(
+        default_factory=GameScopeBody,
+        description="Explicit game scope for variant, game type, table size, blinds, ante, rake, and stack unit.",
+    )
     betting_history: list[BettingHistoryBody] = Field(
         default_factory=list,
         validation_alias=AliasChoices("betting_history", "action_history"),

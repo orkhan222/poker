@@ -18,6 +18,17 @@ def predict() -> None:
         "stack": 100.0,
         "min_raise": 2.0,
         "player_count": 6,
+        "game_scope": {
+            "game_variant": "nl_holdem",
+            "game_type": "cash",
+            "table_format": "6_max",
+            "small_blind": 0.5,
+            "big_blind": 1.0,
+            "ante": 0.0,
+            "rake_percentage": 0.0,
+            "rake_cap": 0.0,
+            "stack_unit": "chips",
+        },
     }
 
     body = json.dumps(game_state).encode("utf-8")

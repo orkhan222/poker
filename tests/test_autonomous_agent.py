@@ -166,6 +166,7 @@ def test_public_openapi_hides_internal_reports_and_validation_schemas() -> None:
     assert set(schemas) == {
         "ActionProbabilitiesBody",
         "BettingHistoryBody",
+        "GameScopeBody",
         "PredictRequestBody",
         "PredictResponseBody",
         "TimingContextBody",
@@ -187,6 +188,18 @@ def test_public_openapi_hides_internal_reports_and_validation_schemas() -> None:
         "stack",
         "min_raise",
         "player_count",
+        "game_scope",
+    }
+    assert request_example["game_scope"] == {
+        "game_variant": "nl_holdem",
+        "game_type": "cash",
+        "table_format": "6_max",
+        "small_blind": 0.5,
+        "big_blind": 1.0,
+        "ante": 0.0,
+        "rake_percentage": 0.0,
+        "rake_cap": 0.0,
+        "stack_unit": "chips",
     }
     assert "betting_history" not in request_example
     assert "timing_context" not in request_example

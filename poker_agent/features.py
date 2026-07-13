@@ -472,10 +472,30 @@ def request_to_features(request: PredictionRequest) -> dict[str, float]:
         f"position_group={position_group}": 1.0,
         f"street={request.street}": 1.0,
     }
+    features.update(game_scope_features(request))
     features.update(card_texture_features(request.hole_cards, request.board_cards))
     features.update(betting_history_to_features(request.betting_history, request.position))
     assert_no_outcome_feature_leakage(features, context="prediction request features")
     return features
+
+
+def game_scope_features(request: PredictionRequest) -> dict[str, float]:
+    scope = request.game_scope
+    blind_unit = scope.big_blind if scope.big_blind > 0 else 1.0
+    return {
+        "scope_small_blind": scope.small_blind,
+        "scope_big_blind": scope.big_blind,
+        "scope_ante": scope.ante,
+        "scope_ante_bb": scope.ante / blind_unit,
+        "scope_rake_percentage": scope.rake_percentage,
+        "scope_rake_cap": scope.rake_cap,
+        "scope_rake_cap_bb": scope.rake_cap / blind_unit if scope.rake_cap > 0 else 0.0,
+        "scope_stack_unit_is_big_blinds": 1.0 if scope.stack_unit == "big_blinds" else 0.0,
+        f"scope_game_variant={scope.game_variant}": 1.0,
+        f"scope_game_type={scope.game_type}": 1.0,
+        f"scope_table_format={scope.table_format}": 1.0,
+        f"scope_stack_unit={scope.stack_unit}": 1.0,
+    }
 
 
 PRIVATE_CARD_FEATURE_PREFIXES = (
