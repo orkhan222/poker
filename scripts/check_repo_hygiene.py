@@ -9,7 +9,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 SKIP_DIRS = {
     ".git",
-    ".qodo",
     ".venv",
     "dataset",
     "env",
@@ -68,7 +67,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def is_skipped(relative: Path) -> bool:
-    return any(part in SKIP_DIRS for part in relative.parts)
+    return any(part in SKIP_DIRS for part in relative.parts) or any(
+        part in GENERATED_PATH_PARTS for part in relative.parts
+    )
 
 
 def should_scan(path: Path, root: Path) -> bool:

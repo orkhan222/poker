@@ -1,0 +1,16 @@
+defaults:
+  - override /training@_global_.training: smoke
+
+name: mlops_smoke
+description: Emit and validate local MLOps tracking, registry, dataset versioning, Docker versioning, and CI smoke contracts.
+command:
+  entrypoint: scripts/check_mlops_contract.py
+  args:
+    root: ${project_root}
+    dataset: sample_poker_log.jsonl
+    model: models/poker_policy.json
+    out: ${mlops.mlops_report}
+    registry_out: ${mlops.model_registry}
+    experiment_log_out: ${mlops.experiment_log}
+    dataset_log_out: ${mlops.dataset_registry}
+    smoke: true

@@ -1,0 +1,25 @@
+engine:
+  name: internal_single_decision_nlhe_simulator
+  game_type: nl_holdem
+  table_size: 6
+  starting_stack: 100.0
+  small_blind: 0.5
+  big_blind: 1.0
+  ante: 0.0
+  rake_percentage: 0.0
+  rake_cap: 0.0
+league:
+  opponent_pool: default_seeded_pool
+  hero_policy: seed_policy_hero
+  episodes: 100
+seed_policy:
+  base_seed: 20260713
+  namespace: poker_rl
+reward_shaping:
+  chip_delta_weight: 1.0
+  win_loss_weight: 0.15
+  showdown_strength_weight: 0.05
+  illegal_action_penalty: -1.0
+  fold_penalty_when_free: -0.05
+  aggression_bonus: 0.02
+  survival_bonus: 0.01

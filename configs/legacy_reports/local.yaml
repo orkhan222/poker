@@ -1,0 +1,5 @@
+contract_version: legacy_delivery_reports.v1
+manifest: reports/legacy_delivery_reports.json
+contract_report: reports/legacy_delivery_reports_contract.json
+overwrite: false
+smoke: true

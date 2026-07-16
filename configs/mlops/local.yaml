@@ -1,0 +1,15 @@
+tracking_backend: local_jsonl
+experiment_log: reports/experiments.jsonl
+model_registry: reports/model_registry.json
+dataset_registry: reports/dataset_versions.jsonl
+mlops_report: reports/mlops_contract.json
+
+docker:
+  image: poker-decision-agent
+  version: 0.1.0
+  tag: poker-decision-agent:0.1.0
+  registry: local
+
+ci:
+  workflow: .github/workflows/smoke.yml
+  smoke_command: python scripts/check_mlops_contract.py --smoke

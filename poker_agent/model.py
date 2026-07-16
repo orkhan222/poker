@@ -430,14 +430,59 @@ def load_policy(path: Path) -> SoftmaxPolicy | SklearnPolicy:
         try:
             import joblib
         except ImportError as exc:
+            fallback = path.with_suffix(".json")
+            if fallback.exists():
+                return _load_softmax_with_sidecar(fallback, path)
             raise RuntimeError("joblib is required to load the policy") from exc
         payload = joblib.load(path)
         if isinstance(payload, dict) and payload.get("policy_type") == "routed_policy_bundle":
-            return RoutedPolicyBundle.from_payload(payload)
+            policy = RoutedPolicyBundle.from_payload(payload)
+            _attach_sidecar_metadata(policy, path)
+            return policy
         if isinstance(payload, dict) and payload.get("policy_type") == "sklearn_policy":
-            return SklearnPolicy.from_payload(payload)
+            policy = SklearnPolicy.from_payload(payload)
+            _attach_sidecar_metadata(policy, path)
+            return policy
         raise ValueError(f"Unsupported joblib policy payload: {path}")
-    return SoftmaxPolicy.load(path)
+    return _load_softmax_with_sidecar(path)
+
+
+def _load_softmax_with_sidecar(path: Path, original_path: Path | None = None) -> SoftmaxPolicy:
+    policy = SoftmaxPolicy.load(path)
+    _attach_sidecar_metadata(policy, path, original_path)
+    return policy
+
+
+def _metadata_sidecar_paths(path: Path, original_path: Path | None = None) -> list[Path]:
+    candidates = [
+        path.with_name(f"{path.stem}.metadata.json"),
+        path.with_suffix(path.suffix + ".metadata.json"),
+    ]
+    if original_path is not None:
+        candidates.extend(
+            [
+                original_path.with_name(f"{original_path.stem}.metadata.json"),
+                original_path.with_suffix(original_path.suffix + ".metadata.json"),
+            ]
+        )
+    seen: set[Path] = set()
+    ordered: list[Path] = []
+    for candidate in candidates:
+        if candidate not in seen:
+            ordered.append(candidate)
+            seen.add(candidate)
+    return ordered
+
+
+def _attach_sidecar_metadata(policy: Any, path: Path, original_path: Path | None = None) -> None:
+    sidecar: dict[str, Any] = {}
+    for candidate in _metadata_sidecar_paths(path, original_path):
+        if candidate.exists():
+            sidecar.update(json.loads(candidate.read_text(encoding="utf-8")))
+    if not sidecar:
+        return
+    current = getattr(policy, "metadata", {}) or {}
+    policy.metadata = {**sidecar, **current}
 
 
 @dataclass

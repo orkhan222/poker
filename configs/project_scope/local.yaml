@@ -1,0 +1,5 @@
+contract_version: project_scope.v1
+report: reports/project_scope_contract.json
+docs: docs/PROJECT_SCOPE_CONTRACT.md
+contract_report: reports/project_scope_contract_definition.json
+smoke: true

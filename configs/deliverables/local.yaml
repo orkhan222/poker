@@ -1,0 +1,15 @@
+contract_version: final_deliverables.v1
+manifest: reports/final_deliverables.json
+api_docs: docs/API_CONTRACT.md
+delivery_report: reports/delivery_report.md
+contract_report: reports/final_deliverables_contract.json
+smoke: true
+required:
+  - validated_dataset_schema
+  - validation_report
+  - baseline_comparison
+  - trained_checkpoint
+  - evaluation_report
+  - dockerized_fastapi_service
+  - api_docs
+  - tests

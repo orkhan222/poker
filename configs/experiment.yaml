@@ -5,6 +5,12 @@ defaults:
   - evaluation: standard
   - inference: local_service
   - logging: local
+  - mlops: local
+  - monitoring: local
+  - security: local
+  - deliverables: local
+  - legacy_reports: local
+  - project_scope: local
   - experiments: train_single_hgb
   - _self_
 

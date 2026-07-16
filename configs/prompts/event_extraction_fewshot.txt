@@ -1,15 +1,32 @@
-Normalize poker OCR records into strict JSON.
+Convert one poker OCR/dealer record into exactly one JSON object.
 
-Example:
-Input: Plyr3 ra1se $4.50
-Output: {"event_type":"player_action","player_position":"Player3","action":"raise","amount":4.5,"cards":[],"confidence":0.95}
+Output schema:
+{"event_type":"player_action|card_update|stack_update|unmatched","player_position":null,"action":null,"amount":null,"cards":[],"confidence":0.0}
 
-Example:
-Input: Player2 cail 2
-Output: {"event_type":"player_action","player_position":"Player2","action":"call","amount":2.0,"cards":[],"confidence":0.92}
+Use only these decision actions: fold, call, check, bet, raise. Map all-in to raise. Blinds, antes, winnings, joins, nickname/ROI updates, and hand-start messages are unmatched.
 
-Example:
-Input: board A spade K diamond 7 heart
-Output: {"event_type":"card_update","player_position":null,"action":null,"amount":null,"cards":["AS","KD","7H"],"confidence":0.90}
+Example 1
+Input record:
+{"event_name":"ocr_action","event_value":{"player_position":"Player1_Bottom","value":"fold"}}
+Output:
+{"event_type":"player_action","player_position":"Player1_Bottom","action":"fold","amount":null,"cards":[],"confidence":1.0}
 
-Return one JSON object only. Use unmatched when evidence is insufficient.
+Example 2
+Input record:
+{"event_name":"recognize_cards","event_value":{"cards":["Ah","Kd"]}}
+Output:
+{"event_type":"card_update","player_position":null,"action":null,"amount":null,"cards":["Ah","Kd"],"confidence":1.0}
+
+Example 3
+Input record:
+{"event_name":"ocr_stack","event_value":{"player_position":"Player2_Left","diff":-2.5}}
+Output:
+{"event_type":"stack_update","player_position":"Player2_Left","action":null,"amount":-2.5,"cards":[],"confidence":1.0}
+
+Example 4
+Input record:
+{"event_name":"ocr_action","event_value":{"player_position":"Player3_Left","value":"post_sb","amount":0.5}}
+Output:
+{"event_type":"unmatched","player_position":"Player3_Left","action":null,"amount":null,"cards":[],"confidence":1.0}
+
+Return only the output JSON object for the new input record. Do not repeat the input record.

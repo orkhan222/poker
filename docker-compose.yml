@@ -1,7 +1,12 @@
 ﻿services:
   poker-decision-agent:
-    build: .
-    image: poker-decision-agent:latest
+    build:
+      context: .
+      args:
+        APP_VERSION: ${POKER_AGENT_VERSION:-0.1.0}
+        VCS_REF: ${POKER_AGENT_REVISION:-local}
+        BUILD_DATE: ${POKER_AGENT_BUILD_DATE:-unknown}
+    image: poker-decision-agent:${POKER_AGENT_VERSION:-0.1.0}
     ports:
       - "8001:8001"
     environment:

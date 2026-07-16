@@ -1,0 +1,23 @@
+defaults:
+  - override /dataset@_global_.dataset: poker_csv
+  - override /training@_global_.training: group_holdout
+  - override /logging@_global_.logging: local
+
+name: run_baselines
+description: Evaluate rule, imitation-learning, LLM-prompt, and end-to-end policy baselines on one holdout split.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/run_baselines.py
+  args:
+    dataset: ${dataset.root}
+    out: reports/baseline_report.json
+    baselines: rule,imitation_learning,llm,end_to_end_policy
+    max_examples: ${training.max_examples}
+    valid_ratio: ${training.valid_ratio}
+    seed: ${training.seed}
+    epochs: ${training.epochs}
+    learning_rate: 0.05
+    class_weighting: sqrt_balanced
+    max_class_weight: 6.0
+    missing_hole_cards: ${dataset.missing_hole_cards_train}

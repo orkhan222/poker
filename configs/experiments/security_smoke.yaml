@@ -1,0 +1,14 @@
+defaults:
+  - override /training@_global_.training: smoke
+
+name: security_smoke
+description: Validate API auth, rate limiting, secret management, and prediction/audit log retention.
+command:
+  entrypoint: scripts/check_security_contract.py
+  args:
+    root: ${project_root}
+    out: ${security.report}
+    retention_days: ${security.log_retention.max_age_days}
+    retention_max_records: ${security.log_retention.max_records}
+    rate_limit_per_minute: ${security.rate_limit.per_minute}
+    smoke: true

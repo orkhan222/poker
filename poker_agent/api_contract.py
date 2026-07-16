@@ -1,662 +1,305 @@
 from __future__ import annotations
 
-from copy import deepcopy
+from pathlib import Path
 from typing import Any
 
+from poker_agent.action_space import CANONICAL_ACTIONS
+from poker_agent.game_scope import SUPPORTED_FORMATS, SUPPORTED_GAME_TYPES, SUPPORTED_STACK_UNITS, SUPPORTED_TABLE_SIZES
+from poker_agent.usage_boundary import ALLOWED_USAGE, BLOCKED_USAGE
 
-CONTRACT_VERSION = "2026-07-13"
+API_VERSION = "poker-decision-agent-api-v1"
+PREDICT_REQUEST_SCHEMA_VERSION = "predict_request.v1"
+PREDICT_RESPONSE_SCHEMA_VERSION = "predict_response.v1"
+ERROR_RESPONSE_SCHEMA_VERSION = "error_response.v1"
 
+PREDICT_ENDPOINT = "/predict"
 
-GAME_SCOPE_CONTRACT: dict[str, Any] = {
-    "game_variant": {
-        "default": "nl_holdem",
-        "supported_values": ["nl_holdem"],
-        "description": "No-Limit Texas Hold'em only for the delivered agent scope.",
+ERROR_CODES: dict[str, dict[str, Any]] = {
+    "INVALID_REQUEST": {
+        "http_status": 400,
+        "retryable": False,
+        "message": "Request payload is malformed or missing required game-state fields.",
     },
-    "game_type": {
-        "default": "cash",
-        "supported_values": ["cash", "tournament"],
-        "description": "Cash-game or tournament context for blind/ante/rake interpretation.",
+    "UNSUPPORTED_ACTION_SPACE": {
+        "http_status": 422,
+        "retryable": False,
+        "message": "Legal action metadata cannot be reconciled with no-limit Hold'em action rules.",
     },
-    "table_format": {
-        "default": "6_max",
-        "supported_values": ["6_max", "9_max"],
-        "description": "Maximum table size: 6-max or 9-max.",
+    "MODEL_UNAVAILABLE": {
+        "http_status": 503,
+        "retryable": True,
+        "message": "The configured model artifact is unavailable or cannot be loaded.",
     },
-    "blind_structure": {
-        "fields": ["small_blind", "big_blind", "ante"],
-        "description": "Decision-time blind and ante values in the submitted stack unit.",
+    "UNAUTHORIZED": {
+        "http_status": 401,
+        "retryable": False,
+        "message": "Authentication failed or API key is missing.",
     },
-    "rake_structure": {
-        "fields": ["rake_percentage", "rake_cap"],
-        "description": "Cash-game rake percentage and cap; use zeros when not applicable.",
+    "RATE_LIMITED": {
+        "http_status": 429,
+        "retryable": True,
+        "message": "Request rate limit exceeded.",
     },
-    "stack_unit": {
-        "default": "chips",
-        "supported_values": ["chips", "big_blinds"],
-        "description": "Unit used for stack, pot, blind, ante, and bet-size fields.",
+    "SECURITY_MISCONFIGURED": {
+        "http_status": 503,
+        "retryable": True,
+        "message": "Security is enabled but required secret configuration is missing.",
     },
-    "request_location": "prediction_request.game_scope",
-    "backwards_compatibility": "If omitted, the service defaults to nl_holdem cash 6-max, 0.5/1.0 blinds, no ante, no rake, chips.",
-}
-
-
-PREDICTION_REQUEST_FIELDS: dict[str, dict[str, Any]] = {
-    "position": {"type": "string", "description": "Hero table position or normalized seat identifier."},
-    "street": {"type": "string", "description": "Current betting street: preflop, flop, turn, or river."},
-    "hole_cards": {"type": "array[string]", "description": "Hero private cards when observed."},
-    "board_cards": {"type": "array[string]", "description": "Community cards visible at decision time."},
-    "pot": {"type": "float", "description": "Current pot before the requested action."},
-    "to_call": {"type": "float", "description": "Additional chips required to call."},
-    "stack": {"type": "float", "description": "Hero stack available at decision time."},
-    "min_raise": {"type": "float", "description": "Minimum legal raise increment or amount supplied by the table state."},
-    "player_count": {"type": "integer", "description": "Number of players represented in the current state."},
-    "game_scope": {
-        "type": "object",
-        "description": "Explicit game scope: NL Hold'em, cash/tournament, 6-max/9-max, blinds, ante, rake, and stack unit.",
-        "schema": deepcopy(GAME_SCOPE_CONTRACT),
+    "USAGE_BOUNDARY_VIOLATION": {
+        "http_status": 403,
+        "retryable": False,
+        "message": "The request violates the offline research, simulation, or authorized-environment usage boundary.",
     },
-    "betting_history": {
-        "type": "array[object]",
-        "description": "Only actions observable before the requested decision; events may include wait_time_ms and frame_delta.",
-    },
-    "timing_context": {
-        "type": "object",
-        "description": (
-            "Optional observed opponent timing with opponent_wait_before_turn_ms and "
-            "opponent_wait_after_hero_action_ms."
-        ),
+    "PREDICTION_FAILED": {
+        "http_status": 500,
+        "retryable": True,
+        "message": "The prediction pipeline failed after request validation.",
     },
 }
 
 
-PREDICTION_RESPONSE_FIELDS: dict[str, dict[str, Any]] = {
-    "action": {"type": "string", "description": "Primary poker action selected for the submitted game state."},
-    "probabilities": {"type": "object[string,float]", "description": "Normalized action probability distribution."},
-    "confidence": {"type": "float", "description": "Confidence assigned to the selected action."},
-    "bet_size": {"type": "float", "description": "Recommended chip amount for call, bet, or raise actions."},
-    "wait_time_ms": {"type": "integer", "description": "Recommended decision delay in milliseconds."},
-    "sizing_method": {"type": "string", "description": "Sizing policy used to calculate bet_size."},
-    "timing_method": {"type": "string", "description": "Timing policy used to calculate wait_time_ms."},
-    "model_status": {"type": "string", "description": "Inference path that produced the response."},
-    "warnings": {"type": "array[string]", "description": "Optional degraded-path warnings."},
-}
-
-
-DELIVERY_STATUS_FIELDS: dict[str, dict[str, str]] = {
-    "delivery_verification=PASS": {
-        "meaning": "Source, reports, inference contract, hygiene, and ZIP package checks passed.",
-        "implication": "The package is suitable for delivery review.",
-    },
-    "production_scale_self_play=PASS": {
-        "meaning": "Validated Hold'em self-play ran at production review scale and passed.",
-        "implication": "Self-play scale is no longer a strategy blocker.",
-    },
-    "deployed_strategy_gate=PASS": {
-        "meaning": "The deployed strategy stack passed policy acceptance, human-likeness, production-scale self-play, service, and hygiene gates.",
-        "implication": "The deployed stack can be approved with monitoring and rollback.",
-    },
-    "raw_production_gate=FAIL": {
-        "meaning": "The standalone supervised artifact does not pass raw model-quality thresholds by itself.",
-        "implication": "This remains a component risk, not a deployed-stack blocker when the deployed strategy gate passes.",
-    },
-}
-
-
-def api_contract() -> dict[str, Any]:
+def predict_request_schema() -> dict[str, Any]:
+    numeric = {"type": "number"}
+    card_array = {"type": "array", "items": {"type": "string"}, "default": []}
     return {
-        "contract_version": CONTRACT_VERSION,
-        "prediction_request": {
-            "contract_version": CONTRACT_VERSION,
-            "request_fields": deepcopy(PREDICTION_REQUEST_FIELDS),
-            "leakage_rule": "The request and betting history must contain only information observable before the target action.",
-        },
-        "prediction_response": {
-            "contract_version": CONTRACT_VERSION,
-            "response_fields": deepcopy(PREDICTION_RESPONSE_FIELDS),
-        },
-        "delivery_status": {
-            "contract_version": CONTRACT_VERSION,
-            "delivery_status_fields": deepcopy(DELIVERY_STATUS_FIELDS),
-        },
-        "strategy_readiness": {
-            "endpoint": "/strategy-readiness.json",
-            "status_values": ["APPROVED", "NOT_APPROVED", "UNKNOWN"],
-        },
-        "deployed_strategy_gate": {
-            "endpoint": "/deployed-strategy-gate.json",
-            "status_values": ["PASS", "FAIL", "MISSING"],
-        },
-        "delivery_readiness": {
-            "endpoint": "/delivery-readiness.json",
-            "overall_status_values": [
-                "READY_FOR_PRODUCTION_POLICY",
-                "READY_FOR_TECHNICAL_HANDOFF",
-                "NOT_READY_FOR_HANDOFF",
-            ],
-        },
-        "scope_contract": {
-            "endpoint": "/scope-contract.json",
-            "description": "Machine-readable mapping from the DOCX/PDF project scope to implemented evidence, game scope, and remaining risks.",
-            "source_documents": [
-                "Poker ML Project.docx",
-                "Poker_Agent_Development_EN_detailed.pdf",
-            ],
-            "overall_status_values": ["PASS", "PARTIAL", "FAIL"],
-        },
-        "game_scope_contract": {
-            "endpoint": "/api-contract.json",
-            "description": "Supported poker game scope for prediction requests.",
-            "contract": deepcopy(GAME_SCOPE_CONTRACT),
-        },
-        "model_risk_register": {
-            "endpoint": "/model-risk-register.json",
-            "description": "Tracks the approved deployed strategy stack separately from the raw supervised model component risk.",
-            "status_values": ["PASS", "FAIL"],
-            "risk_boundary": "Raw supervised model weakness is a component risk unless explicitly marked as a deployment blocker.",
-        },
-        "production_approval": {
-            "endpoint": "/production-approval.json",
-            "description": "Defines production claims that are allowed and explicitly disallowed for the delivered package.",
-            "overall_status_values": ["APPROVED", "APPROVED_WITH_COMPONENT_RISK", "NOT_APPROVED"],
-            "approval_boundary": "The deployed strategy stack can be approved while the raw supervised model remains not standalone approved.",
-        },
-        "approval_boundary": {
-            "endpoint": "/approval-boundary.json",
-            "description": "Single source of truth for service readiness, deployed-stack approval, raw-model standalone status, production blockers, and component risks.",
-            "release_status_values": ["READY", "READY_WITH_COMPONENT_RISK", "NOT_READY"],
-            "non_override_rule": "Deployed stack approval must not be represented as standalone raw-model approval.",
-        },
-        "client_handoff": {
-            "endpoint": "/client-handoff.json",
-            "description": "Client-facing delivery statement that separates production blockers from tracked component risks.",
-            "handoff_status_values": ["READY", "READY_WITH_COMPONENT_RISK", "NOT_READY"],
-            "delivery_boundary": "Service delivery and deployed strategy approval can be ready while raw-model standalone approval remains a tracked component risk.",
-        },
-        "data_leakage_contract": {
-            "endpoint": "/data-leakage-contract.json",
-            "description": "Blocks post-hand outcome fields and raw final-board snapshots from training, prediction, and model-artifact feature sets.",
-            "forbidden_outcome_fields": [
-                "winner_positions",
-                "stack_delta",
-                "ending_stack",
-                "dealer_winner",
-                "dealer_pot",
-                "pot_from_stacks",
-            ],
-            "raw_final_board_snapshot_fields": ["hands.csv::board_cards"],
-            "board_cards_boundary": (
-                "Prediction request board_cards are allowed only as community cards visible at decision time; "
-                "the final hands.csv board_cards snapshot is audit/truncation source data, not a direct feature."
-            ),
-            "boundary": "These fields may exist in raw CSVs for reporting, but are not valid decision-time features.",
-        },
-        "normalized_action_contract": {
-            "endpoint": "/normalized-action-contract.json",
-            "description": "Normalizes raw OCR/dealer action text into canonical action labels before training, evaluation, and policy comparison.",
-            "source_field": "actions.csv::action",
-            "normalized_field": "canonical_action",
-            "canonical_actions": ["fold", "call", "check", "bet", "raise", "all_in"],
-            "noisy_examples": {
-                "ra1se": "raise",
-                "cail": "call",
-                "bett": "bet",
-                "all-in": "all_in",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "PokerDecisionPredictRequest",
+        "schema_version": PREDICT_REQUEST_SCHEMA_VERSION,
+        "type": "object",
+        "additionalProperties": True,
+        "required": ["position", "street", "hole_cards", "pot", "stack", "usage_boundary"],
+        "properties": {
+            "position": {"type": "string", "description": "Hero position/seat identifier."},
+            "street": {"type": "string", "enum": ["preflop", "flop", "turn", "river"]},
+            "hole_cards": card_array,
+            "board_cards": card_array,
+            "pot": numeric,
+            "pot_size": numeric,
+            "current_bet": numeric,
+            "to_call": numeric,
+            "amount_to_call": numeric,
+            "stack": numeric,
+            "effective_stack": numeric,
+            "small_blind": numeric,
+            "big_blind": numeric,
+            "ante": numeric,
+            "button_position": {"type": "string"},
+            "dealer_position": {"type": "string"},
+            "action_order": {"type": "array", "items": {"type": "string"}},
+            "min_raise": numeric,
+            "max_raise": numeric,
+            "min_raise_to": numeric,
+            "max_raise_to": numeric,
+            "min_raise_by": numeric,
+            "max_raise_by": numeric,
+            "all_in_amount": numeric,
+            "legal_actions": {
+                "type": "array",
+                "items": {"type": "string", "enum": list(CANONICAL_ACTIONS)},
+                "description": "Optional legal-action mask. If omitted, the service derives the mask from state.",
             },
-            "boundary": "Raw OCR action strings must not be used directly as supervised labels.",
-        },
-        "actions_context_quality": {
-            "endpoint": "/actions-context-quality.json",
-            "description": "Documents missing explicit betting-context fields in actions.csv and verifies leakage-safe derived context features.",
-            "risk_id": "actions_csv_betting_context_incomplete",
-            "root_cause": "actions.csv has action/street, but not the full decision-time betting context needed for strong call/fold/raise learning.",
-            "missing_or_required_explicit_fields": [
-                "amount",
-                "to_call",
-                "pot_before_action",
-                "min_raise",
-                "legal_actions",
-                "action_order",
-                "last_aggressor",
-                "facing_bet",
-            ],
-            "derived_context_features": [
-                "hand_action_order",
-                "street_action_order",
-                "facing_bet_or_raise",
-                "facing_bet_derived",
-                "call_price_ratio",
-                "raise_pressure",
-                "table_commitment_pressure",
-                "last_aggressor_known",
-                "last_aggressor_is_hero",
-                "last_aggressor_derived",
-            ],
-            "current_delivery_blocker": False,
-            "model_quality_risk": True,
-            "target_row_values_are_labels_not_features": True,
-            "boundary": "Derived context mitigates the current dataset gap but does not fully replace explicit decision-time betting labels.",
-            "future_dataset_export": {
-                "explicit_export_required": True,
-                "current_delivery_blocker": False,
-                "model_quality_risk": True,
-                "required_explicit_fields": [
-                    "amount",
-                    "to_call",
-                    "pot_before_action",
-                    "min_raise",
-                    "legal_actions",
-                    "action_order",
-                    "last_aggressor",
-                    "facing_bet",
-                ],
-                "boundary": "The current pipeline may reconstruct this context, but the next dataset export must persist it explicitly.",
+            "legal_action_mask": {
+                "type": "object",
+                "additionalProperties": {"type": "boolean"},
+                "description": "Optional action-to-boolean mask using canonical action keys.",
             },
-        },
-        "actions_dataset_export_contract": {
-            "endpoint": "/actions-dataset-export-contract.json",
-            "description": "Defines the required future actions.csv export fields for explicit decision-time betting context.",
-            "status": "EXPLICIT_BETTING_CONTEXT_REQUIRED_FOR_NEXT_DATASET_EXPORT",
-            "source_table": "actions.csv",
-            "required_explicit_fields": [
-                "amount",
-                "to_call",
-                "pot_before_action",
-                "min_raise",
-                "legal_actions",
-                "action_order",
-                "last_aggressor",
-                "facing_bet",
-            ],
-            "current_delivery_blocker": False,
-            "reconstructed_context_allowed_for_current_delivery": True,
-            "model_quality_risk": True,
-            "boundary": (
-                "Current delivery may use leakage-safe reconstructed context, but the next dataset export "
-                "must persist these fields explicitly before stronger final strategy-quality claims are made."
-            ),
-        },
-        "stack_event_context_quality": {
-            "endpoint": "/stack-event-context-quality.json",
-            "description": "Documents how raw stack_events.csv changes are converted into decision-time pot, effective-stack, SPR, bet-size, and pressure features.",
-            "risk_id": "raw_stack_events_require_decision_context_derivation",
-            "root_cause": "stack_events.csv stores stack changes, not fully prepared decision-time policy features.",
-            "implementation_module": "poker_agent.stack_context.build_stack_decision_context",
-            "pre_action_event_derivation_helper": "poker_agent.stack_context.derive_stack_decision_context_from_events",
-            "raw_event_boundary": "Raw stack events are retained as source data, not used directly as sufficient policy features.",
-            "required_decision_context": ["pot", "effective_stack", "spr", "bet_size", "pressure"],
-            "required_derived_features": [
-                "pot",
-                "stack",
-                "to_call",
-                "min_raise",
-                "spr",
-                "stack_to_pot",
-                "table_commitment_pressure",
-                "reconstructed_pot",
-                "reconstructed_effective_stack",
-                "reconstructed_spr_after_call",
-                "reconstructed_current_street_bet_size",
-                "reconstructed_call_pressure",
-                "reconstructed_raise_pressure",
-            ],
-            "current_delivery_blocker": False,
-            "model_quality_risk": True,
-            "target_action_stack_delta_is_label_context_not_feature": True,
-            "boundary": "Derived stack context mitigates the raw-event gap, but does not replace explicit instrumented pot/effective-stack/SPR labels.",
-        },
-        "bet_timing_calibration": {
-            "endpoint": "/bet-timing-calibration.json",
-            "description": "Documents that bet sizing and wait-time behavior are implemented, while timing label quality remains insufficient for final production human-likeness proof.",
-            "timing_policy_type": "HEURISTIC_OR_TABLE_TEMPO_CALIBRATED",
-            "timing_label_quality_status": "TIMING_LABEL_QUALITY_UNCERTAIN",
-            "timing_label_boundary": {
-                "boundary": "REAL_HUMAN_TIMING_LABELS_REQUIRED_FOR_FULL_HUMAN_LIKENESS_PROOF",
-                "requires_real_human_timing_labels": True,
-                "uses_real_human_timing_labels": False,
-                "required_timing_label_fields": [
-                    "decision_start_ts",
-                    "decision_end_ts",
-                    "human_wait_time_ms",
-                    "street",
-                    "position",
-                    "facing_bet",
-                    "action",
-                ],
-                "heuristic_timing_counts_as_full_human_likeness_proof": False,
-                "final_human_likeness_claim_allowed_from_timing_alone": False,
-                "current_delivery_blocker": False,
-                "model_quality_risk": True,
-            },
-            "final_production_human_likeness_proof_allowed": False,
-            "boundary": "wait_time_ms is produced and measured for delivery scope, but reviewed real human timing labels are still required for final high-realism timing claims.",
-        },
-        "llm_role_boundary": {
-            "endpoint": "/llm-role-boundary.json",
-            "description": "Separates the ambiguous LLM-based agent phrase into explicit implementation roles.",
-            "term_status": "LLM_BASED_AGENT_IS_UMBRELLA_TERM",
-            "controlled_layer_acceptance_status": "CONTROLLED_EVENT_CONTEXT_LAYER_APPROVED",
-            "approved_delivery_scope": ["event_normalization", "decision_context"],
-            "research_only_scope": ["candidate_ranking"],
-            "excluded_delivery_scope": ["real_policy_agent", "fully_autonomous_poker_playing_llm_policy"],
-            "fully_autonomous_poker_playing_llm_policy_status": "FULLY_AUTONOMOUS_LLM_POLICY_NOT_APPROVED",
-            "fully_autonomous_poker_playing_llm_policy_approved": False,
-            "fully_autonomous_policy_claim_allowed": False,
-            "current_delivery_approval": "controlled_event_context_layer_only",
-            "recommended_production_architecture": "SCHEMA_ROUTED_HYBRID_CONTROLLED_LAYER",
-            "architecture_priority": "CONTROLLED_CONTEXT_EVENT_LAYER_FIRST",
-            "llm_position": "controlled_fallback_before_schema_validation_for_event_context_layer",
-            "final_policy_owner": "deployed_routed_policy_stack",
-            "not_recommended_first": "fully_autonomous_poker_playing_llm_policy",
-            "ambiguous_llm_agent_term_allowed": False,
-            "role_disambiguation_required": True,
-            "claim_validator": "poker_agent.llm_role_boundary.validate_llm_agent_claim",
-            "production_scope_claim_validator": (
-                "poker_agent.llm_role_boundary.validate_llm_production_scope_claim"
-            ),
-            "unqualified_production_claim_allowed": False,
-            "role_taxonomy": [
-                "event_normalization",
-                "decision_context",
-                "candidate_ranking",
-                "real_policy_agent",
-            ],
-            "role_types": {
-                "event_normalization": "EVENT_NORMALIZER",
-                "decision_context": "DECISION_CONTEXT_AGENT",
-                "candidate_ranking": "CANDIDATE_RANKER",
-                "real_policy_agent": "POLICY_AGENT",
-            },
-            "role_contracts": {
-                "event_normalization": "Noisy OCR/dealer-log text -> validated event JSON; cannot emit poker policy actions.",
-                "decision_context": "Structured game state + rules + legal actions -> constrained research decision suggestion; not production policy.",
-                "candidate_ranking": "Candidate set -> candidate_id/confidence; no free-form policy generation.",
-                "real_policy_agent": "Full game/session state -> final action/bet/timing; not implemented or approved in this delivery.",
-            },
-            "role_permissions_matrix": {
-                "event_normalization": {
-                    "may_normalize_events": True,
-                    "may_build_decision_context": False,
-                    "may_rank_candidates": False,
-                    "may_select_final_poker_action": False,
-                    "may_emit_deployed_policy_action": False,
-                    "production_policy_approved": False,
-                },
-                "decision_context": {
-                    "may_normalize_events": False,
-                    "may_build_decision_context": True,
-                    "may_rank_candidates": False,
-                    "may_select_final_poker_action": False,
-                    "may_emit_deployed_policy_action": False,
-                    "production_policy_approved": False,
-                },
-                "candidate_ranking": {
-                    "may_normalize_events": False,
-                    "may_build_decision_context": False,
-                    "may_rank_candidates": True,
-                    "may_select_final_poker_action": False,
-                    "may_emit_deployed_policy_action": False,
-                    "production_policy_approved": False,
-                },
-                "real_policy_agent": {
-                    "may_normalize_events": False,
-                    "may_build_decision_context": False,
-                    "may_rank_candidates": True,
-                    "may_select_final_poker_action": True,
-                    "may_emit_deployed_policy_action": False,
-                    "production_policy_approved": False,
+            "game_scope": {
+                "type": "object",
+                "additionalProperties": True,
+                "properties": {
+                    "game_type": {"type": "string", "enum": list(SUPPORTED_GAME_TYPES)},
+                    "format": {"type": "string", "enum": list(SUPPORTED_FORMATS)},
+                    "table_size": {"type": "string", "enum": list(SUPPORTED_TABLE_SIZES)},
+                    "small_blind": numeric,
+                    "big_blind": numeric,
+                    "ante": numeric,
+                    "rake_percentage": numeric,
+                    "rake_cap": numeric,
+                    "stack_unit": {"type": "string", "enum": list(SUPPORTED_STACK_UNITS)},
                 },
             },
-            "current_delivery_roles": [
-                "event_normalization",
-                "decision_context",
-                "candidate_ranking_research_baseline",
-            ],
-            "not_current_delivery_role": "real_policy_agent",
-            "autonomous_llm_policy_claim_allowed": False,
-            "boundary": "LLM-based agent must be qualified by role; the delivered LLM work is not a fully autonomous poker-playing policy agent.",
+            "usage_boundary": {
+                "type": "object",
+                "additionalProperties": True,
+                "required": ["declared_use"],
+                "properties": {
+                    "declared_use": {"type": "string", "enum": list(ALLOWED_USAGE)},
+                    "environment": {"type": "string", "enum": list(ALLOWED_USAGE) + list(BLOCKED_USAGE)},
+                    "authorized": {"type": "boolean"},
+                    "real_money": {"type": "boolean", "default": False},
+                    "terms_compliant": {"type": "boolean", "default": True},
+                    "prohibited_use": {"type": "string", "enum": list(BLOCKED_USAGE)},
+                },
+                "description": "Required legal/ethical boundary. /predict is limited to offline_research, simulation, or authorized_environment.",
+            },
+            "betting_history": {"type": "array", "items": {"type": "object"}},
         },
-        "llm_production_scope_claim": {
-            "endpoint": "/llm-production-scope-claim.json",
-            "description": (
-                "Executable guard for production-facing LLM claims. The only approved "
-                "production wording is controlled event/context layer."
-            ),
-            "approved_production_scope": "controlled_event_context_layer",
-            "autonomous_policy_claim_allowed": False,
-            "policy_agent_claim_allowed": False,
-            "final_action_policy_claim_allowed": False,
-            "validator": "poker_agent.llm_role_boundary.validate_llm_production_scope_claim",
-            "blocked_claims": [
-                "fully_autonomous_poker_playing_llm_policy",
-                "production_llm_policy_agent",
-                "llm_final_action_policy",
-            ],
+        "examples": [
+            {
+                "position": "BTN",
+                "street": "preflop",
+                "hole_cards": ["Ah", "Kd"],
+                "board_cards": [],
+                "pot": 2.5,
+                "current_bet": 1.0,
+                "to_call": 1.0,
+                "amount_to_call": 1.0,
+                "stack": 100.0,
+                "effective_stack": 100.0,
+                "small_blind": 0.5,
+                "big_blind": 1.0,
+                "button_position": "BTN",
+                "action_order": ["UTG", "MP", "CO", "BTN", "SB", "BB"],
+                "legal_actions": ["fold", "call", "raise", "all_in"],
+                "game_scope": {
+                    "game_type": "nl_holdem",
+                    "format": "cash",
+                    "table_size": "6_max",
+                    "small_blind": 0.5,
+                    "big_blind": 1.0,
+                    "ante": 0.0,
+                    "rake_percentage": 0.05,
+                    "rake_cap": 3.0,
+                    "stack_unit": "chips",
+                },
+                "usage_boundary": {
+                    "declared_use": "offline_research",
+                    "real_money": False,
+                    "terms_compliant": True,
+                },
+            }
+        ],
+    }
+
+
+def predict_response_schema() -> dict[str, Any]:
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "PokerDecisionPredictResponse",
+        "schema_version": PREDICT_RESPONSE_SCHEMA_VERSION,
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "schema_version",
+            "model_version",
+            "action",
+            "probabilities",
+            "confidence",
+            "model_status",
+            "legal_actions",
+            "action_space",
+            "state_context",
+        ],
+        "properties": {
+            "schema_version": {"type": "string", "const": PREDICT_RESPONSE_SCHEMA_VERSION},
+            "request_id": {"type": "string"},
+            "model_version": {"type": "string"},
+            "action": {"type": "string", "enum": list(CANONICAL_ACTIONS)},
+            "probabilities": {
+                "type": "object",
+                "required": list(CANONICAL_ACTIONS),
+                "additionalProperties": False,
+                "properties": {action: {"type": "number", "minimum": 0.0, "maximum": 1.0} for action in CANONICAL_ACTIONS},
+            },
+            "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+            "model_status": {"type": "string"},
+            "warnings": {"type": "array", "items": {"type": "string"}},
+            "bet_size": {"type": "number"},
+            "raise_to": {"type": ["number", "null"]},
+            "raise_by": {"type": ["number", "null"]},
+            "sizing_method": {"type": "string"},
+            "legal_actions": {"type": "array", "items": {"type": "string", "enum": list(CANONICAL_ACTIONS)}},
+            "action_space": {"type": "object"},
+            "state_context": {"type": "object"},
+            "usage_boundary": {
+                "type": "object",
+                "additionalProperties": True,
+                "properties": {
+                    "schema_version": {"type": "string"},
+                    "declared_use": {"type": "string"},
+                    "allowed": {"type": "boolean"},
+                    "reason_code": {"type": "string"},
+                },
+            },
+            "security_context": {
+                "type": "object",
+                "additionalProperties": True,
+                "properties": {
+                    "principal": {"type": "string"},
+                    "credential_hash_prefix": {"type": ["string", "null"]},
+                    "rate_limit": {"type": "object"},
+                },
+            },
         },
-        "experimental_llm_policy": {
-            "endpoint": "/llm-policy-experimental.json",
-            "description": "Research-only LLM policy adapter with formal poker context, legal-action filtering, JSON validation, and deterministic fallback.",
-            "status": "EXPERIMENTAL_LLM_POLICY_RESEARCH_ONLY",
-            "role_type": "POLICY_AGENT",
-            "approved_use": "offline_research_and_architecture_evaluation",
-            "production_policy_approved": False,
-            "autonomous_policy_claim_allowed": False,
-            "served_by_predict_endpoint": False,
-            "deployed_strategy_stack_affected": False,
-            "current_delivery_blocker": False,
-            "requires_stakeholder_approval_before_production": True,
-            "guardrails": [
-                "formal in-context learning",
-                "legal-action filtering",
-                "strict JSON output",
-                "probability normalization",
-                "confidence threshold",
-                "deterministic fallback",
-            ],
-            "required_before_production": [
-                "stakeholder architecture approval",
-                "held-out action alignment",
-                "macro F1 and balanced accuracy gate",
-                "calibration ECE gate",
-                "OpenSpiel agent-only self-play",
-                "seed stability",
-                "monitoring, rollback, and drift tracking",
-            ],
-            "boundary": "LLM policy code exists as an experimental adapter only; it is not the production-approved autonomous poker policy.",
+    }
+
+
+def error_response_schema() -> dict[str, Any]:
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "PokerDecisionErrorResponse",
+        "schema_version": ERROR_RESPONSE_SCHEMA_VERSION,
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["schema_version", "error"],
+        "properties": {
+            "schema_version": {"type": "string", "const": ERROR_RESPONSE_SCHEMA_VERSION},
+            "error": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["code", "message", "retryable", "details"],
+                "properties": {
+                    "code": {"type": "string", "enum": sorted(ERROR_CODES)},
+                    "message": {"type": "string"},
+                    "retryable": {"type": "boolean"},
+                    "details": {"type": "object"},
+                },
+            },
         },
-        "llm_decision_context": {
-            "endpoint": "/llm-decision-context.json",
-            "description": "Defines the in-context learning contract for out-of-box LLM poker decision experiments.",
-            "context_modes": ["minimal_zero_shot", "rules_grounded", "full_in_context"],
-            "default_context_mode": "full_in_context",
-            "controls": [
-                "legal action filtering",
-                "strict JSON-only output",
-                "probability normalization",
-                "bet-size and timing post-processing",
-            ],
-        },
-        "llm_decision_context_ablation": {
-            "smoke_endpoint": "/llm-decision-context-smoke.json",
-            "qwen_endpoint": "/llm-decision-qwen25.json",
-            "gate_endpoint": "/llm-decision-gate.json",
-            "candidate_ranker_endpoint": "/llm-candidate-ranker.json",
-            "architecture_comparison_endpoint": "/llm-architecture-comparison.json",
-            "context_modes": ["minimal_zero_shot", "rules_grounded", "full_in_context"],
-            "metrics": [
-                "accuracy",
-                "macro_f1",
-                "json_valid_rate",
-                "schema_valid_rate",
-                "legal_action_rate",
-                "fallback_rate",
-                "latency",
-                "token_count",
-                "peak_memory",
-            ],
-            "claim_boundary": (
-                "A winning context mode may be selected only for a real model evaluated on a "
-                "manually reviewed human holdout."
-            ),
-            "selected_research_architecture": "candidate_ranker",
-        },
-        "phase2_selection_comparison": {
-            "endpoint": "/phase2-selection-comparison.json",
-            "description": (
-                "Strict Phase 2 selection gate requiring LLM, supervised model, rule-based fallback, "
-                "routed policy, and future RL agent to be compared on the same holdout and same simulation conditions."
-            ),
-            "required_candidates": [
-                "llm_decision_agent",
-                "supervised_model",
-                "rule_based_fallback",
-                "routed_policy_bundle",
-                "future_rl_agent",
-            ],
-            "common_holdout_required": True,
-            "common_simulation_required": True,
-            "current_delivery_architecture": "routed_policy_bundle",
-            "final_selection_claim_allowed_without_common_conditions": False,
-            "claim_boundary": (
-                "The routed policy bundle can remain the current delivery stack, but Phase 2 final "
-                "architecture selection is blocked until every required candidate has the same holdout "
-                "and same simulation evidence."
-            ),
-        },
-        "autonomous_agent": {
-            "capabilities_endpoint": "/agent/capabilities.json",
-            "decision_endpoint": "/agent/decide",
-            "session_endpoint": "/agent/sessions/{hand_id}",
-            "settlement_endpoint": "/agent/sessions/{hand_id}/settle",
-            "agent_type": "controlled_stateful_policy_agent",
-            "lifecycle_controls": [
-                "ordered hand-state observations",
-                "legal-action enforcement",
-                "idempotent event handling",
-                "terminal hand settlement",
-                "bounded simulation episodes",
-            ],
-            "execution_boundary": (
-                "Simulation and API orchestration are implemented. Direct real-money client "
-                "automation requires a separately approved environment adapter."
-            ),
-        },
-        "phase3_open_spiel_arena": {
-            "endpoint": "/phase3-open-spiel-arena.json",
-            "arena_type": "agent_only_open_spiel_arena",
-            "description": (
-                "Tracks the Phase 3 LLM-vs-LLM OpenSpiel arena and separates executable arena "
-                "readiness from real RL training proof."
-            ),
-            "rl_training_proof_required": True,
-            "win_rate_claim_requires": [
-                "real pyspiel runtime",
-                "two trained Phase 1 policy artifacts",
-                "agent-only table",
-                "seed stability across at least five independent seeds",
-                "long-run volume of at least 5000 episodes",
-                "policy-update training completion",
-            ],
-            "current_claim_boundary": (
-                "The arena code can be delivered as ready for measured execution. RL win-rate or "
-                "production strategy-quality claims remain blocked until the full proof boundary passes."
-            ),
-        },
-        "evaluation_metric_contract": {
-            "endpoint": "/evaluation-metric-contract.json",
-            "description": (
-                "Defines the metric bundle required for strategy-quality claims. Accuracy and "
-                "cross-entropy are diagnostic metrics only; neither is sufficient for approval."
-            ),
-            "accuracy_and_cross_entropy_sufficient": False,
-            "diagnostic_metrics_not_sufficient_for_final_claim": ["accuracy", "cross_entropy"],
-            "required_metric_families": [
-                "action classification: accuracy, macro F1, balanced accuracy",
-                "calibration: ECE, probability quality, cross-entropy as diagnostic loss",
-                "behavioral distribution: action-distribution divergence",
-                "bet sizing: bet-size MAE or reviewed bet-size labels",
-                "simulation return: win-rate and expected-value delta",
-                "stability: seed-stability and long-run evidence",
-            ],
-            "claim_boundary": (
-                "Final strategy-quality approval is blocked until the complete metric bundle passes. "
-                "Current delivery is not blocked by this hardening boundary."
-            ),
-        },
-        "test_execution_contract": {
-            "endpoint": "/test-execution-contract.json",
-            "description": (
-                "Records validation execution status and keeps full-suite timeout transparency separate "
-                "from delivery approval evidence."
-            ),
-            "approval_evidence": [
-                "critical metric and delivery-boundary tests",
-                "full delivery verifier",
-                "ZIP contract",
-            ],
-            "not_approval_evidence": [
-                "a timed-out full pytest run",
-            ],
-            "claim_boundary": (
-                "A timed-out full pytest run must not be described as a passing full suite. Current "
-                "delivery remains supported by critical tests and the full delivery verifier."
-            ),
-        },
-        "human_likeness_evidence": {
-            "endpoint": "/human-likeness-evidence.json",
-            "description": (
-                "Separates current-scope action-distribution similarity from full human-likeness proof."
-            ),
-            "required_behavior_dimensions": [
-                "action distribution",
-                "bet sizing",
-                "timing",
-                "position-based behavior",
-                "street-level strategy",
-            ],
-            "claim_boundary": (
-                "Action distribution can pass while full human-likeness remains unproven. Final "
-                "human-likeness claims require bet-size, timing, position, and street-level validation."
-            ),
-        },
-        "human_likeness_claim_gate": {
-            "endpoint": "/human-likeness-claim-gate.json",
-            "description": (
-                "Final claim gate that blocks full human-likeness approval when only action-distribution "
-                "similarity has passed."
-            ),
-            "claim": "FULL_HUMAN_LIKENESS",
-            "decision_values": ["BLOCKED", "APPROVED"],
-            "current_decision": "BLOCKED",
-            "required_evidence_dimensions": [
-                "action distribution",
-                "bet sizing",
-                "timing",
-                "position-based behavior",
-                "street-level strategy",
-            ],
-            "claim_boundary": (
-                "The system may report current-scope action-distribution similarity, but it must not "
-                "claim full human-likeness until all required behavior dimensions have reviewed evidence."
-            ),
-        },
-        "project_completion": {
-            "endpoint": "/project-completion.json",
-            "description": "Maps the documented project scope to implemented evidence, metrics, deployment artifacts, and known component risks.",
-            "overall_status_values": ["PASS", "PARTIAL"],
-            "covered_sections": [
-                "feature_space",
-                "action_space",
-                "dataset_model",
-                "phase_1_two_baselines",
-                "phase_2_selection_optimization",
-                "phase_3_evaluation",
-                "phase_4_deployment",
-            ],
-        },
-        "approval_scope": {
-            "software_delivery": "The API, package, and reproducibility checks are evaluated separately.",
-            "deployed_strategy_stack": "Production policy approval is based on the deployed strategy gate.",
-            "raw_strategy_model": "The standalone supervised artifact remains independently gated.",
+    }
+
+
+def deployment_api_contract(*, model_version: str = "unknown") -> dict[str, Any]:
+    return {
+        "api_version": API_VERSION,
+        "endpoint": PREDICT_ENDPOINT,
+        "model_version": model_version,
+        "request_schema": predict_request_schema(),
+        "response_schema": predict_response_schema(),
+        "error_response_schema": error_response_schema(),
+        "error_codes": ERROR_CODES,
+    }
+
+
+def model_version_from_metadata(metadata: dict[str, Any] | None, model_path: Path | str | None = None) -> str:
+    metadata = metadata or {}
+    for key in ("model_version", "artifact_version", "version"):
+        value = metadata.get(key)
+        if value:
+            return str(value)
+    policy = str(metadata.get("policy") or metadata.get("baseline") or "").strip()
+    split = metadata.get("split") if isinstance(metadata.get("split"), dict) else {}
+    split_type = str(split.get("split_type") or "").strip()
+    if policy and split_type:
+        return f"{policy}:{split_type}"
+    if policy:
+        return policy
+    if model_path:
+        return Path(model_path).stem
+    return "rule_based:v1"
+
+
+def api_error(code: str, message: str | None = None, details: dict[str, Any] | None = None) -> dict[str, Any]:
+    spec = ERROR_CODES.get(code)
+    if spec is None:
+        spec = ERROR_CODES["PREDICTION_FAILED"]
+        code = "PREDICTION_FAILED"
+    return {
+        "schema_version": ERROR_RESPONSE_SCHEMA_VERSION,
+        "error": {
+            "code": code,
+            "message": message or str(spec["message"]),
+            "retryable": bool(spec["retryable"]),
+            "details": details or {},
         },
     }

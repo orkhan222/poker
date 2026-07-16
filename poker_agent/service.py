@@ -1,264 +1,39 @@
 from __future__ import annotations
 
 import os
-import time
-import json
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
+from uuid import uuid4
 
-from fastapi import Body, FastAPI, HTTPException, Query, Request
-from fastapi.openapi.utils import get_openapi
-from fastapi.responses import HTMLResponse
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
+from fastapi import Body, FastAPI, Request
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from poker_agent.agents import MLPolicyAgent, RuleBasedAgent
-from poker_agent.api_contract import api_contract
-from poker_agent.actions_dataset_export_contract import build_actions_dataset_export_contract
-from poker_agent.actions_context_quality import build_actions_context_quality
-from poker_agent.behavioral_revalidation import build_behavioral_revalidation
-from poker_agent.behavioral_revalidation_proof import build_behavioral_revalidation_proof
-from poker_agent.bet_timing_calibration import build_bet_timing_calibration
-from poker_agent.hole_card_data_quality import build_hole_card_data_quality
-from poker_agent.approval_boundary import build_approval_boundary
-from poker_agent.autonomous_agent import AgentLifecycleError, AutonomousPokerAgent
-from poker_agent.client_handoff import build_client_handoff
-from poker_agent.client_gpu_training_response import build_client_gpu_training_response
-from poker_agent.challenger_strategy_quality import build_challenger_strategy_quality
-from poker_agent.data_leakage_contract import build_data_leakage_contract
-from poker_agent.delivery_readiness import summarize_delivery_readiness
-from poker_agent.delivery_strategy_boundary import build_delivery_strategy_boundary
-from poker_agent.evaluation_metric_contract import build_evaluation_metric_contract
-from poker_agent.final_delivery_acceptance import build_final_delivery_acceptance
-from poker_agent.final_strategy_quality_status import build_final_strategy_quality_status
-from poker_agent.human_likeness_claim_gate import build_human_likeness_claim_gate
-from poker_agent.human_likeness_evidence import build_human_likeness_evidence
-from poker_agent.llm_decision_context import build_decision_context_report
-from poker_agent.llm_policy_experimental import build_experimental_llm_policy_contract
-from poker_agent.llm_role_boundary import build_llm_role_boundary
-from poker_agent.model_risk_register import build_model_risk_register
-from poker_agent.multi_agent_training_status import build_multi_agent_training_status
-from poker_agent.normalized_action_contract import build_normalized_action_contract
-from poker_agent.open_spiel_claim_readiness import build_open_spiel_claim_readiness
-from poker_agent.open_spiel_claim_contract import build_open_spiel_claim_contract
-from poker_agent.open_spiel_llm_arena import build_phase3_open_spiel_arena_report
-from poker_agent.phase2_selection_comparison import build_phase2_selection_comparison
-from poker_agent.production_approval import build_production_approval
-from poker_agent.project_completion import build_project_completion
-from poker_agent.production_runtime_monitoring import build_production_runtime_monitoring, runtime_monitoring_state
-from poker_agent.qlora_next_stage import build_qlora_next_stage
-from poker_agent.raw_model_status import build_raw_model_status
-from poker_agent.rl_delivery_boundary import build_rl_delivery_boundary
-from poker_agent.scenario_sanity import build_scenario_sanity
-from poker_agent.schemas import GameScope, PredictionRequest
-from poker_agent.scope_contract import build_scope_contract
-from poker_agent.stack_event_context_quality import build_stack_event_context_quality
-from poker_agent.strategy_readiness import load_combined_strategy_readiness
-from poker_agent.strategy_stack_maturity import build_strategy_stack_maturity
-from poker_agent.test_execution_contract import build_test_execution_contract
-from poker_agent.training_cluster import DEFAULT_RUN_PROFILE, build_training_cluster_requirements
-
-
-ActionName = Literal["fold", "call", "check", "bet", "raise", "all_in"]
-StreetName = Literal["preflop", "flop", "turn", "river"]
-GameVariantName = Literal["nl_holdem"]
-GameTypeName = Literal["cash", "tournament"]
-TableFormatName = Literal["6_max", "9_max"]
-StackUnitName = Literal["chips", "big_blinds"]
-
-
-class BettingHistoryBody(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    player_position: str = Field(default="UTG", description="Acting player position.")
-    action: ActionName = Field(default="raise", description="Canonical action before the hero decision.")
-    amount: float = Field(default=4.5, ge=0.0, description="Observed action amount, if available.")
-    street: StreetName = Field(default="preflop", description="Street where the action happened.")
-    wait_time_ms: float | None = Field(default=None, ge=0.0, description="Observed player decision latency.")
-
-
-class TimingContextBody(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    opponent_wait_before_turn_ms: float = Field(default=0.0, ge=0.0)
-    opponent_wait_after_hero_action_ms: float = Field(default=0.0, ge=0.0)
-
-
-class GameScopeBody(BaseModel):
-    model_config = ConfigDict(
-        extra="ignore",
-        json_schema_extra={
-            "example": {
-                "game_variant": "nl_holdem",
-                "game_type": "cash",
-                "table_format": "6_max",
-                "small_blind": 0.5,
-                "big_blind": 1.0,
-                "ante": 0.0,
-                "rake_percentage": 0.0,
-                "rake_cap": 0.0,
-                "stack_unit": "chips",
-            }
-        },
-    )
-
-    game_variant: GameVariantName = Field(
-        default="nl_holdem",
-        description="Delivered scope is No-Limit Texas Hold'em.",
-    )
-    game_type: GameTypeName = Field(default="cash", description="Cash game or tournament scope.")
-    table_format: TableFormatName = Field(default="6_max", description="Supported table size: 6-max or 9-max.")
-    small_blind: float = Field(default=0.5, ge=0.0, description="Small blind in stack_unit.")
-    big_blind: float = Field(default=1.0, ge=0.0, description="Big blind in stack_unit.")
-    ante: float = Field(default=0.0, ge=0.0, description="Ante in stack_unit.")
-    rake_percentage: float = Field(default=0.0, ge=0.0, description="Rake percentage, or 0 if not applicable.")
-    rake_cap: float = Field(default=0.0, ge=0.0, description="Maximum rake in stack_unit, or 0 if not applicable.")
-    stack_unit: StackUnitName = Field(default="chips", description="Unit used for stacks, pots, blinds, and bets.")
-
-    @field_validator("game_variant", mode="before")
-    @classmethod
-    def normalize_game_variant(cls, value: Any) -> str:
-        return GameScope.from_dict({"game_scope": {"game_variant": value}}).game_variant
-
-    @field_validator("game_type", mode="before")
-    @classmethod
-    def normalize_game_type(cls, value: Any) -> str:
-        return GameScope.from_dict({"game_scope": {"game_type": value}}).game_type
-
-    @field_validator("table_format", mode="before")
-    @classmethod
-    def normalize_table_format(cls, value: Any) -> str:
-        return GameScope.from_dict({"game_scope": {"table_format": value}}).table_format
-
-    @field_validator("stack_unit", mode="before")
-    @classmethod
-    def normalize_stack_unit(cls, value: Any) -> str:
-        return GameScope.from_dict({"game_scope": {"stack_unit": value}}).stack_unit
-
-    @model_validator(mode="after")
-    def validate_blind_structure(self) -> "GameScopeBody":
-        if self.small_blind > 0 and self.big_blind > 0 and self.big_blind < self.small_blind:
-            raise ValueError("big_blind must be greater than or equal to small_blind")
-        return self
-
-
-class PredictRequestBody(BaseModel):
-    model_config = ConfigDict(
-        extra="ignore",
-        json_schema_extra={
-            "example": {
-                "position": "BTN",
-                "street": "preflop",
-                "hole_cards": ["Ah", "Kd"],
-                "board_cards": [],
-                "pot": 2.5,
-                "to_call": 1.0,
-                "stack": 100.0,
-                "min_raise": 2.0,
-                "player_count": 6,
-                "game_scope": {
-                    "game_variant": "nl_holdem",
-                    "game_type": "cash",
-                    "table_format": "6_max",
-                    "small_blind": 0.5,
-                    "big_blind": 1.0,
-                    "ante": 0.0,
-                    "rake_percentage": 0.0,
-                    "rake_cap": 0.0,
-                    "stack_unit": "chips",
-                },
-            }
-        },
-    )
-
-    position: str = Field(
-        default="BTN",
-        validation_alias=AliasChoices("position", "player_position"),
-        description="Hero table position.",
-    )
-    street: StreetName = Field(default="preflop", description="Current betting street.")
-    hole_cards: list[str] = Field(default_factory=list, description="Hero hole cards, for example Ah Kd.")
-    board_cards: list[str] = Field(default_factory=list, description="Community cards visible before the decision.")
-    pot: float = Field(default=0.0, ge=0.0, description="Current pot size before the hero action.")
-    to_call: float = Field(default=0.0, ge=0.0, description="Amount required to call.")
-    stack: float = Field(default=0.0, ge=0.0, description="Hero stack before the decision.")
-    min_raise: float = Field(default=0.0, ge=0.0, description="Minimum legal raise size.")
-    player_count: int = Field(default=6, ge=2, le=10, description="Number of players dealt into the hand.")
-    game_scope: GameScopeBody = Field(
-        default_factory=GameScopeBody,
-        description="Explicit game scope for variant, game type, table size, blinds, ante, rake, and stack unit.",
-    )
-    betting_history: list[BettingHistoryBody] = Field(
-        default_factory=list,
-        validation_alias=AliasChoices("betting_history", "action_history"),
-        description="Actions observable before the target hero action.",
-    )
-    opponent_wait_before_turn_ms: float = Field(default=0.0, ge=0.0)
-    opponent_wait_after_hero_action_ms: float = Field(default=0.0, ge=0.0)
-    timing_context: TimingContextBody | None = Field(default=None)
-
-    def to_payload(self) -> dict[str, Any]:
-        payload = self.model_dump()
-        if self.timing_context is not None:
-            payload["timing_context"] = self.timing_context.model_dump()
-        return payload
-
-
-class ActionProbabilitiesBody(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    fold: float = Field(default=0.0, ge=0.0, le=1.0)
-    call: float = Field(default=0.0, ge=0.0, le=1.0)
-    check: float = Field(default=0.0, ge=0.0, le=1.0)
-    bet: float = Field(default=0.0, ge=0.0, le=1.0)
-    raise_: float = Field(default=0.0, ge=0.0, le=1.0, alias="raise")
-    all_in: float = Field(default=0.0, ge=0.0, le=1.0)
-
-
-class PredictResponseBody(BaseModel):
-    model_config = ConfigDict(
-        populate_by_name=True,
-        extra="ignore",
-        json_schema_extra={
-            "example": {
-                "action": "raise",
-                "probabilities": {
-                    "fold": 0.02,
-                    "call": 0.24,
-                    "check": 0.04,
-                    "bet": 0.18,
-                    "raise": 0.52,
-                    "all_in": 0.0,
-                },
-                "confidence": 0.52,
-                "bet_size": 4.5,
-                "wait_time_ms": 1264,
-                "sizing_method": "pressure_raise",
-                "timing_method": "table_tempo_calibrated",
-                "model_status": "routed_policy_bundle",
-            }
-        },
-    )
-
-    action: ActionName
-    probabilities: ActionProbabilitiesBody
-    confidence: float = Field(ge=0.0, le=1.0)
-    bet_size: float = Field(default=0.0, ge=0.0)
-    wait_time_ms: int = Field(default=250, ge=0)
-    sizing_method: str
-    timing_method: str
-    model_status: str
-    warnings: list[str] = Field(default_factory=list)
+from poker_agent.api_contract import (
+    API_VERSION,
+    ERROR_CODES,
+    api_error,
+    deployment_api_contract,
+    model_version_from_metadata,
+    predict_request_schema,
+    predict_response_schema,
+)
+from poker_agent.monitoring import append_prediction_monitoring, monotonic_ms
+from poker_agent.schemas import PredictionRequest
+from poker_agent.security import (
+    InMemoryRateLimiter,
+    LogRetentionPolicy,
+    authenticate_headers,
+    prune_jsonl_by_retention,
+    security_config_from_env,
+)
+from poker_agent.usage_boundary import evaluate_usage_boundary
 
 
 app = FastAPI(
     title="Poker Decision Agent API",
-    description="API for real-time poker action prediction using the bundled trained policy model.",
+    description="API for real-time poker action prediction using the bundled trained policy model. See /contract.json for the deployment contract.",
     version="1.0.0",
-    docs_url=None,
-    swagger_ui_parameters={
-        "defaultModelsExpandDepth": -1,
-        "docExpansion": "full",
-    },
     openapi_tags=[
         {
             "name": "Prediction",
@@ -270,315 +45,35 @@ app = FastAPI(
         },
     ],
 )
-PUBLIC_OPENAPI_PATHS = {"/predict"}
 _agent = None
-_autonomous_agent = None
-_agent_load_error: str | None = None
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODEL_PATH = PROJECT_ROOT / "models" / "poker_policy.joblib"
 OPTIONAL_BUNDLE_MODEL_PATH = PROJECT_ROOT / "models" / "poker_policy_bundle.joblib"
 FALLBACK_MODEL_PATH = PROJECT_ROOT / "models" / "poker_policy.json"
-PRODUCTION_GATE_REPORT_PATH = PROJECT_ROOT / "reports" / "production_gate.json"
-DEPLOYED_STRATEGY_GATE_REPORT_PATH = PROJECT_ROOT / "reports" / "deployed_strategy_gate.json"
-STRATEGY_REMEDIATION_REPORT_PATH = PROJECT_ROOT / "reports" / "strategy_remediation.json"
-LLM_DECISION_CONTEXT_SMOKE_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_context_smoke.json"
-LLM_DECISION_QWEN_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_context_qwen25.json"
-LLM_DECISION_GATE_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_gate.json"
-LLM_CANDIDATE_RANKER_REPORT_PATH = PROJECT_ROOT / "reports" / "llm_decision_candidate_ranker_qwen25.json"
-LLM_ARCHITECTURE_COMPARISON_PATH = PROJECT_ROOT / "reports" / "llm_architecture_comparison.json"
-LLM_ROLE_BOUNDARY_PATH = PROJECT_ROOT / "reports" / "llm_role_boundary.json"
-LLM_POLICY_EXPERIMENTAL_PATH = PROJECT_ROOT / "reports" / "llm_policy_experimental.json"
-QLORA_NEXT_STAGE_PATH = PROJECT_ROOT / "reports" / "qlora_next_stage.json"
-TODAY_ACCEPTANCE_TRAINING_REPORT_PATH = PROJECT_ROOT / "reports" / "today_acceptance_training.json"
-CLIENT_GPU_TRAINING_RESPONSE_PATH = PROJECT_ROOT / "reports" / "client_gpu_training_response.json"
-MULTI_AGENT_TRAINING_STATUS_PATH = PROJECT_ROOT / "reports" / "multi_agent_training_status.json"
-PHASE3_OPEN_SPIEL_ARENA_PATH = PROJECT_ROOT / "reports" / "phase3_open_spiel_arena.json"
-OPEN_SPIEL_CLAIM_READINESS_PATH = PROJECT_ROOT / "reports" / "open_spiel_claim_readiness.json"
-OPEN_SPIEL_CLAIM_CONTRACT_PATH = PROJECT_ROOT / "reports" / "open_spiel_claim_contract.json"
-RL_DELIVERY_BOUNDARY_PATH = PROJECT_ROOT / "reports" / "rl_delivery_boundary.json"
-RAW_MODEL_STATUS_PATH = PROJECT_ROOT / "reports" / "raw_model_status.json"
-RAW_MODEL_CHALLENGER_PATH = PROJECT_ROOT / "reports" / "raw_model_challenger.json"
-CHALLENGER_STRATEGY_QUALITY_PATH = PROJECT_ROOT / "reports" / "challenger_strategy_quality.json"
-STRATEGY_STACK_MATURITY_PATH = PROJECT_ROOT / "reports" / "strategy_stack_maturity.json"
-BEHAVIORAL_REVALIDATION_PATH = PROJECT_ROOT / "reports" / "behavioral_revalidation.json"
-BEHAVIORAL_REVALIDATION_PROOF_PATH = PROJECT_ROOT / "reports" / "behavioral_revalidation_proof.json"
-HOLE_CARD_DATA_QUALITY_PATH = PROJECT_ROOT / "reports" / "hole_card_data_quality.json"
-DATA_LEAKAGE_CONTRACT_PATH = PROJECT_ROOT / "reports" / "data_leakage_contract.json"
-NORMALIZED_ACTION_CONTRACT_PATH = PROJECT_ROOT / "reports" / "normalized_action_contract.json"
-ACTION_CONTEXT_QUALITY_PATH = PROJECT_ROOT / "reports" / "actions_context_quality.json"
-ACTIONS_DATASET_EXPORT_CONTRACT_PATH = PROJECT_ROOT / "reports" / "actions_dataset_export_contract.json"
-STACK_EVENT_CONTEXT_QUALITY_PATH = PROJECT_ROOT / "reports" / "stack_event_context_quality.json"
-BET_TIMING_CALIBRATION_PATH = PROJECT_ROOT / "reports" / "bet_timing_calibration.json"
-FINAL_DELIVERY_ACCEPTANCE_PATH = PROJECT_ROOT / "reports" / "final_delivery_acceptance.json"
-FINAL_STRATEGY_QUALITY_STATUS_PATH = PROJECT_ROOT / "reports" / "final_strategy_quality_status.json"
-PRODUCTION_RUNTIME_MONITORING_PATH = PROJECT_ROOT / "reports" / "production_runtime_monitoring.json"
-EVALUATION_METRIC_CONTRACT_PATH = PROJECT_ROOT / "reports" / "evaluation_metric_contract.json"
-TEST_EXECUTION_CONTRACT_PATH = PROJECT_ROOT / "reports" / "test_execution_contract.json"
-HUMAN_LIKENESS_EVIDENCE_PATH = PROJECT_ROOT / "reports" / "human_likeness_evidence.json"
-HUMAN_LIKENESS_CLAIM_GATE_PATH = PROJECT_ROOT / "reports" / "human_likeness_claim_gate.json"
-PHASE2_SELECTION_COMPARISON_PATH = PROJECT_ROOT / "reports" / "phase2_selection_comparison.json"
-SCENARIO_SANITY_PATH = PROJECT_ROOT / "reports" / "scenario_sanity.json"
+PREDICTION_LOG_PATH = PROJECT_ROOT / os.getenv("POKER_PREDICTION_LOG_PATH", "reports/prediction_logs.jsonl")
+AUDIT_TRAIL_PATH = PROJECT_ROOT / os.getenv("POKER_AUDIT_TRAIL_PATH", "reports/audit_trail.jsonl")
+SECURITY_CONFIG = security_config_from_env()
+RATE_LIMITER = InMemoryRateLimiter(
+    limit=SECURITY_CONFIG.rate_limit_burst or SECURITY_CONFIG.rate_limit_per_minute,
+    window_seconds=SECURITY_CONFIG.rate_limit_window_seconds,
+)
+LOG_RETENTION_POLICY = LogRetentionPolicy(
+    max_age_days=SECURITY_CONFIG.retention_days,
+    max_records=SECURITY_CONFIG.retention_max_records,
+    enabled=SECURITY_CONFIG.retention_enabled,
+)
 
 
-def public_openapi_schema() -> dict[str, Any]:
-    if app.openapi_schema:
-        return app.openapi_schema
-
-    public_routes = [
-        route
-        for route in app.routes
-        if getattr(route, "path", None) in PUBLIC_OPENAPI_PATHS
-    ]
-    schema = get_openapi(
-        title=app.title,
-        version=app.version,
-        description=app.description,
-        routes=public_routes,
-        tags=[
-            {
-                "name": "Prediction",
-                "description": "Poker action prediction endpoints.",
-            },
-        ],
-    )
-
-    for path_item in schema.get("paths", {}).values():
-        for operation in path_item.values():
-            if isinstance(operation, dict):
-                operation.get("responses", {}).pop("422", None)
-
-    components = schema.get("components") or {}
-    schemas = components.get("schemas") or {}
-    schemas.pop("HTTPValidationError", None)
-    schemas.pop("ValidationError", None)
-    if not schemas:
-        components.pop("schemas", None)
-    if not components:
-        schema.pop("components", None)
-
-    app.openapi_schema = schema
-    return schema
+class ApiContractError(Exception):
+    def __init__(self, status_code: int, payload: dict[str, Any]):
+        self.status_code = status_code
+        self.payload = payload
+        super().__init__(payload["error"]["message"])
 
 
-app.openapi = public_openapi_schema
-
-
-CLIENT_SWAGGER_HTML = """
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Poker Decision Agent API Docs</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
-  <style>
-    body.client-facing-swagger {
-      margin: 0;
-      background: #ffffff;
-    }
-    body.client-facing-swagger .swagger-ui {
-      padding-top: 0;
-    }
-    .swagger-ui .wrapper {
-      width: min(1480px, calc(100vw - 64px));
-      max-width: none;
-      margin: 0 auto;
-      padding: 10px 0;
-    }
-    .swagger-ui .info {
-      margin: 8px 0 16px;
-    }
-    .swagger-ui .info .title {
-      color: #26354f;
-      font-size: 34px;
-      line-height: 1.15;
-    }
-    .swagger-ui .info p {
-      margin: 8px 0 0;
-    }
-    .swagger-ui .information-container.wrapper {
-      padding-bottom: 2px;
-    }
-    .swagger-ui .scheme-container {
-      display: none;
-    }
-    .swagger-ui .opblock-tag-section {
-      margin-top: 2px;
-    }
-    .swagger-ui .opblock-tag {
-      border-bottom-color: #d8dee8;
-      padding: 0 0 8px;
-      margin: 0 0 8px;
-    }
-    .swagger-ui .opblock-tag small {
-      padding-left: 8px;
-    }
-    .swagger-ui .opblock {
-      border-radius: 4px;
-      box-shadow: none;
-    }
-    .swagger-ui .opblock .opblock-summary {
-      padding: 9px 16px;
-    }
-    .swagger-ui .opblock-description-wrapper {
-      padding: 14px 22px;
-    }
-    .swagger-ui .parameters-container {
-      display: none !important;
-    }
-    .swagger-ui table.parameters,
-    .swagger-ui .parameters-col_description,
-    .swagger-ui .parameters-col_name {
-      display: none !important;
-    }
-    .swagger-ui .try-out,
-    .swagger-ui .try-out__btn,
-    .swagger-ui .opblock-section-header:has(.try-out) {
-      display: none !important;
-    }
-    .swagger-ui .opblock-section-header {
-      box-shadow: none;
-      border-top: 1px solid #d8dee8;
-      border-bottom: 1px solid #d8dee8;
-    }
-    .swagger-ui .responses-wrapper,
-    .swagger-ui .request-body {
-      padding: 0 22px 16px;
-    }
-    .swagger-ui .highlight-code {
-      max-height: none;
-    }
-    .swagger-ui .highlight-code > .microlight,
-    .swagger-ui pre {
-      max-height: 340px;
-      overflow: auto;
-      border-radius: 4px;
-      font-size: 13px;
-      line-height: 1.45;
-    }
-    .swagger-ui .try-out {
-      padding-right: 0;
-    }
-    .client-docs-helper {
-      width: min(1480px, calc(100vw - 64px));
-      margin: 8px auto 6px;
-      border: 1px solid #b8d7c7;
-      border-radius: 4px;
-      background: #f3fbf7;
-      color: #1f2f25;
-      padding: 10px 14px;
-      font-family: sans-serif;
-    }
-    .client-docs-helper strong {
-      display: block;
-      margin-bottom: 4px;
-      font-size: 15px;
-    }
-    .client-docs-helper span {
-      display: block;
-      font-size: 13px;
-      line-height: 1.45;
-    }
-    @media (max-width: 760px) {
-      .swagger-ui .wrapper {
-        width: calc(100vw - 24px);
-        padding: 8px 0;
-      }
-      .swagger-ui .info .title {
-        font-size: 28px;
-      }
-      .client-docs-helper {
-        width: calc(100vw - 24px);
-      }
-    }
-  </style>
-</head>
-<body class="client-facing-swagger compact-public-docs">
-  <div class="client-docs-helper">
-    <strong>Public API surface</strong>
-    <span>Use <code>POST /predict</code>. Input is a JSON request body; there are no query parameters. The operation below opens in read-only example mode so request and response examples are visible without entering edit mode.</span>
-  </div>
-  <div id="swagger-ui"></div>
-  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
-  <script>
-    function expandPredictOperation() {
-      var blocks = document.querySelectorAll(".swagger-ui .opblock");
-      blocks.forEach(function (block) {
-        var summary = block.querySelector(".opblock-summary");
-        if (!summary || !summary.textContent || summary.textContent.indexOf("/predict") === -1) {
-          return;
-        }
-        if (!block.classList.contains("is-open")) {
-          var control = summary.querySelector(".opblock-summary-control") || summary.querySelector("button") || summary;
-          control.click();
-        }
-      });
-    }
-
-    function hideEmptyParameterSections() {
-      document.querySelectorAll(".swagger-ui .parameters-container").forEach(function (node) {
-        node.style.display = "none";
-      });
-      document.querySelectorAll(".swagger-ui table.parameters").forEach(function (node) {
-        node.style.display = "none";
-      });
-      document.querySelectorAll(".swagger-ui .opblock-section-header").forEach(function (header) {
-        var text = (header.textContent || "").replace(/\\s+/g, " ").trim().toLowerCase();
-        if (text.indexOf("parameters") === 0) {
-          header.style.display = "none";
-        }
-      });
-    }
-
-    function keepPredictExpanded() {
-      expandPredictOperation();
-      hideEmptyParameterSections();
-      var target = document.getElementById("swagger-ui");
-      if (!target || !window.MutationObserver) {
-        return;
-      }
-      var observer = new MutationObserver(function () {
-        window.requestAnimationFrame(function () {
-          expandPredictOperation();
-          hideEmptyParameterSections();
-        });
-      });
-      observer.observe(target, { childList: true, subtree: true, attributes: true });
-      [100, 300, 700, 1200].forEach(function (delayMs) {
-        window.setTimeout(function () {
-          expandPredictOperation();
-          hideEmptyParameterSections();
-        }, delayMs);
-      });
-    }
-
-    window.onload = function () {
-      window.ui = SwaggerUIBundle({
-        url: "/openapi.json",
-        dom_id: "#swagger-ui",
-        deepLinking: true,
-        docExpansion: "full",
-        defaultModelsExpandDepth: -1,
-        defaultModelExpandDepth: 1,
-        displayRequestDuration: false,
-        tryItOutEnabled: false,
-        supportedSubmitMethods: [],
-        presets: [
-          SwaggerUIBundle.presets.apis
-        ],
-        onComplete: keepPredictExpanded
-      });
-      keepPredictExpanded();
-    };
-  </script>
-</body>
-</html>
-"""
-
-
-@app.get("/docs", response_class=HTMLResponse, include_in_schema=False)
-def public_docs_page() -> str:
-    return CLIENT_SWAGGER_HTML
+@app.exception_handler(ApiContractError)
+def api_contract_error_handler(_: Request, exc: ApiContractError) -> JSONResponse:
+    return JSONResponse(status_code=exc.status_code, content=exc.payload)
 
 
 APP_HTML = """
@@ -828,14 +323,62 @@ APP_HTML = """
             <label>Pot
               <input name="pot" type="number" step="0.1" value="2.5">
             </label>
+            <label>Current bet
+              <input name="current_bet" type="number" step="0.1" value="1.0">
+            </label>
             <label>To call
               <input name="to_call" type="number" step="0.1" value="1.0">
+            </label>
+            <label>Amount to call
+              <input name="amount_to_call" type="number" step="0.1" value="1.0">
             </label>
             <label>Stack
               <input name="stack" type="number" step="0.1" value="100">
             </label>
+            <label>Effective stack
+              <input name="effective_stack" type="number" step="0.1" value="100">
+            </label>
+            <label>Small blind
+              <input name="small_blind" type="number" step="0.1" value="0.5">
+            </label>
+            <label>Big blind
+              <input name="big_blind" type="number" step="0.1" value="1.0">
+            </label>
+            <label>Ante
+              <input name="ante" type="number" step="0.1" value="0">
+            </label>
+            <label>Button position
+              <input name="button_position" value="BTN">
+            </label>
+            <label>Dealer position
+              <input name="dealer_position" value="BTN">
+            </label>
+            <label>Action order
+              <input name="action_order" value="UTG MP CO BTN SB BB" aria-label="Action order positions">
+            </label>
             <label>Min raise
               <input name="min_raise" type="number" step="0.1" value="2.0">
+            </label>
+            <label>Max raise
+              <input name="max_raise" type="number" step="0.1" value="100">
+            </label>
+            <label>Min raise to
+              <input name="min_raise_to" type="number" step="0.1" value="3.0">
+            </label>
+            <label>Max raise to
+              <input name="max_raise_to" type="number" step="0.1" value="100">
+            </label>
+            <label>Min raise by
+              <input name="min_raise_by" type="number" step="0.1" value="2.0">
+            </label>
+            <label>Max raise by
+              <input name="max_raise_by" type="number" step="0.1" value="99">
+            </label>
+            <label>All-in amount
+              <input name="all_in_amount" type="number" step="0.1" value="100">
+            </label>
+            <label>Legal actions
+              <input name="legal_actions" value="" aria-label="Legal actions, for example fold call raise all_in">
             </label>
             <label>Players
               <input name="player_count" type="number" step="1" value="6">
@@ -910,10 +453,42 @@ APP_HTML = """
         hole_cards: cards(data.get("hole_cards") || ""),
         board_cards: cards(data.get("board_cards") || ""),
         pot: numberValue(data, "pot"),
+        current_bet: numberValue(data, "current_bet"),
         to_call: numberValue(data, "to_call"),
+        amount_to_call: numberValue(data, "amount_to_call"),
         stack: numberValue(data, "stack"),
+        effective_stack: numberValue(data, "effective_stack"),
+        small_blind: numberValue(data, "small_blind"),
+        big_blind: numberValue(data, "big_blind"),
+        ante: numberValue(data, "ante"),
+        button_position: data.get("button_position"),
+        dealer_position: data.get("dealer_position"),
+        action_order: cards(data.get("action_order") || ""),
         min_raise: numberValue(data, "min_raise"),
-        player_count: Number(data.get("player_count") || 6)
+        max_raise: numberValue(data, "max_raise"),
+        min_raise_to: numberValue(data, "min_raise_to"),
+        max_raise_to: numberValue(data, "max_raise_to"),
+        min_raise_by: numberValue(data, "min_raise_by"),
+        max_raise_by: numberValue(data, "max_raise_by"),
+        all_in_amount: numberValue(data, "all_in_amount"),
+        legal_actions: cards(data.get("legal_actions") || ""),
+        player_count: Number(data.get("player_count") || 6),
+        game_scope: {
+          game_type: "nl_holdem",
+          format: "cash",
+          table_size: Number(data.get("player_count") || 6) > 6 ? "9_max" : "6_max",
+          small_blind: numberValue(data, "small_blind"),
+          big_blind: numberValue(data, "big_blind"),
+          ante: numberValue(data, "ante"),
+          rake_percentage: 0,
+          rake_cap: 0,
+          stack_unit: "chips"
+        },
+        usage_boundary: {
+          declared_use: "offline_research",
+          real_money: false,
+          terms_compliant: true
+        }
       };
 
       try {
@@ -942,24 +517,21 @@ APP_HTML = """
 
 def health_payload() -> dict[str, str]:
     model_path = resolve_model_path()
-    agent = get_agent()
-    model_loaded = isinstance(agent, MLPolicyAgent)
     payload = {
         "status": "ok",
+        "api_version": API_VERSION,
         "model": str(model_path),
-        "model_status": (
-            "loaded"
-            if model_loaded
-            else "fallback_rule_based_model_load_failed"
-            if model_path.exists() and _agent_load_error
-            else "fallback_rule_based"
-        ),
+        "model_version": model_version_from_metadata({}, model_path),
+        "model_status": "loaded" if model_path.exists() else "fallback_rule_based",
+        "auth_required": str(SECURITY_CONFIG.auth_required).lower(),
+        "rate_limit_per_minute": str(SECURITY_CONFIG.rate_limit_per_minute),
+        "log_retention_days": str(SECURITY_CONFIG.retention_days),
     }
-    if _agent_load_error:
-        payload["model_load_error"] = _agent_load_error[:300]
     try:
+        agent = get_agent()
         model = getattr(agent, "model", None)
         metadata = getattr(model, "metadata", {}) or {}
+        payload["model_version"] = model_version_from_metadata(metadata, model_path)
         if metadata:
             payload["policy"] = str(metadata.get("policy", getattr(model, "model_kind", "unknown")))
             payload["split"] = str((metadata.get("split") or {}).get("split_type", "unknown"))
@@ -1108,7 +680,6 @@ def health_html(payload: dict[str, str]) -> str:
       <a href="/predict">Open application</a>
       <a class="secondary" href="/docs">API docs</a>
       <a class="secondary" href="/health.json">Raw JSON</a>
-      <a class="secondary" href="/scope-contract.json">Scope contract</a>
     </nav>
   </main>
 </body>
@@ -1117,26 +688,15 @@ def health_html(payload: dict[str, str]) -> str:
 
 
 def get_agent():
-    global _agent, _agent_load_error
+    global _agent
     if _agent is not None:
         return _agent
     model_path = resolve_model_path()
     if model_path.exists():
-        try:
-            _agent = MLPolicyAgent.from_path(model_path)
-            _agent_load_error = None
-            return _agent
-        except Exception as exc:
-            _agent_load_error = f"{type(exc).__name__}: {exc}"
-    _agent = RuleBasedAgent()
+        _agent = MLPolicyAgent.from_path(model_path)
+    else:
+        _agent = RuleBasedAgent()
     return _agent
-
-
-def get_autonomous_agent() -> AutonomousPokerAgent:
-    global _autonomous_agent
-    if _autonomous_agent is None:
-        _autonomous_agent = AutonomousPokerAgent(get_agent())
-    return _autonomous_agent
 
 
 def resolve_model_path() -> Path:
@@ -1148,6 +708,89 @@ def resolve_model_path() -> Path:
     if DEFAULT_MODEL_PATH.exists():
         return DEFAULT_MODEL_PATH
     return FALLBACK_MODEL_PATH
+
+
+def current_model_version() -> str:
+    model_path = resolve_model_path()
+    try:
+        agent = get_agent()
+        model = getattr(agent, "model", None)
+        metadata = getattr(model, "metadata", {}) or {}
+        return model_version_from_metadata(metadata, model_path)
+    except Exception:
+        return model_version_from_metadata({}, model_path)
+
+
+def raise_api_error(code: str, message: str | None = None, details: dict[str, Any] | None = None) -> None:
+    spec = ERROR_CODES.get(code, ERROR_CODES["PREDICTION_FAILED"])
+    raise ApiContractError(status_code=int(spec["http_status"]), payload=api_error(code, message, details))
+
+
+def emit_prediction_monitoring(
+    *,
+    request_id: str,
+    raw_payload: dict[str, Any],
+    started_ms: float,
+    request: PredictionRequest | None = None,
+    response: dict[str, Any] | None = None,
+    status: str,
+    error_code: str | None = None,
+) -> None:
+    try:
+        append_prediction_monitoring(
+            prediction_log_path=PREDICTION_LOG_PATH,
+            audit_trail_path=AUDIT_TRAIL_PATH,
+            request_id=request_id,
+            raw_payload=raw_payload,
+            request=request,
+            response=response,
+            latency_ms=monotonic_ms() - started_ms,
+            status=status,
+            error_code=error_code,
+        )
+        prune_jsonl_by_retention(PREDICTION_LOG_PATH, LOG_RETENTION_POLICY)
+        prune_jsonl_by_retention(AUDIT_TRAIL_PATH, LOG_RETENTION_POLICY)
+    except Exception:
+        return
+
+
+def request_headers(request: Request) -> dict[str, str]:
+    return {key.lower(): value for key, value in request.headers.items()}
+
+
+def client_identity(request: Request, principal: str) -> str:
+    if principal and principal != "anonymous":
+        return principal
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    if forwarded_for:
+        return forwarded_for.split(",", 1)[0].strip()
+    return request.client.host if request.client else "unknown-client"
+
+
+def enforce_security(request: Request) -> dict[str, Any]:
+    auth = authenticate_headers(request_headers(request), SECURITY_CONFIG)
+    if not auth.allowed:
+        raise_api_error(auth.error_code or "UNAUTHORIZED", auth.message)
+    rate = RATE_LIMITER.check(client_identity(request, auth.principal))
+    if not rate.allowed:
+        raise_api_error(
+            "RATE_LIMITED",
+            "Request rate limit exceeded.",
+            {
+                "limit": rate.limit,
+                "remaining": rate.remaining,
+                "retry_after_seconds": rate.retry_after_seconds,
+            },
+        )
+    return {
+        "principal": auth.principal,
+        "credential_hash_prefix": auth.credential_hash_prefix,
+        "rate_limit": {
+            "limit": rate.limit,
+            "remaining": rate.remaining,
+            "retry_after_seconds": rate.retry_after_seconds,
+        },
+    }
 
 
 @app.get("/health", include_in_schema=False)
@@ -1169,543 +812,14 @@ def health_json() -> dict[str, str]:
     return health_payload()
 
 
-@app.get("/final-delivery-acceptance.json", tags=["System"], summary="Final delivery acceptance boundary")
-def final_delivery_acceptance_json() -> dict[str, Any]:
-    if FINAL_DELIVERY_ACCEPTANCE_PATH.exists():
-        return json.loads(FINAL_DELIVERY_ACCEPTANCE_PATH.read_text(encoding="utf-8"))
-    return build_final_delivery_acceptance(PROJECT_ROOT)
-
-
 @app.get(
-    "/delivery-strategy-boundary.json",
+    "/contract.json",
     tags=["System"],
-    summary="Delivery-ready and final strategy-quality claim boundary",
+    summary="Deployment API contract",
+    description="Returns the machine-readable /predict request schema, response schema, model version, and error codes.",
 )
-def delivery_strategy_boundary_json() -> dict[str, Any]:
-    if FINAL_DELIVERY_ACCEPTANCE_PATH.exists():
-        final_acceptance = json.loads(FINAL_DELIVERY_ACCEPTANCE_PATH.read_text(encoding="utf-8"))
-    else:
-        final_acceptance = build_final_delivery_acceptance(PROJECT_ROOT)
-    boundary = final_acceptance.get("delivery_strategy_quality_boundary")
-    if boundary:
-        return boundary
-    return build_delivery_strategy_boundary(
-        acceptance_summary=final_acceptance.get("acceptance_summary") or {},
-        evaluation_metric_coverage=(
-            (final_acceptance.get("tracked_component_risks") or {}).get("evaluation_metric_coverage") or {}
-        ),
-    )
-
-
-@app.get(
-    "/final-strategy-quality-status.json",
-    tags=["System"],
-    summary="Final production-level strategy quality boundary",
-)
-def final_strategy_quality_status_json() -> dict[str, Any]:
-    if FINAL_STRATEGY_QUALITY_STATUS_PATH.exists():
-        return json.loads(FINAL_STRATEGY_QUALITY_STATUS_PATH.read_text(encoding="utf-8"))
-    return build_final_strategy_quality_status(PROJECT_ROOT)
-
-
-@app.get("/production-runtime-monitoring.json", tags=["System"], summary="Production monitoring, rollback, and drift tracking")
-def production_runtime_monitoring_json() -> dict[str, Any]:
-    runtime_snapshot = runtime_monitoring_state.snapshot()
-    if PRODUCTION_RUNTIME_MONITORING_PATH.exists():
-        payload = json.loads(PRODUCTION_RUNTIME_MONITORING_PATH.read_text(encoding="utf-8"))
-        payload["runtime_snapshot"] = runtime_snapshot
-        return payload
-    return build_production_runtime_monitoring(PROJECT_ROOT, runtime_snapshot=runtime_snapshot)
-
-
-@app.get("/contract.json", tags=["System"], summary="API response contract")
 def contract_json() -> dict[str, Any]:
-    return api_contract()
-
-
-@app.get("/scope-contract.json", tags=["System"], summary="DOCX/PDF scope contract")
-def scope_contract_json() -> dict[str, Any]:
-    return build_scope_contract(PROJECT_ROOT)
-
-
-@app.get("/delivery-readiness.json", tags=["System"], summary="Delivery readiness")
-def delivery_readiness_json() -> dict[str, Any]:
-    return summarize_delivery_readiness(PROJECT_ROOT)
-
-
-@app.get("/model-risk-register.json", tags=["System"], summary="Model risk register")
-def model_risk_register_json() -> dict[str, Any]:
-    return build_model_risk_register(PROJECT_ROOT)
-
-
-
-@app.get("/raw-model-status.json", tags=["System"], summary="Raw supervised model status")
-def raw_model_status_json() -> dict[str, Any]:
-    if RAW_MODEL_STATUS_PATH.exists():
-        return json.loads(RAW_MODEL_STATUS_PATH.read_text(encoding="utf-8"))
-    return build_raw_model_status(PROJECT_ROOT)
-
-
-@app.get("/raw-model-challenger.json", tags=["System"], summary="Raw supervised model challenger gate")
-def raw_model_challenger_json() -> dict[str, Any]:
-    if RAW_MODEL_CHALLENGER_PATH.exists():
-        return json.loads(RAW_MODEL_CHALLENGER_PATH.read_text(encoding="utf-8"))
-    return {
-        "status": "MISSING",
-        "standalone_status": "NOT_STANDALONE_APPROVED",
-        "approved_as_standalone_policy": False,
-        "report": str(RAW_MODEL_CHALLENGER_PATH),
-    }
-
-
-@app.get(
-    "/challenger-strategy-quality.json",
-    tags=["System"],
-    summary="Challenger requirement before final strategy-quality claims",
-)
-def challenger_strategy_quality_json() -> dict[str, Any]:
-    if CHALLENGER_STRATEGY_QUALITY_PATH.exists():
-        return json.loads(CHALLENGER_STRATEGY_QUALITY_PATH.read_text(encoding="utf-8"))
-    return build_challenger_strategy_quality(PROJECT_ROOT)
-
-
-@app.get("/production-approval.json", tags=["System"], summary="Production approval contract")
-def production_approval_json() -> dict[str, Any]:
-    return build_production_approval(PROJECT_ROOT)
-
-
-@app.get("/approval-boundary.json", tags=["System"], summary="Approval boundary")
-def approval_boundary_json() -> dict[str, Any]:
-    return build_approval_boundary(PROJECT_ROOT)
-
-
-@app.get("/client-handoff.json", tags=["System"], summary="Client handoff statement")
-def client_handoff_json() -> dict[str, Any]:
-    return build_client_handoff(PROJECT_ROOT)
-
-
-@app.get("/training-cluster-requirements.json", tags=["System"], summary="Training cluster requirements")
-def training_cluster_requirements_json(
-    run_profile: str = Query(
-        default=DEFAULT_RUN_PROFILE,
-        description="Training run profile: immediate_delivery or full_multi_agent_training.",
-    ),
-    gpu_type: str | None = Query(default=None, description="GPU model, for example A100 or H100."),
-    gpu_count: int | None = Query(default=None, ge=1, description="Number of GPUs available for training."),
-    vram_gb_per_gpu: float | None = Query(default=None, gt=0, description="VRAM per GPU in GB."),
-    cpu_cores: int | None = Query(default=None, ge=1, description="Available CPU cores."),
-    system_ram_gb: float | None = Query(default=None, gt=0, description="Available system RAM in GB."),
-    storage_gb: float | None = Query(default=None, gt=0, description="Available local or attached storage in GB."),
-    interconnect: str | None = Query(default=None, description="GPU interconnect, for example PCIe or NVLink."),
-    dedicated_or_shared: str | None = Query(default=None, description="Whether the cluster is dedicated or shared."),
-) -> dict[str, Any]:
-    cluster = {
-        "gpu_type": gpu_type,
-        "gpu_count": gpu_count,
-        "vram_gb_per_gpu": vram_gb_per_gpu,
-        "cpu_cores": cpu_cores,
-        "system_ram_gb": system_ram_gb,
-        "storage_gb": storage_gb,
-        "interconnect": interconnect,
-        "dedicated_or_shared": dedicated_or_shared,
-    }
-    if not any(value is not None for value in cluster.values()):
-        cluster = None
-    return build_training_cluster_requirements(PROJECT_ROOT, cluster=cluster, run_profile=run_profile)
-
-
-@app.get("/today-acceptance-training.json", tags=["System"], summary="Today acceptance training report")
-def today_acceptance_training_json() -> dict[str, Any]:
-    if not TODAY_ACCEPTANCE_TRAINING_REPORT_PATH.exists():
-        return {
-            "status": "MISSING",
-            "report": str(TODAY_ACCEPTANCE_TRAINING_REPORT_PATH),
-        }
-    return json.loads(TODAY_ACCEPTANCE_TRAINING_REPORT_PATH.read_text(encoding="utf-8"))
-
-
-@app.get("/client-gpu-training-response.json", tags=["System"], summary="Client GPU training response")
-def client_gpu_training_response_json() -> dict[str, Any]:
-    if CLIENT_GPU_TRAINING_RESPONSE_PATH.exists():
-        return json.loads(CLIENT_GPU_TRAINING_RESPONSE_PATH.read_text(encoding="utf-8"))
-    return build_client_gpu_training_response(PROJECT_ROOT)
-
-
-@app.get(
-    "/multi-agent-training-status.json",
-    tags=["System"],
-    summary="Multi-agent training completion boundary",
-)
-def multi_agent_training_status_json() -> dict[str, Any]:
-    if MULTI_AGENT_TRAINING_STATUS_PATH.exists():
-        return json.loads(MULTI_AGENT_TRAINING_STATUS_PATH.read_text(encoding="utf-8"))
-    return build_multi_agent_training_status(PROJECT_ROOT)
-
-
-@app.get(
-    "/phase3-open-spiel-arena.json",
-    tags=["System"],
-    summary="Phase 3 OpenSpiel agent-only arena",
-)
-def phase3_open_spiel_arena_json() -> dict[str, Any]:
-    if PHASE3_OPEN_SPIEL_ARENA_PATH.exists():
-        return json.loads(PHASE3_OPEN_SPIEL_ARENA_PATH.read_text(encoding="utf-8"))
-    return build_phase3_open_spiel_arena_report(PROJECT_ROOT)
-
-
-@app.get(
-    "/open-spiel-claim-readiness.json",
-    tags=["System"],
-    summary="OpenSpiel/RL claim readiness preflight",
-)
-def open_spiel_claim_readiness_json() -> dict[str, Any]:
-    if OPEN_SPIEL_CLAIM_READINESS_PATH.exists():
-        return json.loads(OPEN_SPIEL_CLAIM_READINESS_PATH.read_text(encoding="utf-8"))
-    return build_open_spiel_claim_readiness(PROJECT_ROOT)
-
-
-@app.get(
-    "/open-spiel-claim-contract.json",
-    tags=["System"],
-    summary="OpenSpiel/RL self-play claim boundary",
-)
-def open_spiel_claim_contract_json() -> dict[str, Any]:
-    if OPEN_SPIEL_CLAIM_CONTRACT_PATH.exists():
-        return json.loads(OPEN_SPIEL_CLAIM_CONTRACT_PATH.read_text(encoding="utf-8"))
-    return build_open_spiel_claim_contract(PROJECT_ROOT)
-
-
-@app.get(
-    "/rl-delivery-boundary.json",
-    tags=["System"],
-    summary="RL delivery and strategy-claim boundary",
-)
-def rl_delivery_boundary_json() -> dict[str, Any]:
-    if RL_DELIVERY_BOUNDARY_PATH.exists():
-        return json.loads(RL_DELIVERY_BOUNDARY_PATH.read_text(encoding="utf-8"))
-    return build_rl_delivery_boundary(PROJECT_ROOT)
-
-
-@app.get(
-    "/evaluation-metric-contract.json",
-    tags=["System"],
-    summary="Evaluation metric coverage contract",
-)
-def evaluation_metric_contract_json() -> dict[str, Any]:
-    if EVALUATION_METRIC_CONTRACT_PATH.exists():
-        return json.loads(EVALUATION_METRIC_CONTRACT_PATH.read_text(encoding="utf-8"))
-    return build_evaluation_metric_contract(PROJECT_ROOT)
-
-
-@app.get(
-    "/test-execution-contract.json",
-    tags=["System"],
-    summary="Test execution transparency contract",
-)
-def test_execution_contract_json() -> dict[str, Any]:
-    if TEST_EXECUTION_CONTRACT_PATH.exists():
-        return json.loads(TEST_EXECUTION_CONTRACT_PATH.read_text(encoding="utf-8"))
-    return build_test_execution_contract(PROJECT_ROOT)
-
-
-@app.get("/llm-decision-context.json", tags=["System"], summary="LLM decision context contract")
-def llm_decision_context_json() -> dict[str, Any]:
-    return build_decision_context_report()
-
-
-@app.get(
-    "/llm-decision-context-smoke.json",
-    tags=["System"],
-    summary="LLM decision context ablation smoke report",
-)
-def llm_decision_context_smoke_json() -> dict[str, Any]:
-    if not LLM_DECISION_CONTEXT_SMOKE_REPORT_PATH.exists():
-        return {
-            "status": "MISSING",
-            "quality_claim_allowed": False,
-            "report": str(LLM_DECISION_CONTEXT_SMOKE_REPORT_PATH),
-        }
-    return json.loads(LLM_DECISION_CONTEXT_SMOKE_REPORT_PATH.read_text(encoding="utf-8"))
-
-
-@app.get(
-    "/llm-decision-qwen25.json",
-    tags=["System"],
-    summary="Measured Qwen decision-context benchmark",
-)
-def llm_decision_qwen25_json() -> dict[str, Any]:
-    if not LLM_DECISION_QWEN_REPORT_PATH.exists():
-        return {"status": "MISSING", "report": str(LLM_DECISION_QWEN_REPORT_PATH)}
-    return json.loads(LLM_DECISION_QWEN_REPORT_PATH.read_text(encoding="utf-8"))
-
-
-@app.get("/llm-decision-gate.json", tags=["System"], summary="LLM decision model gate")
-def llm_decision_gate_json() -> dict[str, Any]:
-    if not LLM_DECISION_GATE_REPORT_PATH.exists():
-        return {"status": "MISSING", "report": str(LLM_DECISION_GATE_REPORT_PATH)}
-    return json.loads(LLM_DECISION_GATE_REPORT_PATH.read_text(encoding="utf-8"))
-
-
-@app.get(
-    "/llm-candidate-ranker.json",
-    tags=["System"],
-    summary="Measured Qwen candidate-ranking benchmark",
-)
-def llm_candidate_ranker_json() -> dict[str, Any]:
-    if not LLM_CANDIDATE_RANKER_REPORT_PATH.exists():
-        return {"status": "MISSING", "report": str(LLM_CANDIDATE_RANKER_REPORT_PATH)}
-    return json.loads(LLM_CANDIDATE_RANKER_REPORT_PATH.read_text(encoding="utf-8"))
-
-
-@app.get(
-    "/llm-architecture-comparison.json",
-    tags=["System"],
-    summary="Measured LLM architecture comparison",
-)
-def llm_architecture_comparison_json() -> dict[str, Any]:
-    if not LLM_ARCHITECTURE_COMPARISON_PATH.exists():
-        return {"status": "MISSING", "report": str(LLM_ARCHITECTURE_COMPARISON_PATH)}
-    return json.loads(LLM_ARCHITECTURE_COMPARISON_PATH.read_text(encoding="utf-8"))
-
-
-@app.get(
-    "/phase2-selection-comparison.json",
-    tags=["System"],
-    summary="Strict Phase 2 common-condition architecture selection contract",
-)
-def phase2_selection_comparison_json() -> dict[str, Any]:
-    if PHASE2_SELECTION_COMPARISON_PATH.exists():
-        return json.loads(PHASE2_SELECTION_COMPARISON_PATH.read_text(encoding="utf-8"))
-    return build_phase2_selection_comparison(PROJECT_ROOT)
-
-
-@app.get("/llm-role-boundary.json", tags=["System"], summary="LLM role boundary")
-def llm_role_boundary_json() -> dict[str, Any]:
-    if LLM_ROLE_BOUNDARY_PATH.exists():
-        return json.loads(LLM_ROLE_BOUNDARY_PATH.read_text(encoding="utf-8"))
-    return build_llm_role_boundary(PROJECT_ROOT)
-
-
-@app.get(
-    "/llm-production-scope-claim.json",
-    tags=["System"],
-    summary="LLM production-scope claim guard",
-    include_in_schema=False,
-)
-def llm_production_scope_claim_json() -> dict[str, Any]:
-    payload = build_llm_role_boundary(PROJECT_ROOT)
-    examples = payload.get("production_scope_claim_examples") or []
-    return {
-        "status": "PASS"
-        if payload.get("overall_status") == "PASS" and all(case.get("passed") for case in examples)
-        else "FAIL",
-        "approved_production_scope": "controlled_event_context_layer",
-        "autonomous_policy_claim_allowed": False,
-        "validator": "poker_agent.llm_role_boundary.validate_llm_production_scope_claim",
-        "examples": examples,
-    }
-
-
-@app.get(
-    "/llm-policy-experimental.json",
-    tags=["System"],
-    summary="Experimental LLM policy adapter boundary",
-)
-def llm_policy_experimental_json() -> dict[str, Any]:
-    if LLM_POLICY_EXPERIMENTAL_PATH.exists():
-        return json.loads(LLM_POLICY_EXPERIMENTAL_PATH.read_text(encoding="utf-8"))
-    return build_experimental_llm_policy_contract(PROJECT_ROOT)
-
-
-@app.get("/qlora-next-stage.json", tags=["System"], summary="QLoRA next-stage improvement boundary")
-def qlora_next_stage_json() -> dict[str, Any]:
-    if QLORA_NEXT_STAGE_PATH.exists():
-        return json.loads(QLORA_NEXT_STAGE_PATH.read_text(encoding="utf-8"))
-    return build_qlora_next_stage(PROJECT_ROOT)
-
-
-@app.get(
-    "/agent/capabilities.json",
-    tags=["System"],
-    summary="Controlled session policy capabilities",
-    include_in_schema=False,
-)
-def autonomous_agent_capabilities_json() -> dict[str, Any]:
-    return get_autonomous_agent().capabilities()
-
-
-@app.post(
-    "/agent/decide",
-    tags=["Prediction"],
-    summary="Advance a controlled hand session",
-    description=(
-        "Accepts an ordered structured observation, enforces legal actions, and returns an "
-        "idempotent policy decision for simulation or an approved environment adapter."
-    ),
-    include_in_schema=False,
-)
-def autonomous_agent_decide(payload: dict[str, Any]) -> dict[str, Any]:
-    try:
-        decision, replayed = get_autonomous_agent().decide(payload)
-        return decision.to_dict(idempotent_replay=replayed)
-    except AgentLifecycleError as exc:
-        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)}) from exc
-
-
-@app.get(
-    "/agent/sessions/{hand_id}",
-    tags=["System"],
-    summary="Controlled hand session state",
-    include_in_schema=False,
-)
-def autonomous_agent_session(hand_id: str) -> dict[str, Any]:
-    try:
-        return get_autonomous_agent().session(hand_id)
-    except AgentLifecycleError as exc:
-        raise HTTPException(status_code=404, detail={"code": exc.code, "message": str(exc)}) from exc
-
-
-@app.post(
-    "/agent/sessions/{hand_id}/settle",
-    tags=["Prediction"],
-    summary="Settle a controlled hand session",
-    include_in_schema=False,
-)
-def autonomous_agent_settle(hand_id: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    try:
-        result = payload.get("result") if isinstance(payload, dict) else None
-        if result is not None and not isinstance(result, dict):
-            raise AgentLifecycleError("invalid_result", "result must be an object")
-        return get_autonomous_agent().settle(hand_id, result)
-    except AgentLifecycleError as exc:
-        raise HTTPException(status_code=409, detail={"code": exc.code, "message": str(exc)}) from exc
-
-
-@app.get("/project-completion.json", tags=["System"], summary="Project completion contract")
-def project_completion_json() -> dict[str, Any]:
-    return build_project_completion(PROJECT_ROOT)
-
-
-@app.get("/deployed-strategy-gate.json", tags=["System"], summary="Deployed strategy gate")
-def deployed_strategy_gate_json() -> dict[str, Any]:
-    if not DEPLOYED_STRATEGY_GATE_REPORT_PATH.exists():
-        return {
-            "status": "MISSING",
-            "strategy_policy_status": "UNKNOWN",
-            "report": str(DEPLOYED_STRATEGY_GATE_REPORT_PATH),
-        }
-    return json.loads(DEPLOYED_STRATEGY_GATE_REPORT_PATH.read_text(encoding="utf-8"))
-
-
-@app.get("/strategy-remediation.json", tags=["System"], summary="Strategy remediation")
-def strategy_remediation_json() -> dict[str, Any]:
-    if not STRATEGY_REMEDIATION_REPORT_PATH.exists():
-        return {
-            "strategy_policy_status": "UNKNOWN",
-            "report": str(STRATEGY_REMEDIATION_REPORT_PATH),
-        }
-    return json.loads(STRATEGY_REMEDIATION_REPORT_PATH.read_text(encoding="utf-8"))
-
-
-@app.get("/scenario-sanity.json", tags=["System"], summary="Targeted poker scenario sanity validation")
-def scenario_sanity_json() -> dict[str, Any]:
-    if SCENARIO_SANITY_PATH.exists():
-        return json.loads(SCENARIO_SANITY_PATH.read_text(encoding="utf-8"))
-    return build_scenario_sanity(PROJECT_ROOT)
-
-
-
-
-@app.get("/behavioral-revalidation.json", tags=["System"], summary="Behavioral revalidation boundary")
-def behavioral_revalidation_json() -> dict[str, Any]:
-    if BEHAVIORAL_REVALIDATION_PATH.exists():
-        return json.loads(BEHAVIORAL_REVALIDATION_PATH.read_text(encoding="utf-8"))
-    return build_behavioral_revalidation(PROJECT_ROOT)
-
-
-@app.get("/human-likeness-evidence.json", tags=["System"], summary="Human-likeness evidence boundary")
-def human_likeness_evidence_json() -> dict[str, Any]:
-    if HUMAN_LIKENESS_EVIDENCE_PATH.exists():
-        return json.loads(HUMAN_LIKENESS_EVIDENCE_PATH.read_text(encoding="utf-8"))
-    return build_human_likeness_evidence(PROJECT_ROOT)
-
-
-@app.get("/human-likeness-claim-gate.json", tags=["System"], summary="Human-likeness final-claim gate")
-def human_likeness_claim_gate_json() -> dict[str, Any]:
-    if HUMAN_LIKENESS_CLAIM_GATE_PATH.exists():
-        return json.loads(HUMAN_LIKENESS_CLAIM_GATE_PATH.read_text(encoding="utf-8"))
-    return build_human_likeness_claim_gate(PROJECT_ROOT)
-
-
-
-@app.get("/behavioral-revalidation-proof.json", tags=["System"], summary="Behavioral revalidation executable proof")
-def behavioral_revalidation_proof_json() -> dict[str, Any]:
-    if BEHAVIORAL_REVALIDATION_PROOF_PATH.exists():
-        return json.loads(BEHAVIORAL_REVALIDATION_PROOF_PATH.read_text(encoding="utf-8"))
-    return build_behavioral_revalidation_proof(PROJECT_ROOT)
-
-
-@app.get("/bet-timing-calibration.json", tags=["System"], summary="Bet-sizing and timing calibration boundary")
-def bet_timing_calibration_json() -> dict[str, Any]:
-    if BET_TIMING_CALIBRATION_PATH.exists():
-        return json.loads(BET_TIMING_CALIBRATION_PATH.read_text(encoding="utf-8"))
-    return build_bet_timing_calibration(PROJECT_ROOT)
-
-
-@app.get("/hole-card-data-quality.json", tags=["System"], summary="Hole-card data-quality boundary")
-def hole_card_data_quality_json() -> dict[str, Any]:
-    if HOLE_CARD_DATA_QUALITY_PATH.exists():
-        return json.loads(HOLE_CARD_DATA_QUALITY_PATH.read_text(encoding="utf-8"))
-    return build_hole_card_data_quality(PROJECT_ROOT)
-
-
-@app.get("/data-leakage-contract.json", tags=["System"], summary="Outcome-field data-leakage boundary")
-def data_leakage_contract_json() -> dict[str, Any]:
-    if DATA_LEAKAGE_CONTRACT_PATH.exists():
-        payload = json.loads(DATA_LEAKAGE_CONTRACT_PATH.read_text(encoding="utf-8"))
-        if "final_board_snapshot_contract" in payload:
-            return payload
-    return build_data_leakage_contract(PROJECT_ROOT)
-
-
-@app.get("/normalized-action-contract.json", tags=["System"], summary="Normalized action label contract")
-def normalized_action_contract_json() -> dict[str, Any]:
-    if NORMALIZED_ACTION_CONTRACT_PATH.exists():
-        return json.loads(NORMALIZED_ACTION_CONTRACT_PATH.read_text(encoding="utf-8"))
-    return build_normalized_action_contract(PROJECT_ROOT)
-
-
-@app.get("/actions-context-quality.json", tags=["System"], summary="actions.csv betting-context boundary")
-def actions_context_quality_json() -> dict[str, Any]:
-    if ACTION_CONTEXT_QUALITY_PATH.exists():
-        return json.loads(ACTION_CONTEXT_QUALITY_PATH.read_text(encoding="utf-8"))
-    return build_actions_context_quality(PROJECT_ROOT)
-
-
-@app.get("/actions-dataset-export-contract.json", tags=["System"], summary="actions.csv future dataset export contract")
-def actions_dataset_export_contract_json() -> dict[str, Any]:
-    if ACTIONS_DATASET_EXPORT_CONTRACT_PATH.exists():
-        return json.loads(ACTIONS_DATASET_EXPORT_CONTRACT_PATH.read_text(encoding="utf-8"))
-    return build_actions_dataset_export_contract(PROJECT_ROOT)
-
-
-@app.get("/stack-event-context-quality.json", tags=["System"], summary="stack_events.csv decision-context boundary")
-def stack_event_context_quality_json() -> dict[str, Any]:
-    if STACK_EVENT_CONTEXT_QUALITY_PATH.exists():
-        return json.loads(STACK_EVENT_CONTEXT_QUALITY_PATH.read_text(encoding="utf-8"))
-    return build_stack_event_context_quality(PROJECT_ROOT)
-
-
-@app.get("/strategy-stack-maturity.json", tags=["System"], summary="Strategy stack maturity boundary")
-def strategy_stack_maturity_json() -> dict[str, Any]:
-    if STRATEGY_STACK_MATURITY_PATH.exists():
-        return json.loads(STRATEGY_STACK_MATURITY_PATH.read_text(encoding="utf-8"))
-    return build_strategy_stack_maturity(PROJECT_ROOT)
-
-
-@app.get("/strategy-readiness.json", tags=["System"], summary="Strategy readiness")
-def strategy_readiness_json() -> dict[str, Any]:
-    return load_combined_strategy_readiness(PRODUCTION_GATE_REPORT_PATH, DEPLOYED_STRATEGY_GATE_REPORT_PATH)
+    return deployment_api_contract(model_version=current_model_version())
 
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
@@ -1722,56 +836,129 @@ def predict_page() -> str:
     "/predict",
     tags=["Prediction"],
     summary="Predict poker action",
-    description=(
-        "Accepts a structured poker game state as a JSON request body and returns the selected "
-        "action with probabilities, bet sizing, and timing. No query parameters are required."
-    ),
-    response_model=PredictResponseBody,
-    response_model_by_alias=True,
-    responses={
-        200: {
-            "description": "Poker action prediction with normalized probabilities, bet sizing, and timing.",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "action": "raise",
-                        "probabilities": {
-                            "fold": 0.02,
-                            "call": 0.24,
-                            "check": 0.04,
-                            "bet": 0.18,
-                            "raise": 0.52,
-                            "all_in": 0.0,
-                        },
-                        "confidence": 0.52,
-                        "bet_size": 4.5,
-                        "wait_time_ms": 1264,
-                        "sizing_method": "pressure_raise",
-                        "timing_method": "table_tempo_calibrated",
-                        "model_status": "routed_policy_bundle",
-                    }
-                }
-            },
-        }
+    description="Accepts a poker game state and returns the selected action with model version, confidence, probabilities, and sizing metadata.",
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"application/json": {"schema": predict_request_schema()}},
+        },
+        "responses": {
+            "200": {"description": "Prediction response", "content": {"application/json": {"schema": predict_response_schema()}}},
+            "400": {"description": "INVALID_REQUEST"},
+            "403": {"description": "USAGE_BOUNDARY_VIOLATION"},
+            "422": {"description": "UNSUPPORTED_ACTION_SPACE"},
+            "500": {"description": "PREDICTION_FAILED"},
+            "401": {"description": "UNAUTHORIZED"},
+            "429": {"description": "RATE_LIMITED"},
+            "503": {"description": "MODEL_UNAVAILABLE or SECURITY_MISCONFIGURED"},
+        },
     },
 )
-def predict(payload: PredictRequestBody = Body(...)) -> dict[str, Any]:
-    started = time.perf_counter()
-    request_payload = payload.to_payload()
+def predict(http_request: Request, payload: Any = Body(...)) -> dict[str, Any]:
+    started_ms = monotonic_ms()
+    request_id = str(uuid4())
+    raw_payload = payload if isinstance(payload, dict) else {}
+    security_context: dict[str, Any] = {}
     try:
-        request = PredictionRequest.from_dict(request_payload)
-        result = get_agent().predict(request).to_dict()
-        runtime_monitoring_state.observe_prediction(
-            result,
-            latency_ms=(time.perf_counter() - started) * 1000.0,
-            request_payload=request_payload,
-        )
-        return result
-    except Exception as exc:
-        runtime_monitoring_state.observe_error(
-            latency_ms=(time.perf_counter() - started) * 1000.0,
-            error_type=type(exc).__name__,
+        security_context = enforce_security(http_request)
+    except ApiContractError as exc:
+        error_code = str((exc.payload.get("error") or {}).get("code") or "UNAUTHORIZED")
+        emit_prediction_monitoring(
+            request_id=request_id,
+            raw_payload=raw_payload,
+            started_ms=started_ms,
+            status="error",
+            error_code=error_code,
         )
         raise
+    if not isinstance(payload, dict):
+        emit_prediction_monitoring(
+            request_id=request_id,
+            raw_payload=raw_payload,
+            started_ms=started_ms,
+            status="error",
+            error_code="INVALID_REQUEST",
+        )
+        raise_api_error("INVALID_REQUEST", "Request body must be a JSON object.")
+    if not (payload.get("position") or payload.get("player_position")):
+        emit_prediction_monitoring(
+            request_id=request_id,
+            raw_payload=raw_payload,
+            started_ms=started_ms,
+            status="error",
+            error_code="INVALID_REQUEST",
+        )
+        raise_api_error("INVALID_REQUEST", "Missing required field: position.", {"field": "position"})
 
+    usage_boundary = evaluate_usage_boundary(payload)
+    if not usage_boundary.allowed:
+        emit_prediction_monitoring(
+            request_id=request_id,
+            raw_payload=raw_payload,
+            started_ms=started_ms,
+            status="error",
+            error_code="USAGE_BOUNDARY_VIOLATION",
+        )
+        raise_api_error("USAGE_BOUNDARY_VIOLATION", usage_boundary.message, usage_boundary.to_error_details())
 
+    try:
+        request = PredictionRequest.from_dict(payload)
+    except (TypeError, ValueError) as exc:
+        emit_prediction_monitoring(
+            request_id=request_id,
+            raw_payload=raw_payload,
+            started_ms=started_ms,
+            status="error",
+            error_code="INVALID_REQUEST",
+        )
+        raise_api_error("INVALID_REQUEST", str(exc))
+
+    if not request.legal_actions:
+        emit_prediction_monitoring(
+            request_id=request_id,
+            raw_payload=raw_payload,
+            request=request,
+            started_ms=started_ms,
+            status="error",
+            error_code="UNSUPPORTED_ACTION_SPACE",
+        )
+        raise_api_error("UNSUPPORTED_ACTION_SPACE", "No legal actions are available for the supplied state.")
+
+    try:
+        response = get_agent().predict(request).to_dict()
+        response["request_id"] = request_id
+        response["usage_boundary"] = usage_boundary.response_context()
+        response["security_context"] = {
+            "principal": security_context.get("principal", "unknown"),
+            "credential_hash_prefix": security_context.get("credential_hash_prefix"),
+            "rate_limit": security_context.get("rate_limit", {}),
+        }
+        emit_prediction_monitoring(
+            request_id=request_id,
+            raw_payload=raw_payload,
+            request=request,
+            response=response,
+            started_ms=started_ms,
+            status="ok",
+        )
+        return response
+    except RuntimeError as exc:
+        emit_prediction_monitoring(
+            request_id=request_id,
+            raw_payload=raw_payload,
+            request=request,
+            started_ms=started_ms,
+            status="error",
+            error_code="MODEL_UNAVAILABLE",
+        )
+        raise_api_error("MODEL_UNAVAILABLE", str(exc))
+    except Exception as exc:
+        emit_prediction_monitoring(
+            request_id=request_id,
+            raw_payload=raw_payload,
+            request=request,
+            started_ms=started_ms,
+            status="error",
+            error_code="PREDICTION_FAILED",
+        )
+        raise_api_error("PREDICTION_FAILED", str(exc))

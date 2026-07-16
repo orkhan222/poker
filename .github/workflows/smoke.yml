@@ -1,0 +1,137 @@
+name: smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  contract-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile contract modules
+        run: |
+          python -B - <<'PY'
+          from pathlib import Path
+          for relative in [
+              "poker_agent/mlops.py",
+              "poker_agent/monitoring.py",
+              "poker_agent/security.py",
+              "poker_agent/api_contract.py",
+              "poker_agent/deliverables.py",
+              "poker_agent/final_model_selection.py",
+              "poker_agent/legacy_reports.py",
+              "poker_agent/project_scope.py",
+              "poker_agent/game_scope.py",
+              "poker_agent/usage_boundary.py",
+              "scripts/check_mlops_contract.py",
+              "scripts/check_monitoring_contract.py",
+              "scripts/check_security_contract.py",
+              "scripts/check_project_scope_contract.py",
+              "scripts/check_final_model_selection.py",
+              "scripts/prepare_final_deliverables.py",
+              "scripts/prepare_legacy_delivery_reports.py",
+              "tests/test_mlops_contract.py",
+              "tests/test_monitoring_contract.py",
+              "tests/test_security_contract.py",
+              "tests/test_api_contract.py",
+              "tests/test_final_deliverables_contract.py",
+              "tests/test_legacy_delivery_contract.py",
+              "tests/test_project_scope_contract.py",
+              "tests/test_game_scope_usage_boundary_contract.py",
+              "tests/test_final_model_selection_contract.py",
+          ]:
+              path = Path(relative)
+              compile(path.read_text(encoding="utf-8"), str(path), "exec")
+          PY
+
+      - name: Emit MLOps smoke artifacts
+        run: |
+          python -B scripts/check_mlops_contract.py \
+            --smoke \
+            --out reports/mlops_contract.json \
+            --registry-out reports/model_registry.json \
+            --experiment-log-out reports/experiments.jsonl \
+            --dataset-log-out reports/dataset_versions.jsonl
+
+      - name: Run contract tests
+        run: |
+          python -B - <<'PY'
+          from tests import (
+              test_api_contract,
+              test_final_deliverables_contract,
+              test_legacy_delivery_contract,
+              test_project_scope_contract,
+              test_game_scope_usage_boundary_contract,
+              test_final_model_selection_contract,
+              test_mlops_contract,
+              test_monitoring_contract,
+              test_security_contract,
+          )
+          for module in (
+              test_api_contract,
+              test_mlops_contract,
+              test_security_contract,
+              test_monitoring_contract,
+              test_final_deliverables_contract,
+              test_legacy_delivery_contract,
+              test_project_scope_contract,
+              test_game_scope_usage_boundary_contract,
+              test_final_model_selection_contract,
+          ):
+              for name in sorted(dir(module)):
+                  if name.startswith("test_"):
+                      getattr(module, name)()
+          PY
+
+      - name: Emit security smoke artifacts
+        run: |
+          python -B scripts/check_security_contract.py \
+            --smoke \
+            --out reports/security_report.json
+
+      - name: Emit monitoring smoke artifacts
+        run: |
+          python -B scripts/check_monitoring_contract.py \
+            --smoke \
+            --prediction-log-out reports/prediction_logs.jsonl \
+            --audit-trail-out reports/audit_trail.jsonl \
+            --out reports/monitoring_report.json
+
+      - name: Emit final deliverables
+        run: |
+          python -B scripts/check_project_scope_contract.py \
+            --smoke \
+            --out reports/project_scope_contract.json \
+            --docs-out docs/PROJECT_SCOPE_CONTRACT.md \
+            --contract-out reports/project_scope_contract_definition.json
+          python -B scripts/check_final_model_selection.py \
+            --smoke \
+            --out reports/final_model_selection.json \
+            --docs-out docs/FINAL_MODEL_SELECTION.md
+          python -B scripts/prepare_final_deliverables.py \
+            --smoke \
+            --out reports/final_deliverables.json \
+            --docs-out docs/API_CONTRACT.md \
+            --delivery-report-out reports/delivery_report.md \
+            --contract-out reports/final_deliverables_contract.json
+
+      - name: Emit legacy compatibility reports
+        run: |
+          python -B scripts/prepare_legacy_delivery_reports.py \
+            --smoke \
+            --out reports/legacy_delivery_reports.json \
+            --contract-out reports/legacy_delivery_reports_contract.json
+
+      - name: Check Docker version metadata
+        run: |
+          grep -q "ARG APP_VERSION" Dockerfile
+          grep -q "org.opencontainers.image.version" Dockerfile
+          grep -q 'poker-decision-agent:${POKER_AGENT_VERSION:-0.1.0}' docker-compose.yml

@@ -1,0 +1,15 @@
+defaults:
+  - override /project_scope@_global_.project_scope: local
+  - _self_
+
+name: project_scope
+description: Validate the senior project scope, dataset model, phase plan, and implementation evidence map.
+
+command:
+  entrypoint: scripts/check_project_scope_contract.py
+  args:
+    root: ${project_root}
+    out: ${project_scope.report}
+    docs_out: ${project_scope.docs}
+    contract_out: ${project_scope.contract_report}
+    smoke: ${project_scope.smoke}

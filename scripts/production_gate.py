@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from poker_agent.acceptance_criteria import AcceptanceCriteria, evaluate_acceptance_criteria
 from poker_agent.model import load_policy
 
 
@@ -20,6 +21,11 @@ DEFAULT_THRESHOLDS = {
     "max_ece_10": 0.10,
     "min_observed_hole_macro_f1": 0.50,
     "min_facing_bet_macro_f1": 0.45,
+    "latency_p95_ms_max": 150.0,
+    "latency_p99_ms_max": 300.0,
+    "invalid_action_rate_max": 0.0,
+    "validation_pass_rate_min": 1.0,
+    "reproducibility_pass_rate_min": 1.0,
 }
 
 
@@ -34,6 +40,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-ece-10", type=float, default=DEFAULT_THRESHOLDS["max_ece_10"])
     parser.add_argument("--min-observed-hole-macro-f1", type=float, default=DEFAULT_THRESHOLDS["min_observed_hole_macro_f1"])
     parser.add_argument("--min-facing-bet-macro-f1", type=float, default=DEFAULT_THRESHOLDS["min_facing_bet_macro_f1"])
+    parser.add_argument("--acceptance-report", type=Path, default=None)
+    parser.add_argument("--latency-p95-ms-max", type=float, default=DEFAULT_THRESHOLDS["latency_p95_ms_max"])
+    parser.add_argument("--latency-p99-ms-max", type=float, default=DEFAULT_THRESHOLDS["latency_p99_ms_max"])
+    parser.add_argument("--invalid-action-rate-max", type=float, default=DEFAULT_THRESHOLDS["invalid_action_rate_max"])
+    parser.add_argument("--validation-pass-rate-min", type=float, default=DEFAULT_THRESHOLDS["validation_pass_rate_min"])
+    parser.add_argument("--reproducibility-pass-rate-min", type=float, default=DEFAULT_THRESHOLDS["reproducibility_pass_rate_min"])
     return parser.parse_args()
 
 
@@ -54,6 +66,17 @@ def audit_findings(audit_report: Path | None) -> list[dict[str, Any]]:
     return list(payload.get("findings", []))
 
 
+def acceptance_report(path: Path | None, criteria: AcceptanceCriteria) -> dict[str, Any] | None:
+    if path is None or not path.exists():
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if "observed" in payload:
+        metrics = payload["observed"]
+    else:
+        metrics = payload
+    return evaluate_acceptance_criteria(metrics, criteria)
+
+
 def main() -> None:
     args = parse_args()
     if not args.model.exists():
@@ -65,6 +88,14 @@ def main() -> None:
     slices = metadata.get("valid_slice_metrics", {})
     split = metadata.get("split", {})
     findings = audit_findings(args.audit_report)
+    criteria = AcceptanceCriteria(
+        latency_p95_ms_max=args.latency_p95_ms_max,
+        latency_p99_ms_max=args.latency_p99_ms_max,
+        invalid_action_rate_max=args.invalid_action_rate_max,
+        validation_pass_rate_min=args.validation_pass_rate_min,
+        reproducibility_pass_rate_min=args.reproducibility_pass_rate_min,
+    )
+    acceptance = acceptance_report(args.acceptance_report, criteria)
 
     gates: list[dict[str, Any]] = []
     gates.append(
@@ -148,6 +179,27 @@ def main() -> None:
         )
     )
 
+    if acceptance is None:
+        gates.append(
+            gate_result(
+                "numeric_acceptance_report",
+                False,
+                str(args.acceptance_report) if args.acceptance_report else None,
+                "reports/acceptance_criteria.json with PASS status",
+                "Production approval requires measured latency, invalid-action, validation, and reproducibility criteria.",
+            )
+        )
+    else:
+        gates.append(
+            gate_result(
+                "numeric_acceptance_report",
+                acceptance.get("status") == "PASS",
+                acceptance.get("status"),
+                "PASS",
+                "Operational acceptance criteria must pass before production approval.",
+            )
+        )
+
     passed = all(gate["passed"] for gate in gates)
     report = {
         "status": "PASS" if passed else "FAIL",
@@ -155,6 +207,7 @@ def main() -> None:
         "policy": metadata.get("policy", getattr(model, "model_kind", "unknown")),
         "split": split,
         "valid_metrics": valid,
+        "acceptance_criteria": acceptance,
         "gates": gates,
         "audit_findings": findings,
         "decision": (

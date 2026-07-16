@@ -1,0 +1,15 @@
+defaults:
+  - override /legacy_reports@_global_.legacy_reports: local
+  - _self_
+
+name: legacy_delivery_reports
+description: Generate deterministic compatibility reports required by the legacy delivery verifier.
+
+command:
+  entrypoint: scripts/prepare_legacy_delivery_reports.py
+  args:
+    root: ${project_root}
+    out: ${legacy_reports.manifest}
+    contract_out: ${legacy_reports.contract_report}
+    overwrite: ${legacy_reports.overwrite}
+    smoke: ${legacy_reports.smoke}

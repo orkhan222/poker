@@ -1,0 +1,9 @@
+prediction_log: reports/prediction_logs.jsonl
+audit_trail: reports/audit_trail.jsonl
+monitoring_report: reports/monitoring_report.json
+
+thresholds:
+  latency_p95_ms_max: 150.0
+  invalid_state_rate_max: 0.0
+  confidence_mean_delta_max: 0.20
+  feature_mean_delta_max: 3.0

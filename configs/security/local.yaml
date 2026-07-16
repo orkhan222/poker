@@ -1,0 +1,32 @@
+auth:
+  required: true
+  methods:
+    - X-API-Key
+    - Authorization: Bearer
+  api_key_hashes_env: POKER_API_KEY_HASHES
+  allow_plaintext_env_for_local_dev: POKER_API_KEYS
+
+report: reports/security_report.json
+
+rate_limit:
+  per_minute: 60
+  burst: 60
+  window_seconds: 60
+
+secret_management:
+  storage: environment
+  preferred_format: sha256_hex
+  redact_fields:
+    - api_key
+    - authorization
+    - password
+    - secret
+    - token
+
+log_retention:
+  enabled: true
+  max_age_days: 30
+  max_records: 100000
+  paths:
+    - reports/prediction_logs.jsonl
+    - reports/audit_trail.jsonl

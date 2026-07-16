@@ -1,8 +1,19 @@
-Normalize the supplied poker OCR or dealer record under a strict evidence policy.
+Extract structured poker events from OCR/dealer log records.
 
-Return exactly one JSON object containing:
-event_type, player_position, action, amount, cards, confidence.
+Allowed event types:
+- player_action
+- card_update
+- stack_update
+- unmatched
 
-Allowed event types: player_action, card_update, stack_update, unmatched.
-Allowed actions: fold, check, call, bet, raise, null.
-Do not infer hidden information. Use unmatched when the record is ambiguous.
+Allowed decision actions:
+- fold
+- call
+- check
+- bet
+- raise
+
+Map all-in decisions to raise for the current supervised policy label space.
+Do not classify blinds, antes, joins, winnings, nickname updates, ROI updates,
+or hand-start messages as decision actions.
+Use only fields present in the record.

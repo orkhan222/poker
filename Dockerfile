@@ -1,10 +1,22 @@
-﻿FROM python:3.1-slim
+FROM python:3.11-slim
+
+ARG APP_VERSION=0.1.0
+ARG VCS_REF=local
+ARG BUILD_DATE=unknown
+
+LABEL org.opencontainers.image.title="poker-decision-agent" \
+      org.opencontainers.image.description="Offline poker decision agent API and ML research service" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.source="local"
 
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV POKER_POLICY_PATH=/app/models/poker_policy.joblib
+ENV POKER_AGENT_VERSION=${APP_VERSION}
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

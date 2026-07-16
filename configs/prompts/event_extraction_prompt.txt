@@ -1,12 +1,11 @@
-Normalize one poker OCR or dealer-log record into a strict JSON event.
+You are extracting structured poker events from OCR/dealer log records.
 
-Return exactly one JSON object with:
-- event_type: player_action, card_update, stack_update, or unmatched
-- player_position: string or null
-- action: fold, check, call, bet, raise, or null
-- amount: non-negative number or null
-- cards: array of normalized cards
+Return one JSON object with:
+- event_type: one of player_action, card_update, stack_update, unmatched
+- player_position: source seat if available, otherwise null
+- action: one of fold, call, check, bet, raise, all_in, otherwise null
+- amount: numeric amount if present, otherwise null
+- cards: normalized cards if present, otherwise []
 - confidence: number from 0 to 1
 
-Correct common OCR substitutions only when the surrounding record supports the correction.
-Do not invent players, cards, amounts, or actions.
+Use only information present in the input record. Do not infer future actions.

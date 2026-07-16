@@ -1,0 +1,16 @@
+defaults:
+  - override /deliverables@_global_.deliverables: local
+  - _self_
+
+name: final_deliverables
+description: Generate API docs, validation/baseline/evaluation smoke reports, and the final delivery manifest.
+
+command:
+  entrypoint: scripts/prepare_final_deliverables.py
+  args:
+    root: ${project_root}
+    smoke: ${deliverables.smoke}
+    out: ${deliverables.manifest}
+    docs_out: ${deliverables.api_docs}
+    delivery_report_out: ${deliverables.delivery_report}
+    contract_out: ${deliverables.contract_report}

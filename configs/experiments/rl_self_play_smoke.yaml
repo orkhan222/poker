@@ -1,0 +1,14 @@
+defaults:
+  - override /logging@_global_.logging: local
+
+name: rl_self_play_smoke
+description: Inspect the offline NLHE self-play environment and run a seeded smoke match.
+task: command
+allow_failure: false
+command:
+  entrypoint: scripts/inspect_rl_environment.py
+  args:
+    episodes: 25
+    seed: 20260713
+    table_size: 6
+    starting_stack: 100.0

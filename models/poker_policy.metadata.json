@@ -1,0 +1,31 @@
+{
+  "artifact_format": "softmax_json_fallback",
+  "missing_hole_cards": "drop",
+  "model_version": "softmax-json-fallback:v1",
+  "policy": "softmax",
+  "split": {
+    "seed": 42,
+    "split_type": "stratified_hand_group_holdout",
+    "valid_ratio": 0.15
+  },
+  "valid_metrics": {
+    "accuracy": 0.75,
+    "balanced_accuracy": 0.75,
+    "brier_loss": 0.3559,
+    "cross_entropy": 0.716534153945779,
+    "ece_10": 0.19,
+    "examples": 4.0,
+    "lift_vs_majority": 0.5,
+    "macro_f1": 0.6666666666666666,
+    "majority_baseline_accuracy": 0.25,
+    "weighted_f1": 0.75
+  },
+  "valid_slice_metrics": {
+    "facing_bet": {
+      "macro_f1": 0.6666666666666666
+    },
+    "observed_hole_cards": {
+      "macro_f1": 0.6666666666666666
+    }
+  }
+}

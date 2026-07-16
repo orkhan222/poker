@@ -1,1 +1,4 @@
 *.joblib filter=lfs diff=lfs merge=lfs -text
+data/actions.csv filter=lfs diff=lfs merge=lfs -text
+data/players.csv filter=lfs diff=lfs merge=lfs -text
+data/stack_events.csv filter=lfs diff=lfs merge=lfs -text

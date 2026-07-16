@@ -22,4 +22,10 @@ command:
     max_ece_10: ${evaluation.production_gate.max_ece_10}
     min_observed_hole_macro_f1: ${evaluation.production_gate.min_observed_hole_macro_f1}
     min_facing_bet_macro_f1: ${evaluation.production_gate.min_facing_bet_macro_f1}
+    acceptance_report: ${logging.reports_dir}/acceptance_criteria.json
+    latency_p95_ms_max: ${evaluation.acceptance.latency_p95_ms_max}
+    latency_p99_ms_max: ${evaluation.acceptance.latency_p99_ms_max}
+    invalid_action_rate_max: ${evaluation.acceptance.invalid_action_rate_max}
+    validation_pass_rate_min: ${evaluation.acceptance.validation_pass_rate_min}
+    reproducibility_pass_rate_min: ${evaluation.acceptance.reproducibility_pass_rate_min}
 

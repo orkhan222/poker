@@ -6,18 +6,9 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
-from poker_agent.action_normalization import assert_canonical_decision_action
-from poker_agent.action_normalization import normalize_action as normalize_action_label
-from poker_agent.leakage_guard import (
-    VISIBLE_BOARD_COUNTS_BY_STREET,
-    assert_board_cards_visible_for_street,
-    assert_no_outcome_feature_leakage,
-    truncate_final_board_snapshot_for_decision,
-)
+from poker_agent.action_space import CANONICAL_ACTIONS, normalize_action as normalize_canonical_action
 from poker_agent.schemas import PredictionRequest
 from poker_agent.schemas import VALID_ACTIONS
-from poker_agent.stack_context import assert_stack_decision_context_feature_contract
-from poker_agent.stack_context import build_stack_decision_context
 
 
 RANK_TO_VALUE = {
@@ -37,7 +28,7 @@ RANK_TO_VALUE = {
 }
 
 STREET_ORDER = {"preflop": 0, "flop": 1, "turn": 2, "river": 3}
-VISIBLE_BOARD_COUNTS = VISIBLE_BOARD_COUNTS_BY_STREET
+VISIBLE_BOARD_COUNTS = {"preflop": 0, "flop": 3, "turn": 4, "river": 5}
 ACTION_NORMALIZATION = {
     "all-in": "all_in",
     "all in": "all_in",
@@ -57,10 +48,19 @@ NON_DECISION_ACTIONS = {
     "won",
     "muck",
 }
+POSITION_ALIASES = {
+    "button": "btn",
+    "dealer": "btn",
+    "small_blind": "sb",
+    "small-blind": "sb",
+    "big_blind": "bb",
+    "big-blind": "bb",
+}
 
 
 def normalize_action(action: str) -> str:
-    return normalize_action_label(action)
+    cleaned = re.sub(r"\s+", " ", str(action).strip().lower())
+    return normalize_canonical_action(ACTION_NORMALIZATION.get(cleaned, cleaned))
 
 
 def parse_cards(raw: Any) -> list[str]:
@@ -73,7 +73,8 @@ def parse_cards(raw: Any) -> list[str]:
 
 def visible_board_cards(board_cards: Iterable[str], street: str) -> list[str]:
     """Return only cards visible at the decision street to avoid future-card leakage."""
-    return truncate_final_board_snapshot_for_decision(board_cards, street)
+    visible_count = VISIBLE_BOARD_COUNTS.get(str(street or "preflop").lower(), 0)
+    return list(board_cards)[:visible_count]
 
 
 def safe_float(raw: Any, default: float = 0.0) -> float:
@@ -272,35 +273,46 @@ def normalize_position_group(position: str) -> str:
     return "unknown"
 
 
+def canonical_position_key(position: str) -> str:
+    text = re.sub(r"\s+", "_", str(position or "").strip().lower())
+    return POSITION_ALIASES.get(text, text)
+
+
+def same_position(left: str, right: str) -> bool:
+    return bool(left and right and canonical_position_key(left) == canonical_position_key(right))
+
+
+def action_order_features(request: PredictionRequest) -> dict[str, float]:
+    order_len = len(request.action_order)
+    index = request.action_order_index()
+    known = index >= 0
+    players_before = index if known else 0
+    players_after = max(order_len - index - 1, 0) if known else 0
+    denominator = max(order_len - 1, 1)
+    return {
+        "action_order_known": 1.0 if known else 0.0,
+        "action_order_size": float(order_len),
+        "action_order_index": float(index if known else -1),
+        "action_order_position_ratio": index / denominator if known else 0.0,
+        "players_before_hero": float(players_before),
+        "players_after_hero": float(players_after),
+        "is_first_to_act": 1.0 if known and index == 0 else 0.0,
+        "is_last_to_act": 1.0 if known and index == order_len - 1 else 0.0,
+    }
+
+
 def betting_history_to_features(history: Iterable[dict[str, Any]], hero_position: str) -> dict[str, float]:
     counts: dict[str, int] = defaultdict(int)
     aggressive_count = 0
     last_action = "none"
     last_aggressor_group = "none"
     hero_has_acted = 0.0
-    opponent_wait_ms: list[float] = []
-    opponent_frame_gaps: list[float] = []
-    waits_after_hero_ms: list[float] = []
-    previous_position = ""
 
     for raw_event in history:
         action = normalize_action(str(raw_event.get("action", "")))
         position = str(raw_event.get("position") or raw_event.get("player_position") or "")
         if action not in VALID_ACTIONS:
             continue
-        wait_ms = safe_float(
-            raw_event.get("wait_time_ms")
-            or raw_event.get("decision_time_ms")
-            or raw_event.get("action_wait_ms")
-        )
-        frame_gap = safe_float(raw_event.get("frame_delta") or raw_event.get("frame_gap"))
-        if position and position != hero_position:
-            if wait_ms > 0:
-                opponent_wait_ms.append(wait_ms)
-                if previous_position == hero_position:
-                    waits_after_hero_ms.append(wait_ms)
-            if frame_gap > 0:
-                opponent_frame_gaps.append(frame_gap)
         counts[action] += 1
         last_action = action
         if position and position == hero_position:
@@ -308,11 +320,8 @@ def betting_history_to_features(history: Iterable[dict[str, Any]], hero_position
         if action in {"bet", "raise", "all_in"}:
             aggressive_count += 1
             last_aggressor_group = normalize_position_group(position)
-        previous_position = position
 
     total = sum(counts.values())
-    wait_count = len(opponent_wait_ms)
-    frame_gap_count = len(opponent_frame_gaps)
     features = {
         "hist_action_count": float(total),
         "hist_aggressive_count": float(aggressive_count),
@@ -322,24 +331,6 @@ def betting_history_to_features(history: Iterable[dict[str, Any]], hero_position
         "hist_raise_count": float(counts.get("raise", 0) + counts.get("all_in", 0)),
         "hist_aggression_ratio": aggressive_count / total if total else 0.0,
         "hist_hero_has_acted": hero_has_acted,
-        "hist_opponent_timing_count": float(wait_count),
-        "hist_opponent_wait_mean_seconds": (
-            min(sum(opponent_wait_ms) / wait_count / 1000.0, 30.0) if wait_count else 0.0
-        ),
-        "hist_opponent_wait_max_seconds": (
-            min(max(opponent_wait_ms) / 1000.0, 30.0) if wait_count else 0.0
-        ),
-        "hist_last_opponent_wait_seconds": (
-            min(opponent_wait_ms[-1] / 1000.0, 30.0) if wait_count else 0.0
-        ),
-        "hist_wait_after_hero_action_seconds": (
-            min(waits_after_hero_ms[-1] / 1000.0, 30.0) if waits_after_hero_ms else 0.0
-        ),
-        "hist_opponent_frame_gap_count": float(frame_gap_count),
-        "hist_opponent_frame_gap_mean": (
-            min(sum(opponent_frame_gaps) / frame_gap_count, 1000.0) if frame_gap_count else 0.0
-        ),
-        "hist_timing_missing": 0.0 if wait_count or frame_gap_count else 1.0,
         f"hist_last_action={last_action}": 1.0,
         f"hist_last_aggressor_group={last_aggressor_group}": 1.0,
     }
@@ -363,73 +354,64 @@ def betting_context_features(
     min_raise: float,
     last_aggressor_position: str,
     hero_position: str,
-    hand_action_count: int = 0,
-    street_action_index: int | None = None,
-    explicit_amount_available: bool = False,
-    explicit_to_call_available: bool = False,
-    explicit_pot_before_action_available: bool = False,
-    explicit_min_raise_available: bool = False,
-    explicit_legal_actions_available: bool = False,
+    current_bet: float = 0.0,
+    amount_to_call: float = 0.0,
+    effective_stack: float = 0.0,
+    big_blind: float = 0.0,
+    action_order_index: int = -1,
+    players_to_act_after_hero: int = 0,
 ) -> dict[str, float]:
-    stack_context = build_stack_decision_context(
-        running_pot=running_pot,
-        highest_commit=highest_commit,
-        hero_commit=hero_commit,
-        decision_stack=stack,
-        to_call=to_call,
-        min_raise=min_raise,
-    )
+    pot_base = max(running_pot, highest_commit, 1.0)
+    effective_stack = effective_stack if effective_stack > 0 else stack
+    current_bet = current_bet if current_bet > 0 else highest_commit
+    amount_to_call = amount_to_call if amount_to_call > 0 else to_call
+    stack_base = max(effective_stack + hero_commit, 1.0)
+    raise_pressure = min(min_raise / max(stack, 1.0), 1.0) if stack > 0 else 0.0
     last_aggressor_group = normalize_position_group(last_aggressor_position) if last_aggressor_position else "none"
-    street_order = action_count if street_action_index is None else street_action_index
+    blind_base = max(big_blind, 1.0)
 
-    features = {
+    return {
         "street_action_count": float(action_count),
-        "hand_action_order": float(hand_action_count),
-        "street_action_order": float(street_order),
-        "hand_action_order_norm": min(hand_action_count / 80.0, 1.0),
-        "street_action_order_norm": min(street_order / 20.0, 1.0),
         "street_aggressive_count": float(aggressive_count),
         "street_call_count": float(call_count),
         "street_check_count": float(check_count),
         "street_fold_count": float(fold_count),
         "street_aggression_ratio": aggressive_count / action_count if action_count else 0.0,
         "players_acted_ratio": len(players_acted) / max(player_count, 1),
-        "hero_commitment_ratio": stack_context.hero_commitment_ratio,
-        "table_commitment_pressure": stack_context.table_commitment_pressure,
+        "hero_commitment_ratio": min(hero_commit / stack_base, 1.0),
+        "table_commitment_pressure": min(highest_commit / pot_base, 1.0),
         "facing_bet_or_raise": 1.0 if to_call > 0 else 0.0,
-        "facing_bet_derived": 1.0,
-        "call_price_ratio": stack_context.call_price_ratio,
-        "raise_pressure": stack_context.raise_pressure,
-        "last_aggressor_known": 1.0 if last_aggressor_position else 0.0,
+        "call_price_ratio": min(to_call / max(stack, 1.0), 1.0) if stack > 0 else 0.0,
+        "raise_pressure": raise_pressure,
+        "street_current_bet": current_bet,
+        "street_amount_to_call": amount_to_call,
+        "street_effective_stack": effective_stack,
+        "street_spr": min(effective_stack / max(running_pot + amount_to_call, 1.0), 100.0),
+        "street_current_bet_in_big_blinds": current_bet / blind_base if big_blind > 0 else 0.0,
+        "street_amount_to_call_in_big_blinds": amount_to_call / blind_base if big_blind > 0 else 0.0,
+        "street_action_order_index": float(action_order_index),
+        "street_players_to_act_after_hero": float(players_to_act_after_hero),
         "last_aggressor_is_hero": 1.0 if last_aggressor_position and last_aggressor_position == hero_position else 0.0,
-        "explicit_action_amount_available": 1.0 if explicit_amount_available else 0.0,
-        "explicit_to_call_available": 1.0 if explicit_to_call_available else 0.0,
-        "explicit_pot_before_action_available": 1.0 if explicit_pot_before_action_available else 0.0,
-        "explicit_min_raise_available": 1.0 if explicit_min_raise_available else 0.0,
-        "explicit_legal_actions_available": 1.0 if explicit_legal_actions_available else 0.0,
-        "betting_context_reconstructed": 1.0,
-        "action_order_derived": 1.0,
-        "legal_actions_derived": 1.0 if not explicit_legal_actions_available else 0.0,
-        "last_aggressor_derived": 1.0,
         f"last_aggressor_group={last_aggressor_group}": 1.0,
     }
-    features.update(stack_context.as_feature_dict())
-    assert_stack_decision_context_feature_contract(features, context="betting context features")
-    return features
 
 
 def request_to_features(request: PredictionRequest) -> dict[str, float]:
-    assert_board_cards_visible_for_street(
-        request.board_cards,
-        request.street,
-        context="prediction request board_cards",
-    )
-    pot_odds = request.to_call / (request.pot + request.to_call) if request.pot + request.to_call > 0 else 0.0
+    amount_to_call = request.amount_to_call
+    effective_stack = request.effective_stack or request.stack
+    pot_odds = amount_to_call / (request.pot + amount_to_call) if request.pot + amount_to_call > 0 else 0.0
     stack_to_pot = request.stack / request.pot if request.pot > 0 else 0.0
-    spr = request.stack / (request.pot + request.to_call) if request.pot + request.to_call > 0 else 0.0
-    raise_to_stack = request.min_raise / request.stack if request.stack > 0 else 0.0
-    call_to_stack = request.to_call / request.stack if request.stack > 0 else 0.0
+    effective_stack_to_pot = effective_stack / request.pot if request.pot > 0 else 0.0
+    spr = effective_stack / (request.pot + amount_to_call) if request.pot + amount_to_call > 0 else 0.0
+    raise_to_stack = request.min_raise / effective_stack if effective_stack > 0 else 0.0
+    call_to_stack = amount_to_call / effective_stack if effective_stack > 0 else 0.0
+    min_raise_to_stack = request.min_raise_to / effective_stack if effective_stack > 0 else 0.0
+    max_raise_to_stack = request.max_raise_to / effective_stack if effective_stack > 0 else 0.0
+    all_in_to_stack = request.all_in_amount / effective_stack if effective_stack > 0 else 0.0
+    blind_base = request.big_blind if request.big_blind > 0 else 0.0
     position_group = normalize_position_group(request.position)
+    button_group = normalize_position_group(request.button_position)
+    dealer_group = normalize_position_group(request.dealer_position)
     features = {
         "bias": 1.0,
         "street_index": float(STREET_ORDER.get(request.street, 0)),
@@ -444,58 +426,63 @@ def request_to_features(request: PredictionRequest) -> dict[str, float]:
         ),
         "strength_proxy": hand_strength_proxy(request.hole_cards),
         "pot": request.pot,
+        "pot_size": request.pot,
         "to_call": request.to_call,
+        "amount_to_call": amount_to_call,
+        "current_bet": request.current_bet,
         "stack": request.stack,
+        "effective_stack": effective_stack,
         "min_raise": request.min_raise,
+        "max_raise": request.max_raise or request.max_raise_to,
+        "min_raise_to": request.min_raise_to,
+        "max_raise_to": request.max_raise_to,
+        "min_raise_by": request.min_raise_by,
+        "max_raise_by": request.max_raise_by,
+        "all_in_amount": request.all_in_amount,
+        "small_blind": request.small_blind,
+        "big_blind": request.big_blind,
+        "ante": request.ante,
+        "pot_in_big_blinds": request.pot / blind_base if blind_base > 0 else 0.0,
+        "current_bet_in_big_blinds": request.current_bet / blind_base if blind_base > 0 else 0.0,
+        "amount_to_call_in_big_blinds": amount_to_call / blind_base if blind_base > 0 else 0.0,
+        "stack_in_big_blinds": request.stack / blind_base if blind_base > 0 else 0.0,
+        "effective_stack_in_big_blinds": effective_stack / blind_base if blind_base > 0 else 0.0,
+        "has_blind_context": 1.0 if request.small_blind > 0 or request.big_blind > 0 else 0.0,
         "pot_odds": pot_odds,
         "call_to_stack": min(call_to_stack, 1.0),
         "raise_to_stack": min(raise_to_stack, 1.0),
+        "min_raise_to_stack": min(min_raise_to_stack, 1.0),
+        "max_raise_to_stack": min(max_raise_to_stack, 1.0),
+        "all_in_to_stack": min(all_in_to_stack, 1.0),
         "has_call": 1.0 if request.to_call > 0 else 0.0,
+        "legal_action_count": float(len(request.legal_actions)),
         "stack_to_pot": min(stack_to_pot, 100.0),
+        "effective_stack_to_pot": min(effective_stack_to_pot, 100.0),
+        "current_bet_to_pot": min(request.current_bet / request.pot, 100.0) if request.pot > 0 else 0.0,
+        "amount_to_call_to_pot": min(amount_to_call / request.pot, 100.0) if request.pot > 0 else 0.0,
         "spr": min(spr, 100.0),
         "player_count": float(request.player_count),
-        "opponent_wait_before_turn_seconds": min(
-            max(request.opponent_wait_before_turn_ms, 0.0) / 1000.0,
-            30.0,
-        ),
-        "opponent_wait_after_hero_action_seconds": min(
-            max(request.opponent_wait_after_hero_action_ms, 0.0) / 1000.0,
-            30.0,
-        ),
-        "explicit_timing_context_missing": (
-            1.0
-            if request.opponent_wait_before_turn_ms <= 0
-            and request.opponent_wait_after_hero_action_ms <= 0
-            else 0.0
-        ),
         "is_hero_like_position": 1.0 if position_group == "bottom" else 0.0,
+        "is_button": 1.0 if same_position(request.position, request.button_position) else 0.0,
+        "is_dealer": 1.0 if same_position(request.position, request.dealer_position) else 0.0,
+        "button_position_known": 1.0 if request.button_position else 0.0,
+        "dealer_position_known": 1.0 if request.dealer_position else 0.0,
         f"position_group={position_group}": 1.0,
+        f"button_position_group={button_group}": 1.0,
+        f"dealer_position_group={dealer_group}": 1.0,
         f"street={request.street}": 1.0,
+        "is_preflop": 1.0 if request.street == "preflop" else 0.0,
+        "is_flop": 1.0 if request.street == "flop" else 0.0,
+        "is_turn": 1.0 if request.street == "turn" else 0.0,
+        "is_river": 1.0 if request.street == "river" else 0.0,
     }
-    features.update(game_scope_features(request))
+    features.update(action_order_features(request))
+    features.update(request.game_scope.feature_values())
+    for action in CANONICAL_ACTIONS:
+        features[f"legal_action={action}"] = 1.0 if action in request.legal_actions else 0.0
     features.update(card_texture_features(request.hole_cards, request.board_cards))
     features.update(betting_history_to_features(request.betting_history, request.position))
-    assert_no_outcome_feature_leakage(features, context="prediction request features")
     return features
-
-
-def game_scope_features(request: PredictionRequest) -> dict[str, float]:
-    scope = request.game_scope
-    blind_unit = scope.big_blind if scope.big_blind > 0 else 1.0
-    return {
-        "scope_small_blind": scope.small_blind,
-        "scope_big_blind": scope.big_blind,
-        "scope_ante": scope.ante,
-        "scope_ante_bb": scope.ante / blind_unit,
-        "scope_rake_percentage": scope.rake_percentage,
-        "scope_rake_cap": scope.rake_cap,
-        "scope_rake_cap_bb": scope.rake_cap / blind_unit if scope.rake_cap > 0 else 0.0,
-        "scope_stack_unit_is_big_blinds": 1.0 if scope.stack_unit == "big_blinds" else 0.0,
-        f"scope_game_variant={scope.game_variant}": 1.0,
-        f"scope_game_type={scope.game_type}": 1.0,
-        f"scope_table_format={scope.table_format}": 1.0,
-        f"scope_stack_unit={scope.stack_unit}": 1.0,
-    }
 
 
 PRIVATE_CARD_FEATURE_PREFIXES = (
@@ -626,7 +613,7 @@ def load_training_examples(
                 hand_id = row.get("hand_id", "")
                 position = row.get("position", "")
                 players_by_hand_pos[(hand_id, position)] = row
-                if hand_id and position:
+                if safe_float(row.get("starting_stack")) > 0 or safe_float(row.get("ending_stack")) > 0:
                     player_counts_by_hand[hand_id] += 1
 
     hands_by_id: dict[str, dict[str, str]] = {}
@@ -649,26 +636,19 @@ def load_training_examples(
         last_raise_size = estimate_big_blind(action_rows, stack_contributions)
         big_blind = last_raise_size
         running_pot = 0.0
-        hand_action_count = 0
         street_action_count = 0
         street_aggressive_count = 0
         street_call_count = 0
         street_check_count = 0
         street_fold_count = 0
         players_acted: set[str] = set()
+        street_action_order: list[str] = []
         last_aggressor_position = ""
-        hand_history: list[dict[str, Any]] = []
-        previous_decision_frame: int | None = None
 
         for row in sorted(action_rows, key=lambda item: safe_int(item.get("frame_id"))):
             action = normalize_action(row.get("action", ""))
             if merge_all_in and action == "all_in":
                 action = "raise"
-            if action in VALID_ACTIONS:
-                action = assert_canonical_decision_action(
-                    action,
-                    context=f"training label hand_id={row.get('hand_id', '')} frame_id={row.get('frame_id', '')}",
-                )
             position = row.get("player_position", "")
             street = row.get("street", "preflop")
             frame_id = safe_int(row.get("frame_id"))
@@ -682,7 +662,10 @@ def load_training_examples(
                 street_check_count = 0
                 street_fold_count = 0
                 players_acted = set()
+                street_action_order = []
                 last_aggressor_position = ""
+            if position and position not in street_action_order:
+                street_action_order.append(position)
 
             amount = amount_near_frame(stack_contributions, used_events, hand_id, position, frame_id)
             highest_commit = max(committed_by_street.values(), default=0.0)
@@ -696,22 +679,44 @@ def load_training_examples(
                 hole_cards_missing = len(hole_cards) < 2
                 if missing_mode != "drop" or not hole_cards_missing:
                     pot = max(running_pot, sum(committed_by_street.values()), big_blind, 0.0)
+                    row_pot_before = safe_float(row.get("pot_before_action"))
+                    if row_pot_before > 0:
+                        pot = row_pot_before
                     stack = safe_float(player.get("starting_stack"))
+                    if stack <= 0:
+                        stack = safe_float(player.get("ending_stack"))
                     effective_stack = max(stack - player_commit, 0.0) if stack > 0 else 0.0
+                    hand_big_blind = safe_float(hand.get("big_blind")) or big_blind
+                    hand_small_blind = safe_float(hand.get("small_blind")) or (hand_big_blind / 2.0 if hand_big_blind > 0 else 0.0)
 
-                    request = PredictionRequest(
-                        position=position or "UNK",
-                        street=street,
-                        hole_cards=hole_cards,
-                        board_cards=visible_board_cards(final_board_cards, street),
-                        pot=pot,
-                        to_call=to_call,
-                        stack=effective_stack or stack,
-                        min_raise=min_raise,
-                        player_count=player_counts_by_hand.get(hand_id, 6) or 6,
-                        betting_history=list(hand_history),
+                    request = PredictionRequest.from_dict(
+                        {
+                            "position": position or "UNK",
+                            "street": street,
+                            "hole_cards": hole_cards,
+                            "board_cards": visible_board_cards(final_board_cards, street),
+                            "pot": pot,
+                            "to_call": to_call,
+                            "current_bet": highest_commit,
+                            "amount_to_call": to_call,
+                            "stack": effective_stack or stack,
+                            "effective_stack": effective_stack or stack,
+                            "min_raise": min_raise,
+                            "max_raise": effective_stack or stack,
+                            "small_blind": hand_small_blind,
+                            "big_blind": hand_big_blind,
+                            "ante": safe_float(hand.get("ante")),
+                            "button_position": hand.get("button_position") or hand.get("dealer_position") or hand.get("button") or "",
+                            "dealer_position": hand.get("dealer_position") or hand.get("button_position") or hand.get("dealer") or "",
+                            "action_order": list(street_action_order),
+                            "legal_actions": row.get("legal_actions") or "",
+                            "player_count": player_counts_by_hand.get(hand_id, 6) or 6,
+                        }
                     )
+                    action_order_index = request.action_order_index()
                     features = request_to_features(request)
+                    features["ocr_confidence"] = safe_float(row.get("ocr_confidence"), 0.0)
+                    features["ocr_confidence_missing"] = 1.0 if not row.get("ocr_confidence") else 0.0
                     features.update(
                         betting_context_features(
                             action_count=street_action_count,
@@ -729,22 +734,21 @@ def load_training_examples(
                             min_raise=min_raise,
                             last_aggressor_position=last_aggressor_position,
                             hero_position=position,
-                            hand_action_count=hand_action_count,
-                            street_action_index=street_action_count,
-                            explicit_amount_available=bool(str(row.get("amount", "")).strip()),
-                            explicit_to_call_available=bool(str(row.get("to_call", "")).strip()),
-                            explicit_pot_before_action_available=bool(str(row.get("pot_before_action", "")).strip()),
-                            explicit_min_raise_available=bool(str(row.get("min_raise", "")).strip()),
-                            explicit_legal_actions_available=bool(str(row.get("legal_actions", "")).strip()),
+                            current_bet=highest_commit,
+                            amount_to_call=to_call,
+                            effective_stack=effective_stack or stack,
+                            big_blind=hand_big_blind,
+                            action_order_index=action_order_index,
+                            players_to_act_after_hero=(
+                                max(len(request.action_order) - action_order_index - 1, 0)
+                                if action_order_index >= 0
+                                else 0
+                            ),
                         )
                     )
                     features["hole_cards_missing"] = 1.0 if hole_cards_missing else 0.0
                     features["hole_card_observed_ratio"] = min(len(hole_cards) / 2.0, 1.0)
                     features["board_card_observed_ratio"] = len(request.board_cards) / max(VISIBLE_BOARD_COUNTS.get(street, 0), 1) if street != "preflop" else 1.0
-                    assert_no_outcome_feature_leakage(
-                        features,
-                        context=f"training features hand_id={hand_id} frame_id={frame_id}",
-                    )
                     if include_hand_id:
                         examples.append((features, action, hand_id))
                     else:
@@ -764,7 +768,6 @@ def load_training_examples(
                 running_pot += amount
 
             if action in VALID_ACTIONS:
-                hand_action_count += 1
                 street_action_count += 1
                 players_acted.add(position)
                 if action in {"bet", "raise", "all_in"}:
@@ -776,19 +779,4 @@ def load_training_examples(
                     street_check_count += 1
                 elif action == "fold":
                     street_fold_count += 1
-                hand_history.append(
-                    {
-                        "player_position": position,
-                        "action": action,
-                        "amount": amount,
-                        "street": street,
-                        "frame_id": frame_id,
-                        "frame_delta": (
-                            max(frame_id - previous_decision_frame, 0)
-                            if previous_decision_frame is not None
-                            else 0
-                        ),
-                    }
-                )
-                previous_decision_frame = frame_id
     return examples

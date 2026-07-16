@@ -1,0 +1,17 @@
+defaults:
+  - override /training@_global_.training: smoke
+
+name: monitoring_smoke
+description: Validate prediction latency logs, invalid-state detection, confidence drift, feature drift, prediction logs, and audit trail.
+command:
+  entrypoint: scripts/check_monitoring_contract.py
+  args:
+    root: ${project_root}
+    prediction_log_out: ${monitoring.prediction_log}
+    audit_trail_out: ${monitoring.audit_trail}
+    out: ${monitoring.monitoring_report}
+    latency_p95_ms_max: ${monitoring.thresholds.latency_p95_ms_max}
+    invalid_state_rate_max: ${monitoring.thresholds.invalid_state_rate_max}
+    confidence_mean_delta_max: ${monitoring.thresholds.confidence_mean_delta_max}
+    feature_mean_delta_max: ${monitoring.thresholds.feature_mean_delta_max}
+    smoke: true

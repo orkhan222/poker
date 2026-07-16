@@ -13,6 +13,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from poker_agent.features import load_training_examples, normalize_action, parse_cards, safe_float, safe_int
+from poker_agent.dataset_schema import DATASET_SCHEMA_REQUIRED_FIELDS, missing_dataset_fields
+from poker_agent.data_validation import validate_dataset
 from poker_agent.schemas import VALID_ACTIONS
 
 
@@ -28,6 +30,7 @@ CRITICAL_FEATURES = (
     "street_aggression_ratio",
     "hero_commitment_ratio",
     "table_commitment_pressure",
+    "ocr_confidence",
 )
 
 
@@ -65,6 +68,29 @@ def limited_rows(path: Path, max_rows: int) -> Any:
             yield row
 
 
+def audit_schema_columns(paths: dict[str, Path]) -> dict[str, Any]:
+    files: dict[str, Any] = {}
+    missing_by_file: dict[str, list[str]] = {}
+    for name, path in paths.items():
+        with path.open("r", newline="", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            observed = set(reader.fieldnames or [])
+        filename = path.name
+        missing = missing_dataset_fields(filename, observed)
+        files[filename] = {
+            "columns": sorted(observed),
+            "required_columns": list(DATASET_SCHEMA_REQUIRED_FIELDS.get(filename, ())),
+            "missing_required_columns": missing,
+        }
+        if missing:
+            missing_by_file[filename] = missing
+    return {
+        "status": "PASS" if not missing_by_file else "FAIL",
+        "files": files,
+        "missing_required_columns": missing_by_file,
+    }
+
+
 def audit_actions(path: Path, max_rows: int) -> dict[str, Any]:
     raw_actions: Counter[str] = Counter()
     normalized_actions: Counter[str] = Counter()
@@ -73,6 +99,11 @@ def audit_actions(path: Path, max_rows: int) -> dict[str, Any]:
     non_decision_rows = 0
     missing_position = 0
     missing_street = 0
+    missing_action_amount = 0
+    missing_pot_before = 0
+    missing_pot_after = 0
+    missing_legal_actions = 0
+    missing_ocr_confidence = 0
     frame_regressions = 0
     last_frame_by_hand: dict[str, int] = {}
     total_rows = 0
@@ -95,6 +126,16 @@ def audit_actions(path: Path, max_rows: int) -> dict[str, Any]:
             missing_position += 1
         if not row.get("street"):
             missing_street += 1
+        if not row.get("action_amount"):
+            missing_action_amount += 1
+        if not row.get("pot_before_action"):
+            missing_pot_before += 1
+        if not row.get("pot_after_action"):
+            missing_pot_after += 1
+        if not row.get("legal_actions"):
+            missing_legal_actions += 1
+        if not row.get("ocr_confidence"):
+            missing_ocr_confidence += 1
         if hand_id:
             previous = last_frame_by_hand.get(hand_id)
             if previous is not None and frame_id < previous:
@@ -111,6 +152,11 @@ def audit_actions(path: Path, max_rows: int) -> dict[str, Any]:
         "street_counts": dict(street_counts.most_common()),
         "missing_position_rate": missing_position / total_rows if total_rows else 0.0,
         "missing_street_rate": missing_street / total_rows if total_rows else 0.0,
+        "missing_action_amount_rate": missing_action_amount / total_rows if total_rows else 0.0,
+        "missing_pot_before_action_rate": missing_pot_before / total_rows if total_rows else 0.0,
+        "missing_pot_after_action_rate": missing_pot_after / total_rows if total_rows else 0.0,
+        "missing_legal_actions_rate": missing_legal_actions / total_rows if total_rows else 0.0,
+        "missing_ocr_confidence_rate": missing_ocr_confidence / total_rows if total_rows else 0.0,
         "frame_regressions": frame_regressions,
     }
 
@@ -152,13 +198,25 @@ def audit_players(path: Path, max_rows: int) -> dict[str, Any]:
 
 def audit_hands(path: Path, max_rows: int) -> dict[str, Any]:
     board_count_distribution: Counter[int] = Counter()
+    missing_table_id = 0
+    missing_game_type = 0
+    missing_blind_context = 0
     total_rows = 0
     for row in limited_rows(path, max_rows):
         total_rows += 1
         board_count_distribution[len(parse_cards(row.get("board_cards")))] += 1
+        if not row.get("table_id"):
+            missing_table_id += 1
+        if not row.get("game_type"):
+            missing_game_type += 1
+        if not row.get("small_blind") and not row.get("big_blind") and not row.get("ante"):
+            missing_blind_context += 1
     return {
         "rows": total_rows,
         "board_count_distribution": {str(key): value for key, value in sorted(board_count_distribution.items())},
+        "missing_table_id_rate": missing_table_id / total_rows if total_rows else 0.0,
+        "missing_game_type_rate": missing_game_type / total_rows if total_rows else 0.0,
+        "missing_blind_context_rate": missing_blind_context / total_rows if total_rows else 0.0,
     }
 
 
@@ -284,6 +342,28 @@ def derive_findings(report: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
 
+    schema = report.get("schema", {})
+    if schema.get("status") != "PASS":
+        findings.append(
+            {
+                "severity": "blocker",
+                "issue": "Dataset CSV schema is missing required contract columns.",
+                "expected_impact": "High. Training and inference feature extraction can silently lose state context.",
+                "recommendation": f"Regenerate the dataset with the current builder. Missing: {schema.get('missing_required_columns')}",
+            }
+        )
+
+    validation = report.get("validation", {})
+    for issue in validation.get("issues", []):
+        findings.append(
+            {
+                "severity": issue.get("severity", "medium"),
+                "issue": issue.get("issue", "Dataset validation issue"),
+                "expected_impact": issue.get("expected_impact", "Data quality risk."),
+                "recommendation": issue.get("recommendation", "Review dataset validation report."),
+            }
+        )
+
     return findings
 
 
@@ -305,10 +385,12 @@ def main() -> None:
             name: {"path": str(path), "bytes": path.stat().st_size}
             for name, path in required.items()
         },
+        "schema": audit_schema_columns(required),
         "actions": audit_actions(required["actions"], args.max_rows),
         "players": audit_players(required["players"], args.max_rows),
         "hands": audit_hands(required["hands"], args.max_rows),
         "stack_events": audit_stack_events(required["stack_events"], args.max_rows),
+        "validation": validate_dataset(args.dataset, max_rows=args.max_rows),
         "features": audit_extracted_features(
             args.dataset,
             max_feature_examples=args.max_feature_examples,

@@ -9,6 +9,12 @@ production_gate:
 delivery:
   require_gate_pass: false
 slice_min_examples: 100
+acceptance:
+  latency_p95_ms_max: 150.0
+  latency_p99_ms_max: 300.0
+  invalid_action_rate_max: 0.0
+  validation_pass_rate_min: 1.0
+  reproducibility_pass_rate_min: 1.0
 metrics:
   - accuracy
   - macro_f1

@@ -21,67 +21,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator, Optional
 
+from poker_agent.action_space import CANONICAL_ACTIONS, normalize_action
+from poker_agent.dataset_schema import ACTION_FIELDS, HAND_FIELDS, PLAYER_FIELDS, STACK_FIELDS
+
 
 DEALER_HAND_PATTERN = re.compile(
     r"hand\s+#(\d+)\s+([^\s]+)\s+wins\s+(?:pot\s+)?([0-9.]+)(?:\s+pot)?",
     re.IGNORECASE,
 )
-
-HAND_FIELDS = [
-    "hand_id",
-    "hand_index",
-    "local_hand_index",
-    "source_file",
-    "start_frame",
-    "end_frame",
-    "board_cards",
-    "total_actions",
-    "total_stack_events",
-    "winner_positions",
-    "pot_from_stacks",
-    "pot_from_recognition",
-    "dealer_hand_number",
-    "dealer_winner",
-    "dealer_pot",
-]
-
-PLAYER_FIELDS = [
-    "hand_id",
-    "hand_index",
-    "local_hand_index",
-    "source_file",
-    "position",
-    "nickname",
-    "cards",
-    "starting_stack",
-    "ending_stack",
-    "stack_delta",
-]
-
-ACTION_FIELDS = [
-    "hand_id",
-    "hand_index",
-    "local_hand_index",
-    "source_file",
-    "frame_id",
-    "player_position",
-    "player_nickname",
-    "action",
-    "street",
-]
-
-STACK_FIELDS = [
-    "hand_id",
-    "hand_index",
-    "local_hand_index",
-    "source_file",
-    "frame_id",
-    "player_position",
-    "event",
-    "stack",
-    "diff",
-    "stack_after_event",
-]
+ANTE_PATTERN = re.compile(r"\bante\s+([0-9]+(?:[.,][0-9]+)?)", re.IGNORECASE)
+BLINDS_TEXT_PATTERN = re.compile(r"\bblinds\s+(.+?)(?:\s+ante\b|$)", re.IGNORECASE)
 
 
 @dataclass
@@ -112,6 +61,13 @@ class HandState:
     stack_events: list[dict[str, Any]] = field(default_factory=list)
     pot_updates: list[dict[str, Any]] = field(default_factory=list)
     dealer_results: list[dict[str, Any]] = field(default_factory=list)
+    table_id: str = ""
+    game_type: str = "nl_holdem"
+    small_blind: Optional[float] = None
+    big_blind: Optional[float] = None
+    ante: Optional[float] = None
+    button_position: str = ""
+    pot_state: float = 0.0
     end_frame: Optional[int] = None
 
     def ensure_player(
@@ -195,6 +151,130 @@ def parse_float(raw: Any) -> Optional[float]:
         return float(text)
     except ValueError:
         return None
+
+
+def first_text(*values: Any) -> str:
+    for value in values:
+        if value is not None and value != "":
+            return str(value)
+    return ""
+
+
+def first_float(*values: Any) -> Optional[float]:
+    for value in values:
+        parsed = parse_float(value)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def parse_action_amount(action_text: Any, value: dict[str, Any]) -> Optional[float]:
+    explicit = first_float(
+        value.get("amount"),
+        value.get("action_amount"),
+        value.get("bet_amount"),
+        value.get("value_amount"),
+    )
+    if explicit is not None:
+        return explicit
+    match = re.search(r"[-+]?\d+(?:[.,]\d+)?", str(action_text or ""))
+    return parse_float(match.group(0)) if match else None
+
+
+def parse_ocr_confidence(event: dict[str, Any], value: dict[str, Any]) -> Optional[float]:
+    confidence = first_float(
+        value.get("ocr_confidence"),
+        value.get("confidence"),
+        value.get("score"),
+        event.get("ocr_confidence"),
+        event.get("confidence"),
+        event.get("score"),
+    )
+    if confidence is None:
+        return None
+    return max(0.0, min(confidence, 1.0))
+
+
+def legal_actions_text(raw: Any, action_text: Any) -> str:
+    if raw:
+        if isinstance(raw, dict):
+            actions = [str(action) for action, allowed in raw.items() if allowed]
+        elif isinstance(raw, str):
+            actions = raw.replace(",", " ").split()
+        else:
+            actions = [str(action) for action in raw]
+        normalized = [normalize_action(action) for action in actions]
+        return " ".join(action for action in dict.fromkeys(normalized) if action in CANONICAL_ACTIONS)
+
+    action = normalize_action(action_text)
+    if action in {"check", "bet"}:
+        return "check bet all_in"
+    if action in {"fold", "call", "raise", "all_in"}:
+        return "fold call raise all_in"
+    return ""
+
+
+def parse_blinds_and_ante(text: str) -> tuple[Optional[float], Optional[float], Optional[float]]:
+    small_blind: Optional[float] = None
+    big_blind: Optional[float] = None
+    ante: Optional[float] = None
+
+    ante_match = ANTE_PATTERN.search(text or "")
+    if ante_match:
+        ante = parse_float(ante_match.group(1))
+
+    blinds_match = BLINDS_TEXT_PATTERN.search(text or "")
+    if not blinds_match:
+        return small_blind, big_blind, ante
+
+    blinds_text = re.sub(r"\s+", "", blinds_match.group(1).strip())
+    compact_match = re.fullmatch(r"(\d+[.,]\d{3})(\d+[.,]\d{3})", blinds_text)
+    if compact_match:
+        return parse_float(compact_match.group(1)), parse_float(compact_match.group(2)), ante
+
+    numbers = re.findall(r"\d+(?:[.,]\d+)?", blinds_match.group(1))
+    if len(numbers) >= 2:
+        small_blind = parse_float(numbers[0])
+        big_blind = parse_float(numbers[1])
+    return small_blind, big_blind, ante
+
+
+def update_hand_metadata(hand: HandState, event: dict[str, Any], value: dict[str, Any]) -> None:
+    table_id = first_text(
+        value.get("table_id"),
+        value.get("table"),
+        value.get("table_name"),
+        event.get("table_id"),
+        event.get("table"),
+        event.get("table_name"),
+    )
+    if table_id:
+        hand.table_id = table_id
+
+    game_type = first_text(value.get("game_type"), value.get("variant"), event.get("game_type"), event.get("variant"))
+    if game_type:
+        hand.game_type = game_type
+
+    small_blind = first_float(value.get("small_blind"), value.get("sb"), event.get("small_blind"))
+    big_blind = first_float(value.get("big_blind"), value.get("bb"), event.get("big_blind"))
+    ante = first_float(value.get("ante"), event.get("ante"))
+    if small_blind is not None:
+        hand.small_blind = small_blind
+    if big_blind is not None:
+        hand.big_blind = big_blind
+    if ante is not None:
+        hand.ante = ante
+
+    button_position = first_text(
+        value.get("button_position"),
+        value.get("button"),
+        value.get("dealer_position"),
+        value.get("dealer"),
+        event.get("button_position"),
+        event.get("dealer_position"),
+    )
+    if button_position:
+        hand.button_position = button_position
 
 
 def unique_cards(cards: Any) -> list[str]:
@@ -301,7 +381,7 @@ def process_file(path: Path) -> Iterator[HandState]:
 
     def new_hand(frame_id: int) -> HandState:
         nonlocal current, local_index, awaiting_new_hand
-        current = HandState(local_index=local_index, start_frame=frame_id, source=source_label)
+        current = HandState(local_index=local_index, start_frame=frame_id, source=source_label, table_id=source_label)
         local_index += 1
         awaiting_new_hand = False
         return current
@@ -341,6 +421,7 @@ def process_file(path: Path) -> Iterator[HandState]:
             current = new_hand(frame_id)
 
         current.end_frame = frame_id
+        update_hand_metadata(current, event, value)
 
         if event_name == "recognize_cards":
             cards_value = value.get("value")
@@ -365,13 +446,22 @@ def process_file(path: Path) -> Iterator[HandState]:
             action = value.get("value")
             if position and action:
                 player = current.ensure_player(str(position), nicknames, stacks)
+                amount = parse_action_amount(action, value)
+                pot_before = round(current.pot_state, 6)
+                pot_after = round(pot_before + amount, 6) if amount is not None and amount > 0 else pot_before
                 row = {
                     "frame_id": frame_id,
                     "player_position": str(position),
                     "player_nickname": player.nickname,
                     "action": str(action).strip().lower(),
+                    "action_amount": amount,
+                    "pot_before_action": pot_before,
+                    "pot_after_action": pot_after,
+                    "legal_actions": legal_actions_text(value.get("legal_actions") or value.get("legal_action_mask"), action),
+                    "ocr_confidence": parse_ocr_confidence(event, value),
                     "street": current.street(),
                 }
+                current.pot_state = pot_after
                 player.actions.append(row)
                 current.actions.append(row)
             continue
@@ -409,11 +499,22 @@ def process_file(path: Path) -> Iterator[HandState]:
             continue
 
         if event_name == "recognize_pot":
-            current.pot_updates.append({"frame_id": frame_id, "pot": parse_float(value.get("pot"))})
+            pot = parse_float(value.get("pot"))
+            current.pot_updates.append({"frame_id": frame_id, "pot": pot})
+            if pot is not None:
+                current.pot_state = pot
             continue
 
         if event_name == "dealer_message":
-            current.dealer_results.extend(parse_dealer_results(str(value.get("text", ""))))
+            text = str(value.get("text") or value.get("value") or "")
+            small_blind, big_blind, ante = parse_blinds_and_ante(text)
+            if small_blind is not None:
+                current.small_blind = small_blind
+            if big_blind is not None:
+                current.big_blind = big_blind
+            if ante is not None:
+                current.ante = ante
+            current.dealer_results.extend(parse_dealer_results(text))
 
     if current is not None:
         yield current
@@ -452,6 +553,12 @@ def rows_for_hand(hand: HandState, global_index: int) -> tuple[dict[str, Any], l
         "hand_index": global_index,
         "local_hand_index": hand.local_index,
         "source_file": hand.source,
+        "table_id": hand.table_id or hand.source,
+        "game_type": hand.game_type,
+        "small_blind": hand.small_blind,
+        "big_blind": hand.big_blind,
+        "ante": hand.ante,
+        "button_position": hand.button_position,
         "start_frame": hand.start_frame,
         "end_frame": hand.end_frame,
         "board_cards": " ".join(hand.board_cards),
@@ -471,6 +578,12 @@ def rows_for_hand(hand: HandState, global_index: int) -> tuple[dict[str, Any], l
             "hand_index": global_index,
             "local_hand_index": hand.local_index,
             "source_file": hand.source,
+            "table_id": hand.table_id or hand.source,
+            "game_type": hand.game_type,
+            "small_blind": hand.small_blind,
+            "big_blind": hand.big_blind,
+            "ante": hand.ante,
+            "button_position": hand.button_position,
             **action,
         }
         for action in hand.actions
