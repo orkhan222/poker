@@ -59,4 +59,4 @@ Write-Host ""
 Write-Host "Press Ctrl+C to stop the server."
 Write-Host ""
 
-& $Python -m uvicorn poker_agent.service:app --host 127.0.0.1  --port $Port
+& $Python -m uvicorn poker_agent.service:app --host 127.0.0.1 8002  --port $Port
